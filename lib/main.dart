@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'presentation/screens/daily_outfit_screen.dart';
+import 'presentation/screens/onboarding_profile_screen.dart';
 import 'presentation/screens/wardrobe_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -42,10 +43,21 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    DailyOutfitScreen(),
-    WardrobeScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      const DailyOutfitScreen(),
+      const WardrobeScreen(),
+      OnboardingProfileScreen(
+        onCompleted: () {
+          _onTabSelected(0);
+        },
+      ),
+    ];
+  }
 
   void _onTabSelected(int index) {
     if (_currentIndex != index) {
@@ -75,23 +87,30 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavBarItem(
                   icon: Icons.auto_awesome_outlined,
                   activeIcon: Icons.auto_awesome,
-                  label: 'SUGESTÃO DO DIA',
+                  label: 'SUGESTÃO',
                   isSelected: _currentIndex == 0,
                   onTap: () => _onTabSelected(0),
                 ),
                 _NavBarItem(
                   icon: Icons.checkroom_outlined,
                   activeIcon: Icons.checkroom,
-                  label: 'GUARDA-ROUPA',
+                  label: 'ACERVO',
                   isSelected: _currentIndex == 1,
                   onTap: () => _onTabSelected(1),
+                ),
+                _NavBarItem(
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: 'PERFIL',
+                  isSelected: _currentIndex == 2,
+                  onTap: () => _onTabSelected(2),
                 ),
               ],
             ),
@@ -125,7 +144,7 @@ class _NavBarItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: AppMotion.fast,
         curve: AppMotion.editorialDecel,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: isSelected
             ? BoxDecoration(
                 color: AppColors.surfaceRaised,
@@ -138,18 +157,18 @@ class _NavBarItem extends StatelessWidget {
           children: [
             Icon(
               isSelected ? activeIcon : icon,
-              size: 20,
+              size: 18,
               color: isSelected ? AppColors.accentTerracotta : AppColors.textSecondary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               label,
               style: AppTypography.metadataBadge(
                 color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
               ).copyWith(
-                fontSize: 10,
+                fontSize: 9.5,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 0.8,
+                letterSpacing: 0.6,
               ),
             ),
           ],

@@ -6,6 +6,7 @@ import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/clothing_card.dart';
 import '../widgets/filter_chips_bar.dart';
+import 'scan_item_screen.dart';
 
 /// Tela do Guarda-Roupa / Inventário Virtual ("The Floating Canvas")
 /// Conforme AGENTS.md:
@@ -164,8 +165,23 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () {
+              onTap: () async {
                 HapticFeedback.mediumImpact();
+                final newItem = await Navigator.push<ClothingItem>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ScanItemScreen(
+                      onItemCataloged: (item) {
+                        setState(() {
+                          mockClothes.insert(0, item);
+                        });
+                      },
+                    ),
+                  ),
+                );
+                if (newItem != null && mounted) {
+                  setState(() {});
+                }
               },
               borderRadius: BorderRadius.circular(24),
               splashColor: AppColors.accentTerracotta.withValues(alpha: 0.1),

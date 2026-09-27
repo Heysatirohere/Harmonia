@@ -14,6 +14,8 @@ class ClothingItem {
   final bool isConsciousFashion; // Selo de consumo consciente / ESG
   final String? consciousNote; // Ex: '100% Cânhamo Sustentável'
   final int? iheScore; // Score IHE de harmonização pré-calculado
+  final double? price;
+  final String? storeNameOverride;
 
   const ClothingItem({
     required this.id,
@@ -27,7 +29,14 @@ class ClothingItem {
     this.isConsciousFashion = false,
     this.consciousNote,
     this.iheScore,
+    this.price,
+    this.storeNameOverride,
   });
+
+  String get title => name;
+  String get storeName => storeNameOverride ?? brandOrProvenance;
+  String get provenance => brandOrProvenance;
+  String get formattedPrice => price != null ? 'R\$ ${price!.toStringAsFixed(2).replaceAll('.', ',')}' : 'R\$ 259,90';
 
   ClothingItem copyWith({
     String? id,
@@ -41,6 +50,8 @@ class ClothingItem {
     bool? isConsciousFashion,
     String? consciousNote,
     int? iheScore,
+    double? price,
+    String? storeNameOverride,
   }) {
     return ClothingItem(
       id: id ?? this.id,
@@ -54,6 +65,8 @@ class ClothingItem {
       isConsciousFashion: isConsciousFashion ?? this.isConsciousFashion,
       consciousNote: consciousNote ?? this.consciousNote,
       iheScore: iheScore ?? this.iheScore,
+      price: price ?? this.price,
+      storeNameOverride: storeNameOverride ?? this.storeNameOverride,
     );
   }
 }

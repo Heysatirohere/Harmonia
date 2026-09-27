@@ -29,6 +29,9 @@ class AppSpacing {
   static const double radiusSmall = 8.0;
 }
 
+/// ThemeData Global do HarmonIA
+ThemeData get appThemeData => AppTheme.lightTheme;
+
 /// Facade AppTheme para o ecossistema HarmonIA
 class AppTheme {
   AppTheme._();

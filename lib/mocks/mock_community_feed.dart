@@ -1,0 +1,86 @@
+import '../models/community_post.dart';
+
+class MockCommunityFeed {
+  static final List<CommunityPost> posts = [
+    CommunityPost(
+      id: 'post_01',
+      authorName: 'Elena Rostova',
+      authorAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300',
+      authorBiotype: 'Ampulheta',
+      authorColorPalette: 'Outono Quente',
+      outfitTitle: 'Alfaiataria Minimalista & Linho Cru',
+      outfitImageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800',
+      iheScore: 92.4,
+      likeCount: 148,
+      tags: ['Trabalho', 'Alfaiataria', 'Outono'],
+      isPublic: true,
+      garmentHotspots: const [
+        GarmentHotspot(
+          name: 'Blazer Linho Oversized',
+          brand: 'Zara Studio',
+          fabric: '100% Linho Puro',
+          colorHex: '#D9CDBF',
+          xRatio: 0.45,
+          yRatio: 0.35,
+        ),
+        GarmentHotspot(
+          name: 'Calça Cenoura Alfaiataria',
+          brand: 'Massimo Dutti',
+          fabric: 'Lã Fria & Algodão',
+          colorHex: '#1A1817',
+          xRatio: 0.55,
+          yRatio: 0.70,
+        ),
+      ],
+      createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+    ),
+    CommunityPost(
+      id: 'post_02',
+      authorName: 'Camilla Valente',
+      authorAvatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300',
+      authorBiotype: 'Retângulo',
+      authorColorPalette: 'Inverno Frio',
+      outfitTitle: 'Camadas de Sobretudo Terroso',
+      outfitImageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800',
+      iheScore: 88.0,
+      likeCount: 92,
+      tags: ['Casual Chic', 'Inverno', 'Camadas'],
+      isPublic: true,
+      garmentHotspots: const [
+        GarmentHotspot(
+          name: 'Sobretudo Lã Terracota',
+          brand: 'Lojas Renner',
+          fabric: 'Lã Batida',
+          colorHex: '#A34836',
+          xRatio: 0.50,
+          yRatio: 0.40,
+        ),
+      ],
+      createdAt: DateTime.now().subtract(const Duration(hours: 6)),
+    ),
+    CommunityPost(
+      id: 'post_03',
+      authorName: 'Beatriz Fonseca',
+      authorAvatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300',
+      authorBiotype: 'Ampulheta',
+      authorColorPalette: 'Primavera Brilhante',
+      outfitTitle: 'Vestido Fluido de Seda Verde Oliva',
+      outfitImageUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=800',
+      iheScore: 94.8,
+      likeCount: 215,
+      tags: ['Gala', 'Seda', 'Primavera'],
+      isPublic: true,
+      garmentHotspots: const [
+        GarmentHotspot(
+          name: 'Vestido Midi Seda',
+          brand: 'C&A Premium',
+          fabric: 'Seda Orgânica',
+          colorHex: '#4B5842',
+          xRatio: 0.48,
+          yRatio: 0.50,
+        ),
+      ],
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    ),
+  ];
+}

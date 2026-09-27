@@ -8,12 +8,14 @@ class AppColors {
   static const Color surfaceCanvas = Color(0xFFFBF9F5); // Fundo primário creme quente
   static const Color surfaceCanvasDark = Color(0xFF121212);
   static const Color surfaceRaised = Color(0xFFF3EFEA); // Cards editoriais e araras
+  static const Color surfaceSubtle = Color(0xFFEBE5DC); // Fundo secundário e divisórias
   static const Color surfaceElevated = Color(0xFFFFFFFF); // Elevações limpas e overlays
 
   // Tipografia & Contraste
   static const Color textPrimary = Color(0xFF1A1817);   // Preto carvão profundo
   static const Color textSecondary = Color(0xFF706B65); // Metadados e legendas
   static const Color textTertiary = Color(0xFF9E9890);  // Dicas discretas
+  static const Color textMuted = Color(0xFFA09990);     // Placeholders e auxiliares
 
   // Hairlines & Divisores
   static const Color borderSubtle = Color(0x141A1817);  // Hairline borders (0.5 a 1.0)

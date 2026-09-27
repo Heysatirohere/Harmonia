@@ -117,4 +117,54 @@ class AppTypography {
       color: color,
     );
   }
+
+  // Métodos de Suporte Editorial
+  static TextStyle displayEditorial({Color color = AppColors.textPrimary}) {
+    return GoogleFonts.playfairDisplay(
+      fontSize: 32,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.6,
+      height: 1.15,
+      color: color,
+    );
+  }
+
+  static TextStyle subtitleCuratorial({Color color = AppColors.textSecondary}) {
+    return GoogleFonts.playfairDisplay(
+      fontSize: 18,
+      fontWeight: FontWeight.w400,
+      fontStyle: FontStyle.italic,
+      height: 1.25,
+      color: color,
+    );
+  }
+
+  static TextStyle uiHeadline({Color color = AppColors.textPrimary}) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
+      height: 1.3,
+      color: color,
+    );
+  }
+
+  static TextStyle bodyReading({Color color = AppColors.textPrimary}) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      height: 1.45,
+      color: color,
+    );
+  }
+
+  static TextStyle metadataBadge({Color color = AppColors.textSecondary}) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.8,
+      height: 1.3,
+      color: color,
+    );
+  }
 }

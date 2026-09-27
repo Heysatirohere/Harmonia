@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../feed/community_feed_screen.dart';
+import 'community_feed_screen.dart';
 import 'daily_outfit_screen.dart';
 import 'profile_screen.dart';
 
@@ -40,25 +40,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _currentIndex = widget.initialIndex;
   }
 
-  void _onTabTapped(int index) {
-    if (_currentIndex == index) return;
-    HapticFeedback.selectionClick();
-    setState(() {
-      _currentIndex = index;
-    });
+  void _onItemTapped(int index) {
+    if (_currentIndex != index) {
+      HapticFeedback.selectionClick();
+      setState(() {
+        _currentIndex = index;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceRaised,
+        decoration: const BoxDecoration(
           border: Border(
             top: BorderSide(
               color: AppColors.borderSubtle,
@@ -68,41 +67,51 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          backgroundColor: AppColors.surfaceRaised,
+          onTap: _onItemTapped,
+          backgroundColor: AppColors.surfaceCanvas,
           selectedItemColor: AppColors.accentTerracotta,
           unselectedItemColor: AppColors.textSecondary,
-          elevation: 0,
-          type: BottomNavigationBarType.fixed,
           selectedLabelStyle: GoogleFonts.plusJakartaSans(
             fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+            fontWeight: FontWeight.w600,
           ),
           unselectedLabelStyle: GoogleFonts.plusJakartaSans(
             fontSize: 11,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.3,
+            fontWeight: FontWeight.w400,
           ),
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.wb_sunny_outlined),
-              activeIcon: Icon(Icons.wb_sunny),
-              label: 'Sugestão',
+            BottomNavigationBarThemeData(
+              icon: Icon(Icons.auto_awesome_outlined),
+              activeIcon: Icon(Icons.auto_awesome),
+              label: 'Curadoria',
             ),
-            BottomNavigationBarItem(
+            BottomNavigationBarThemeData(
               icon: Icon(Icons.grid_view_outlined),
               activeIcon: Icon(Icons.grid_view),
-              label: 'Feed',
+              label: 'Editorial',
             ),
-            BottomNavigationBarItem(
+            BottomNavigationBarThemeData(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),
-              label: 'Perfil',
+              label: 'Ateliê',
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class BottomNavigationBarThemeData extends BottomNavigationBarItem {
+  const BottomNavigationBarThemeData({
+    required Widget icon,
+    Widget? activeIcon,
+    required String label,
+  }) : super(
+          icon: icon,
+          activeIcon: activeIcon,
+          label: label,
+        );
 }

@@ -17,16 +17,16 @@ void main() {
     // Inicialmente exibe a Sugestão Diária
     expect(find.text('Sugestão Diária'), findsOneWidget);
 
-    // Clica na aba Feed
-    await tester.tap(find.text('Feed'));
-    await tester.pump();
+    // Clica na aba Editorial
+    await tester.tap(find.text('Editorial'));
+    await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('FEED COMUNITÁRIO • EDITORIAL GALLERY'), findsOneWidget);
+    expect(find.text('Editorial Gallery'), findsOneWidget);
 
-    // Clica na aba Perfil
-    await tester.tap(find.text('Perfil'));
-    await tester.pump();
+    // Clica na aba Ateliê
+    await tester.tap(find.text('Ateliê'));
+    await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('Perfil & Governança'), findsOneWidget);
+    expect(find.text('Ateliê & Perfil'), findsOneWidget);
   });
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -10,25 +9,10 @@ class EditorialFeedCard extends StatefulWidget {
   final CommunityPost post;
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
-=======
-import '../../models/community_post.dart';
-import '../feed/widgets/community_feed_card.dart';
-
-export '../feed/widgets/community_feed_card.dart';
-
-/// Facade / Widget EditorialFeedCard conforme especificação do escopo
-class EditorialFeedCard extends StatelessWidget {
-  final CommunityPost post;
-  final VoidCallback? onApplaud;
-  final VoidCallback? onSave;
-  final VoidCallback? onShare;
-  final VoidCallback? onTapAuthor;
->>>>>>> feat/social-feed-rf14-rf15
 
   const EditorialFeedCard({
     super.key,
     required this.post,
-<<<<<<< HEAD
     this.onLikeToggle,
     this.onSaveToggle,
   });
@@ -335,22 +319,6 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
           letterSpacing: 0.5,
         ),
       ),
-=======
-    this.onApplaud,
-    this.onSave,
-    this.onShare,
-    this.onTapAuthor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CommunityFeedCard(
-      post: post,
-      onApplaud: onApplaud,
-      onSave: onSave,
-      onShare: onShare,
-      onTapAuthor: onTapAuthor,
->>>>>>> feat/social-feed-rf14-rf15
     );
   }
 }

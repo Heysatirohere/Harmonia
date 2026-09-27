@@ -27,6 +27,6 @@ void main() {
     await tester.tap(find.text('Perfil'));
     await tester.pump();
 
-    expect(find.text('Perfil & Acervo'), findsOneWidget);
+    expect(find.text('Perfil & Governança'), findsOneWidget);
   });
 }

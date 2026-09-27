@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../mocks/mock_weather.dart';
 import '../../models/weather_context.dart';
 import '../widgets/weather_context_badge.dart';
+import 'store_mirror_screen.dart';
 
 /// Tela de Sugestão Diária de Look (DailyOutfitScreen - RF16)
 ///
@@ -117,7 +118,15 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StoreMirrorScreen(),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accentTerracotta,
                   foregroundColor: Colors.white,
@@ -174,10 +183,17 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bookmark_border,
-                color: AppColors.textPrimary, size: 22),
+            tooltip: 'Modo Provador (Mirror Mode)',
+            icon: const Icon(Icons.center_focus_strong,
+                color: AppColors.iheGold, size: 22),
             onPressed: () {
-              HapticFeedback.selectionClick();
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const StoreMirrorScreen(),
+                ),
+              );
             },
           ),
           IconButton(

@@ -5,11 +5,11 @@ import 'package:harmonia_mvp/main.dart';
 import 'package:harmonia_mvp/presentation/feed/widgets/community_feed_card.dart';
 
 void main() {
-  testWidgets('HarmonIA Community Feed smoke test', (WidgetTester tester) async {
+  testWidgets('HarmonIA smoke test renders main app navigation', (WidgetTester tester) async {
     await tester.pumpWidget(const HarmoniaApp());
 
-    // Verifica se o título editorial 'HarmonIA' aparece
-    expect(find.text('HarmonIA'), findsOneWidget);
+    // Verifica se a tela inicial de Sugestão Diária é renderizada
+    expect(find.text('Sugestão Diária'), findsOneWidget);
   });
 
   testWidgets('CommunityFeedCard renders editorial metadata and IHE badge', (WidgetTester tester) async {

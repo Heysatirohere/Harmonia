@@ -7,6 +7,7 @@ import '../../mocks/mock_user_profile.dart';
 import '../../models/user_profile.dart';
 import '../widgets/freemium_quota_card.dart';
 import '../widgets/style_recalibration_dialogs.dart';
+import 'wardrobe_analytics_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -165,6 +166,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           _buildActionItem(
+            icon: Icons.eco_outlined,
+            title: 'Saúde do Acervo & Rotação ESG (3.2.2)',
+            subtitle: 'Ociosidade (30/60/90d), custo por uso e cores',
+            onTap: () {
+              HapticFeedback.selectionClick();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WardrobeAnalyticsScreen(),
+                ),
+              );
+            },
+          ),
+          _buildActionItem(
             icon: Icons.security_outlined,
             title: 'Dados da Conta & Segurança',
             subtitle: 'Editar credenciais e e-mail',
@@ -254,25 +269,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.borderSubtle, width: 0.8),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.iheGold, size: 22),
-        title: Text(
-          title,
-          style: GoogleFonts.plusJakartaSans(
-            color: AppColors.textPrimary,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          leading: Icon(icon, color: AppColors.iheGold, size: 22),
+          title: Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppColors.textPrimary,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.plusJakartaSans(
-            color: AppColors.textSecondary,
-            fontSize: 11.5,
+          subtitle: Text(
+            subtitle,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppColors.textSecondary,
+              fontSize: 11.5,
+            ),
           ),
+          trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+          onTap: onTap,
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
-        onTap: onTap,
       ),
     );
   }

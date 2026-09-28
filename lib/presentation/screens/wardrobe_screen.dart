@@ -1,12 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../data/services/wardrobe_api_service.dart';
 import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/clothing_card.dart';
 import '../widgets/filter_chips_bar.dart';
 import 'scan_item_screen.dart';
+import 'wardrobe_analytics_screen.dart';
 
 /// Tela do Guarda-Roupa / Inventário Virtual ("The Floating Canvas")
 /// Conforme AGENTS.md:
@@ -22,6 +24,8 @@ class WardrobeScreen extends StatefulWidget {
 }
 
 class _WardrobeScreenState extends State<WardrobeScreen> {
+  final WardrobeApiService _wardrobeService = WardrobeApiService();
+  List<ClothingItem> _items = List.from(mockClothes);
   int _selectedFilterIndex = 0;
   final List<String> _categories = const [
     'Todos',
@@ -31,10 +35,25 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     'Ocasião',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadItems();
+  }
+
+  Future<void> _loadItems() async {
+    final items = await _wardrobeService.getClothingItems();
+    if (mounted && items.isNotEmpty) {
+      setState(() {
+        _items = items;
+      });
+    }
+  }
+
   List<ClothingItem> get _filteredItems {
-    if (_selectedFilterIndex == 0) return mockClothes;
+    if (_selectedFilterIndex == 0) return _items;
     final categoryName = _categories[_selectedFilterIndex];
-    return mockClothes.where((item) => item.category == categoryName).toList();
+    return _items.where((item) => item.category == categoryName).toList();
   }
 
   void _onItemTap(ClothingItem item) {
@@ -172,7 +191,9 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                   MaterialPageRoute(
                     builder: (context) => ScanItemScreen(
                       onItemCataloged: (item) {
+                        _wardrobeService.createClothingItem(item);
                         setState(() {
+                          _items.insert(0, item);
                           mockClothes.insert(0, item);
                         });
                       },
@@ -210,50 +231,82 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 
   Widget _buildAcervoMetrics(BuildContext context) {
-    final totalItems = mockClothes.length;
-    final esgCount = mockClothes.where((i) => i.isConsciousFashion).length;
+    final totalItems = _items.length;
+    final esgCount = _items.where((i) => i.isConsciousFashion).length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceRaised.withValues(alpha: 0.8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => WardrobeAnalyticsScreen(items: _items),
+              ),
+            );
+          },
           borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-          border: Border.all(
-            color: AppColors.borderSubtle,
-            width: 0.6,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+              border: Border.all(
+                color: AppColors.borderSubtle,
+                width: 0.6,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _MetricItem(
+                      label: 'ACERVO TOTAL',
+                      value: '$totalItems peças',
+                    ),
+                    Container(
+                      width: 0.8,
+                      height: 24,
+                      color: AppColors.borderSubtle,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    _MetricItem(
+                      label: 'HARMONIA MÉDIA',
+                      value: '89% IHE',
+                      highlightColor: AppColors.iheGold,
+                    ),
+                    Container(
+                      width: 0.8,
+                      height: 24,
+                      color: AppColors.borderSubtle,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    _MetricItem(
+                      label: 'MODA CIRCULAR',
+                      value: '$esgCount sustentáveis',
+                      highlightColor: AppColors.accentOlive,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'VER SAÚDE & ROTAÇÃO ESG ➔',
+                      style: AppTypography.metadataBadge(color: AppColors.accentOlive).copyWith(
+                        fontSize: 9.0,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            _MetricItem(
-              label: 'ACERVO TOTAL',
-              value: '$totalItems peças',
-            ),
-            Container(
-              width: 0.8,
-              height: 24,
-              color: AppColors.borderSubtle,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-            ),
-            _MetricItem(
-              label: 'HARMONIA MÉDIA',
-              value: '89% IHE',
-              highlightColor: AppColors.iheGold,
-            ),
-            Container(
-              width: 0.8,
-              height: 24,
-              color: AppColors.borderSubtle,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-            ),
-            _MetricItem(
-              label: 'MODA CIRCULAR',
-              value: '$esgCount sustentáveis',
-              highlightColor: AppColors.accentOlive,
-            ),
-          ],
         ),
       ),
     );

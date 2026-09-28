@@ -179,3 +179,26 @@ class OutfitCalculateRequest(BaseModel):
                 f"O vetor de estilo deve ter exatamente {EMBEDDING_VECTOR_DIMENSION} dimensões. Tamanho recebido: {len(v)}"
             )
         return v
+
+
+class OutfitGenerateRequest(BaseModel):
+    """Schema para solicitação de geração combinatória de looks do acervo (RF07)."""
+    occasion: str = Field(default="CASUAL", description="Ocasião de destino (CASUAL, CORPORATIVO, GALA, etc.)")
+    temperature_celsius: float = Field(default=22.0, description="Temperatura local em °C")
+    is_raining: bool = Field(default=False, description="Flag de chuva")
+    limit: int = Field(default=5, ge=1, le=20, description="Limite máximo de looks recomendados")
+
+
+class RecommendedOutfitResponse(BaseModel):
+    """Schema para resposta de look recomendado com decomposição do IHE."""
+    items: List[ClothingItemResponse]
+    ihe_score: float
+    ihe_percentage: float
+    s_cor: float
+    s_bio: float
+    s_ocasion: float
+    s_cos: float
+    is_strongly_recommended: bool
+    styling_advice: str
+    occasion: str
+

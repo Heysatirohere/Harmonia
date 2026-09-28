@@ -371,3 +371,76 @@ async def test_multi_tenant_isolation_rn01():
         items_a = res_list_a.json()
         assert len(items_a) == 1
         assert items_a[0]["id"] == str(item_a_id)
+
+
+@pytest.mark.anyio
+async def test_generate_daily_outfits_endpoint():
+    """
+    Testa o endpoint /v1/outfits/generate-daily (RF07).
+    Garante retorno de combinações ranqueadas pelo IHE com peças do acervo do usuário.
+    """
+    user_id = uuid.uuid4()
+    user = User(
+        id=user_id,
+        email="daily.outfit.user@harmonia.app",
+        hashed_password="pw",
+        body_shape="AMPULHETA",
+        seasonal_palette="OUTONO_QUENTE",
+        style_vector=[0.1] * 512,
+        is_premium=True,
+        looks_generated_today=0,
+        created_at=datetime.now(timezone.utc)
+    )
+    store.users[user_id] = user
+
+    top = ClothingItem(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        category="top",
+        subcategory="Camisa Linho",
+        image_url="https://s3.amazonaws.com/top.png",
+        dominant_l=55.0,
+        dominant_a=20.0,
+        dominant_b=20.0,
+        formality_score=0.7,
+        cut_type="acinturado",
+        style_embedding=[0.1] * 512,
+        is_archived=False,
+        created_at=datetime.now(timezone.utc)
+    )
+    bottom = ClothingItem(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        category="bottom",
+        subcategory="Pantalona",
+        image_url="https://s3.amazonaws.com/bottom.png",
+        dominant_l=40.0,
+        dominant_a=5.0,
+        dominant_b=15.0,
+        formality_score=0.7,
+        cut_type="reta",
+        style_embedding=[0.1] * 512,
+        is_archived=False,
+        created_at=datetime.now(timezone.utc)
+    )
+    store.clothing_items[top.id] = top
+    store.clothing_items[bottom.id] = bottom
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        payload = {
+            "occasion": "CASUAL",
+            "temperature_celsius": 24.0,
+            "is_raining": False,
+            "limit": 3
+        }
+        res = await client.post(f"/api/v1/outfits/generate-daily?user_id={user_id}", json=payload)
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data) >= 1
+        best = data[0]
+        assert "ihe_score" in best
+        assert "s_cor" in best
+        assert "s_bio" in best
+        assert "styling_advice" in best
+        assert len(best["items"]) >= 1
+

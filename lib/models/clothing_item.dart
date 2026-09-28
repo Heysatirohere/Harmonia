@@ -69,4 +69,43 @@ class ClothingItem {
       storeNameOverride: storeNameOverride ?? this.storeNameOverride,
     );
   }
+
+  factory ClothingItem.fromJson(Map<String, dynamic> json) {
+    final subcat = json['subcategory'] as String?;
+    final category = json['category'] as String? ?? 'Partes de cima';
+    final dominantL = (json['dominant_l'] as num?)?.toDouble() ?? 55.0;
+    final dominantA = (json['dominant_a'] as num?)?.toDouble() ?? 20.0;
+    final dominantB = (json['dominant_b'] as num?)?.toDouble() ?? 15.0;
+
+    final approxGrey = ((dominantL / 100.0) * 255).clamp(40, 240).toInt();
+    final color = Color.fromARGB(255, (approxGrey + 10).clamp(0, 255), approxGrey, (approxGrey - 10).clamp(0, 255));
+
+    return ClothingItem(
+      id: json['id'] as String? ?? '',
+      name: subcat ?? category,
+      category: category,
+      dominantColor: color,
+      labColorSpace: 'L* ${dominantL.toStringAsFixed(1)}, a* ${dominantA.toStringAsFixed(1)}, b* ${dominantB.toStringAsFixed(1)}',
+      usageRate: (json['usage_rate'] as int?) ?? 0,
+      imageUrl: json['image_url'] as String? ?? '',
+      brandOrProvenance: json['cut_type'] != null ? 'Corte ${json['cut_type']}' : 'Acervo Pessoal',
+      isConsciousFashion: true,
+      consciousNote: 'Algodão e Linho Certificado',
+      iheScore: (json['ihe_score'] as num?)?.toInt(),
+    );
+  }
+
+  Map<String, dynamic> toApiJson() {
+    return {
+      'category': category,
+      'subcategory': name,
+      'image_url': imageUrl,
+      'dominant_l': 58.4,
+      'dominant_a': 28.2,
+      'dominant_b': 24.1,
+      'formality_score': 0.65,
+      'cut_type': 'acinturado',
+    };
+  }
 }
+

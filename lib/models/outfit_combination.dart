@@ -93,4 +93,53 @@ class OutfitCombination {
       isDiscarded: isDiscarded ?? this.isDiscarded,
     );
   }
+
+  factory OutfitCombination.fromApiResponse(Map<String, dynamic> json) {
+    final rawItems = (json['items'] as List<dynamic>? ?? [])
+        .map((it) => ClothingItem.fromJson(it as Map<String, dynamic>))
+        .toList();
+
+    ClothingItem top = rawItems.isNotEmpty ? rawItems[0] : const ClothingItem(
+      id: 'default_top',
+      name: 'Peça Superior',
+      category: 'Partes de cima',
+      dominantColor: Color(0xFFA34836),
+      labColorSpace: 'L* 58.4, a* 28.2, b* 24.1',
+      usageRate: 0,
+      imageUrl: '',
+      brandOrProvenance: 'Acervo',
+    );
+
+    ClothingItem bottom = rawItems.length > 1 ? rawItems[1] : top;
+    ClothingItem foot = rawItems.length > 2 ? rawItems[2] : bottom;
+
+    final double sCor = (json['s_cor'] as num?)?.toDouble() ?? 0.8;
+    final double sBio = (json['s_bio'] as num?)?.toDouble() ?? 0.8;
+    final double sOcasion = (json['s_ocasion'] as num?)?.toDouble() ?? 0.8;
+    final double sCos = (json['s_cos'] as num?)?.toDouble() ?? 0.8;
+    final int percentage = (json['ihe_percentage'] as num?)?.round() ?? 80;
+    final String occasion = json['occasion'] as String? ?? 'Casual';
+    final String advice = json['styling_advice'] as String? ?? 'Coordenação equilibrada.';
+
+    return OutfitCombination(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: 'Coordenação Inteligente HarmonIA',
+      editorialNote: advice,
+      topItem: top,
+      bottomItem: bottom,
+      footwearItem: foot,
+      occasion: occasion,
+      ihe: IheSubScores(
+        overallScore: percentage,
+        sColor: sCor,
+        sBio: sBio,
+        sOcasion: sOcasion,
+        sCos: sCos,
+        occasionContext: '$occasion • $percentage% IHE',
+        dominantColor: top.dominantColor,
+        paletteColors: rawItems.map((i) => i.dominantColor).toList(),
+      ),
+    );
+  }
 }
+

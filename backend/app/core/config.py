@@ -3,6 +3,7 @@ Módulo de Configuração e Gerenciamento de Variáveis de Ambiente
 Utiliza pydantic-settings v2 com fallbacks seguros de desenvolvimento.
 """
 
+from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,7 +14,28 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
 
-    # Configurações do PostgreSQL
+    # Porta da aplicação (Google Cloud Run injeta a variável PORT, padrão 8080)
+    PORT: int = 8000
+
+    # Configurações do Supabase (Auth, Storage e PostgreSQL gerenciado)
+    SUPABASE_URL: Optional[str] = Field(
+        default=None,
+        description="URL do projeto Supabase (ex: https://xyz.supabase.co)"
+    )
+    SUPABASE_KEY: Optional[str] = Field(
+        default=None,
+        description="Chave anônima / pública do Supabase (anon key)"
+    )
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = Field(
+        default=None,
+        description="Chave administrativa segura do Supabase (service role key)"
+    )
+    SUPABASE_STORAGE_BUCKET: str = Field(
+        default="wardrobe-items",
+        description="Bucket do Supabase Storage para peças com canal alfa"
+    )
+
+    # Configurações do PostgreSQL (Local Docker ou Supabase Postgres com pgvector)
     POSTGRES_USER: str = "harmonia_user"
     POSTGRES_PASSWORD: str = "harmonia_secret"
     POSTGRES_SERVER: str = "localhost"

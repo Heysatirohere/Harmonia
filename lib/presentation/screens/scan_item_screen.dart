@@ -1,5 +1,8 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../data/services/wardrobe_api_service.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/color_extractor_chips.dart';
@@ -23,7 +26,15 @@ class ScanItemScreen extends StatefulWidget {
 }
 
 class _ScanItemScreenState extends State<ScanItemScreen> {
-  // Dados simulados da inferência da IA
+  final WardrobeApiService _wardrobeService = WardrobeApiService();
+  final ImagePicker _picker = ImagePicker();
+
+  // Foto capturada pelo usuário
+  Uint8List? _capturedBytes;
+  String? _capturedFileName;
+  bool _isUploading = false;
+
+  // Dados da inferência da IA / edição do usuário
   final TextEditingController _nameController =
       TextEditingController(text: 'Sobrecamisa Terracota Ateliê');
   final TextEditingController _provenanceController =
@@ -75,10 +86,99 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     super.dispose();
   }
 
-  void _handleCatalogItem() {
+  void _showSourcePicker() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceCanvas,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textSecondary.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Capturar Peça de Roupa',
+              style: AppTypography.displayEditorial().copyWith(fontSize: 20),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined, color: AppColors.accentTerracotta),
+              title: Text('Câmera Fotográfica', style: AppTypography.uiHeadline()),
+              subtitle: Text('Fotografe a peça no cabide ou superfície plana', style: AppTypography.bodyReading()),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            const Divider(color: AppColors.borderSubtle, height: 1),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.iheGold),
+              title: Text('Galeria de Fotos', style: AppTypography.uiHeadline()),
+              subtitle: Text('Escolha uma foto da galeria do seu dispositivo', style: AppTypography.bodyReading()),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1400,
+      );
+
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _capturedBytes = bytes;
+          _capturedFileName = picked.name;
+          if (_nameController.text == 'Sobrecamisa Terracota Ateliê') {
+            _nameController.text = 'Nova Peça do Acervo';
+          }
+        });
+        HapticFeedback.mediumImpact();
+      }
+    } catch (e) {
+      debugPrint('[ScanItemScreen] Erro ao selecionar imagem: $e');
+    }
+  }
+
+  Future<void> _handleCatalogItem() async {
+    if (_isUploading) return;
+
     HapticFeedback.mediumImpact();
+    setState(() {
+      _isUploading = true;
+    });
 
     final selectedCentroid = _extractedCentroids[_selectedColorIndex];
+    final defaultUrl =
+        'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80';
+
     final newItem = ClothingItem(
       id: 'scanned-${DateTime.now().millisecondsSinceEpoch}',
       name: _nameController.text.trim().isEmpty
@@ -88,8 +188,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       dominantColor: selectedCentroid.color,
       labColorSpace: selectedCentroid.labCoordinates,
       usageRate: 1,
-      imageUrl:
-          'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
+      imageUrl: defaultUrl,
       brandOrProvenance: _provenanceController.text.trim().isEmpty
           ? 'Acervo Pessoal'
           : _provenanceController.text.trim(),
@@ -98,31 +197,51 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       iheScore: 91,
     );
 
-    widget.onItemCataloged?.call(newItem);
-
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context, newItem);
+    // Upload no Supabase Storage e persistência no banco
+    ClothingItem catalogedItem = newItem;
+    try {
+      catalogedItem = await _wardrobeService.uploadAndCatalogGarment(
+        imageBytes: _capturedBytes,
+        fileName: _capturedFileName,
+        item: newItem,
+      );
+    } catch (e) {
+      debugPrint('[ScanItemScreen] Erro na catalogação: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.textPrimary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: AppColors.iheGold, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Peça "${newItem.name}" catalogada no seu acervo!',
-                style: AppTypography.bodyReading(color: AppColors.surfaceCanvas),
+    widget.onItemCataloged?.call(catalogedItem);
+
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context, catalogedItem);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.textPrimary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: AppColors.iheGold, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Peça "${catalogedItem.name}" catalogada no seu acervo!',
+                  style: AppTypography.bodyReading(color: AppColors.surfaceCanvas),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -154,6 +273,8 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                       'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
                   croppedImageUrl:
                       'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
+                  localImageBytes: _capturedBytes,
+                  onChangePhoto: _showSourcePicker,
                 ),
               ),
             ),
@@ -408,14 +529,23 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                 child: SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: _handleCatalogItem,
-                    icon: const Icon(
-                      Icons.checkroom_rounded,
-                      color: AppColors.surfaceCanvas,
-                      size: 20,
-                    ),
+                    onPressed: _isUploading ? null : _handleCatalogItem,
+                    icon: _isUploading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.surfaceCanvas),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.checkroom_rounded,
+                            color: AppColors.surfaceCanvas,
+                            size: 20,
+                          ),
                     label: Text(
-                      'Catalogar no Acervo',
+                      _isUploading ? 'Catalogando Peça...' : 'Catalogar no Acervo',
                       style: AppTypography.uiHeadline(color: AppColors.surfaceCanvas).copyWith(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w600,

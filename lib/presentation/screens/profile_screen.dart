@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../data/services/supabase_auth_service.dart';
 import '../../mocks/mock_user_profile.dart';
 import '../../models/user_profile.dart';
+import '../widgets/auth_modal_sheet.dart';
 import '../widgets/freemium_quota_card.dart';
 import '../widgets/style_recalibration_dialogs.dart';
 import 'wardrobe_analytics_screen.dart';
@@ -40,8 +42,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showLogoutDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceCanvas,
+        title: Text(
+          'Encerrar Sessão',
+          style: GoogleFonts.playfairDisplay(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Deseja sair da sua conta no HarmonIA?',
+          style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancelar', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await SupabaseAuthService().signOut();
+              setState(() {});
+            },
+            child: Text('Sair', style: GoogleFonts.plusJakartaSans(color: AppColors.accentTerracotta, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authUser = SupabaseAuthService().currentUser;
+    final displayEmail = authUser?.email ?? _profile.email;
+
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
       appBar: AppBar(
@@ -96,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _profile.email,
+                        displayEmail,
                         style: GoogleFonts.plusJakartaSans(
                           color: AppColors.textSecondary,
                           fontSize: 12,
@@ -185,6 +221,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             subtitle: 'Editar credenciais e e-mail',
             onTap: () {
               HapticFeedback.lightImpact();
+            },
+          ),
+          _buildActionItem(
+            icon: Icons.key_outlined,
+            title: authUser != null ? 'Sessão Supabase Ativa' : 'Acessar Conta (Supabase Auth)',
+            subtitle: authUser != null
+                ? 'Conectado como ${authUser.email}. Toque para sair.'
+                : 'Entrar ou registrar com e-mail e senha (RF01)',
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (authUser != null) {
+                _showLogoutDialog();
+              } else {
+                AuthModalSheet.show(context, onAuthSuccess: () {
+                  setState(() {});
+                });
+              }
             },
           ),
           _buildActionItem(

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'core/supabase/supabase_config.dart';
+import 'presentation/screens/community_feed_screen.dart';
 import 'presentation/screens/daily_outfit_screen.dart';
-import 'presentation/screens/onboarding_profile_screen.dart';
+import 'presentation/screens/profile_screen.dart';
 import 'presentation/screens/wardrobe_screen.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -15,6 +17,10 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Inicialização do Supabase (Auth, Storage & Database)
+  await SupabaseConfig.initialize();
+
   runApp(const HarmoniaApp());
 }
 
@@ -48,14 +54,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   @override
   void initState() {
     super.initState();
-    _screens = [
-      const DailyOutfitScreen(),
-      const WardrobeScreen(),
-      OnboardingProfileScreen(
-        onCompleted: () {
-          _onTabSelected(0);
-        },
-      ),
+    _screens = const [
+      DailyOutfitScreen(),
+      WardrobeScreen(),
+      CommunityFeedScreen(),
+      ProfileScreen(),
     ];
   }
 
@@ -106,11 +109,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   onTap: () => _onTabSelected(1),
                 ),
                 _NavBarItem(
-                  icon: Icons.person_outline_rounded,
-                  activeIcon: Icons.person_rounded,
-                  label: 'PERFIL',
+                  icon: Icons.grid_view_outlined,
+                  activeIcon: Icons.grid_view,
+                  label: 'EDITORIAL',
                   isSelected: _currentIndex == 2,
                   onTap: () => _onTabSelected(2),
+                ),
+                _NavBarItem(
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: 'ATELIÊ',
+                  isSelected: _currentIndex == 3,
+                  onTap: () => _onTabSelected(3),
                 ),
               ],
             ),

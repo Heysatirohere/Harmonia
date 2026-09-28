@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 
+import 'dart:typed_data';
+
 /// Visualizador Interativo da Remoção de Fundo e Segmentação Semântica (Canal Alfa)
 /// Conforme AGENTS.md Seção 5.1 e RNF06:
 /// - Alternância visual suave estilo "Antes (Foto Bruta) / Depois (IA Segmentada)"
@@ -11,12 +13,16 @@ import '../../theme/app_theme.dart';
 class SegmentationPreview extends StatefulWidget {
   final String rawImageUrl;
   final String croppedImageUrl;
+  final Uint8List? localImageBytes;
+  final VoidCallback? onChangePhoto;
   final ValueChanged<bool>? onSegmentedToggle;
 
   const SegmentationPreview({
     super.key,
     required this.rawImageUrl,
     required this.croppedImageUrl,
+    this.localImageBytes,
+    this.onChangePhoto,
     this.onSegmentedToggle,
   });
 
@@ -91,6 +97,16 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
                     return _WarmShimmerProcessingPlaceholder();
                   }
 
+                  if (widget.localImageBytes != null) {
+                    return Center(
+                      child: Image.memory(
+                        widget.localImageBytes!,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
+                      ),
+                    );
+                  }
+
                   final imageUrl = _isSegmented ? widget.croppedImageUrl : widget.rawImageUrl;
 
                   return AnimatedSwitcher(
@@ -126,7 +142,40 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
             ),
           ),
 
-          // 3. Etiqueta Visual de Estado (Topo Esquerdo)
+          // 3. Botão de Trocar Foto (Topo Direito)
+          if (widget.onChangePhoto != null)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: GestureDetector(
+                onTap: widget.onChangePhoto,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceCanvas.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.borderSubtle,
+                      width: 0.6,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.photo_camera_outlined, size: 14, color: AppColors.textPrimary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'TROCAR FOTO',
+                        style: AppTypography.metadataBadge(color: AppColors.textPrimary)
+                            .copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // 4. Etiqueta Visual de Estado (Topo Esquerdo)
           Positioned(
             top: 14,
             left: 14,

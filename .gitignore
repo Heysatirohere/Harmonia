@@ -56,4 +56,7 @@ backend/.venv/
 .venv/
 venv/
 ENV/
+.env
+*.env
+!.env.example
 

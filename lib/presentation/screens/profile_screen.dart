@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../data/services/supabase_auth_service.dart';
 import '../../mocks/mock_user_profile.dart';
 import '../../models/user_profile.dart';
-import '../widgets/auth_modal_sheet.dart';
+import '../auth/auth_scope.dart';
 import '../widgets/freemium_quota_card.dart';
 import '../widgets/style_recalibration_dialogs.dart';
+import 'account_settings_screen.dart';
+import 'gap_analysis_screen.dart';
+import 'onboarding_profile_screen.dart';
 import 'wardrobe_analytics_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -42,41 +44,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceCanvas,
-        title: Text(
-          'Encerrar Sessão',
-          style: GoogleFonts.playfairDisplay(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'Deseja sair da sua conta no HarmonIA?',
-          style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancelar', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await SupabaseAuthService().signOut();
-              setState(() {});
-            },
-            child: Text('Sair', style: GoogleFonts.plusJakartaSans(color: AppColors.accentTerracotta, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
+  void _open(Widget screen) {
+    HapticFeedback.selectionClick();
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((_) {
+      // Reflete edições feitas em Conta & Segurança
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final authUser = SupabaseAuthService().currentUser;
-    final displayEmail = authUser?.email ?? _profile.email;
+    final account = AuthScope.maybeOf(context)?.currentAccount;
+    final displayName = account?.displayName ?? _profile.name;
+    final displayEmail = account?.email ?? _profile.email;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -109,7 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   radius: 30,
                   backgroundColor: AppColors.surfaceRaised,
                   child: Text(
-                    _profile.name[0],
+                    account?.monogram ?? _profile.name[0],
                     style: GoogleFonts.playfairDisplay(
                       color: AppColors.iheGold,
                       fontSize: 24,
@@ -123,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _profile.name,
+                        displayName,
                         style: GoogleFonts.playfairDisplay(
                           color: AppColors.textPrimary,
                           fontSize: 18,
@@ -202,43 +182,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           _buildActionItem(
+            icon: Icons.style_outlined,
+            title: 'Refazer Perfil de Estilo',
+            subtitle: 'Onboarding morfocromático completo',
+            onTap: () => _open(OnboardingProfileScreen(onCompleted: () => Navigator.pop(context))),
+          ),
+          _buildActionItem(
             icon: Icons.eco_outlined,
             title: 'Saúde do Acervo & Rotação ESG (3.2.2)',
             subtitle: 'Ociosidade (30/60/90d), custo por uso e cores',
-            onTap: () {
-              HapticFeedback.selectionClick();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const WardrobeAnalyticsScreen(),
-                ),
-              );
-            },
+            onTap: () => _open(const WardrobeAnalyticsScreen()),
+          ),
+          _buildActionItem(
+            icon: Icons.extension_outlined,
+            title: 'Lacunas do Acervo (3.6.1)',
+            subtitle: 'Peças-chave que destravam novas combinações',
+            onTap: () => _open(const GapAnalysisScreen()),
           ),
           _buildActionItem(
             icon: Icons.security_outlined,
-            title: 'Dados da Conta & Segurança',
-            subtitle: 'Editar credenciais e e-mail',
-            onTap: () {
-              HapticFeedback.lightImpact();
-            },
-          ),
-          _buildActionItem(
-            icon: Icons.key_outlined,
-            title: authUser != null ? 'Sessão Supabase Ativa' : 'Acessar Conta (Supabase Auth)',
-            subtitle: authUser != null
-                ? 'Conectado como ${authUser.email}. Toque para sair.'
-                : 'Entrar ou registrar com e-mail e senha (RF01)',
-            onTap: () {
-              HapticFeedback.lightImpact();
-              if (authUser != null) {
-                _showLogoutDialog();
-              } else {
-                AuthModalSheet.show(context, onAuthSuccess: () {
-                  setState(() {});
-                });
-              }
-            },
+            title: 'Conta & Segurança',
+            subtitle: 'Dados pessoais, senha, sessão e exclusão (RN04)',
+            onTap: () => _open(const AccountSettingsScreen()),
           ),
           _buildActionItem(
             icon: Icons.notifications_none_outlined,

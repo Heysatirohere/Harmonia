@@ -80,3 +80,70 @@ CREATE POLICY "Visualização pública de roupas recortadas"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'wardrobe-items');
+
+-- 7. Sincronização Supabase Auth -> public.users (RF01)
+-- A senha é gerenciada exclusivamente pelo Supabase Auth; hashed_password
+-- recebe um marcador para respeitar a restrição NOT NULL do modelo legado.
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.users (id, email, hashed_password)
+    VALUES (NEW.id, NEW.email, 'managed_by_supabase_auth')
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+
+-- Mantém o e-mail espelhado após confirmação de troca (RF18)
+CREATE OR REPLACE FUNCTION public.handle_auth_user_email_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    UPDATE public.users SET email = NEW.email WHERE id = NEW.id;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_email_changed ON auth.users;
+CREATE TRIGGER on_auth_user_email_changed
+AFTER UPDATE OF email ON auth.users
+FOR EACH ROW
+WHEN (OLD.email IS DISTINCT FROM NEW.email)
+EXECUTE FUNCTION public.handle_auth_user_email_change();
+
+-- 8. Direito ao Esquecimento (RN04): exclusão definitiva pelo próprio usuário
+-- Remove auth.users; public.users e clothing_items caem em cascata.
+-- Obs.: arquivos do Storage precisam ser removidos pela Storage API
+-- (o Supabase bloqueia DELETE direto em storage.objects).
+CREATE OR REPLACE FUNCTION public.delete_own_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    uid UUID := auth.uid();
+BEGIN
+    IF uid IS NULL THEN
+        RAISE EXCEPTION 'Sessão não autenticada' USING ERRCODE = '42501';
+    END IF;
+
+    DELETE FROM public.users WHERE id = uid;
+    DELETE FROM auth.users WHERE id = uid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_own_account() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_own_account() TO authenticated;

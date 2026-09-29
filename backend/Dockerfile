@@ -18,6 +18,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Baixa o modelo de recorte de fundo (RF04) no build, evitando o download na primeira requisição
+ENV SEGMENTATION_MODEL=isnet-general-use
+RUN python -c "import os; from rembg import new_session; new_session(os.environ['SEGMENTATION_MODEL'])"
+
 # Copiar a aplicação FastAPI
 COPY app ./app
 

@@ -58,6 +58,16 @@ class Settings(BaseSettings):
         description="Claim `aud` esperado nos access tokens de usuários logados"
     )
 
+    # Pipeline de visão: recorte de fundo (RF04) e extração cromática (RF05)
+    SEGMENTATION_MODEL: str = Field(
+        default="isnet-general-use",
+        description="Modelo do rembg usado na remoção de fundo"
+    )
+    MAX_UPLOAD_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        description="Tamanho máximo da foto enviada para segmentação"
+    )
+
     # Limites das Cotas Freemium (RN02)
     FREEMIUM_MAX_CLOTHING_ITEMS: int = 30
     FREEMIUM_MAX_DAILY_LOOKS: int = 5

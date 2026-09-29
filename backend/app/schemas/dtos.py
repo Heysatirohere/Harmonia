@@ -124,6 +124,25 @@ class ClothingItemCreate(BaseModel):
         return validate_vector_512(v)
 
 
+class ExtractedColorResponse(BaseModel):
+    """Centróide cromático extraído da peça recortada (RF05)."""
+    L: float = Field(..., description="Luminosidade CIE L*")
+    a: float = Field(..., description="Coordenada a* CIE L*a*b*")
+    b: float = Field(..., description="Coordenada b* CIE L*a*b*")
+    hex: str = Field(..., description="Aproximação sRGB em hexadecimal (#RRGGBB)")
+    percentage: int = Field(..., ge=0, le=100, description="Área relativa ocupada na peça (%)")
+    name: str = Field(..., description="Nome curatorial aproximado do tom")
+
+
+class SegmentationResponse(BaseModel):
+    """Resultado do pipeline de recorte de fundo e extração cromática (RF04, RF05)."""
+    image_png_base64: str = Field(..., description="Peça recortada em PNG com canal alfa (base64)")
+    width: int
+    height: int
+    colors: List[ExtractedColorResponse] = Field(..., description="Cores dominantes, da maior para a menor área")
+    processing_ms: int = Field(..., description="Tempo de processamento no servidor (RNF03: ≤ 3500 ms)")
+
+
 class ClothingItemResponse(BaseModel):
     """Schema de resposta detalhada da peça."""
     id: UUID

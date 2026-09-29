@@ -5,9 +5,11 @@ CRUD de Peças do Acervo Virtual com Isolamento Multi-Tenant (RN01) e Cota Freem
 from typing import List, Optional
 from datetime import datetime, timezone
 from uuid import UUID
+import base64
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, asc, desc
 
@@ -18,9 +20,56 @@ from app.models.entities import User, ClothingItem
 from app.schemas.dtos import (
     ClothingItemCreate,
     ClothingItemResponse,
+    ExtractedColorResponse,
+    SegmentationResponse,
 )
+from app import vision
+
+ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 router = APIRouter()
+
+
+@router.post("/segment", response_model=SegmentationResponse, status_code=status.HTTP_200_OK)
+async def segment_garment_photo(
+    file: UploadFile = File(..., description="Foto da peça (JPEG, PNG ou WebP)"),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Remove o fundo da foto (RF04) e extrai as cores dominantes em CIE L*a*b* (RF05).
+    Não persiste nada: o app confirma os atributos e envia o PNG ao Storage no cadastro.
+    """
+    if file.content_type not in ACCEPTED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Formato de imagem não suportado. Envie JPEG, PNG ou WebP."
+        )
+
+    data = await file.read(settings.MAX_UPLOAD_BYTES + 1)
+    if len(data) > settings.MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Foto muito grande. O limite é de 10 MB."
+        )
+
+    try:
+        result = await run_in_threadpool(vision.segment_garment, data)
+    except vision.InvalidImageError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    if not result.colors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nenhuma peça foi identificada na foto. Tente fotografar sobre um fundo liso."
+        )
+
+    return SegmentationResponse(
+        image_png_base64=base64.b64encode(result.png_bytes).decode("ascii"),
+        width=result.width,
+        height=result.height,
+        colors=[ExtractedColorResponse(**vars(c)) for c in result.colors],
+        processing_ms=result.processing_ms,
+    )
 
 
 @router.get("/items", response_model=List[ClothingItemResponse], status_code=status.HTTP_200_OK)

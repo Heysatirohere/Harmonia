@@ -27,7 +27,9 @@ void main() {
 
     expect(find.text('Digitalizar Peça'), findsOneWidget);
     expect(find.byType(SegmentationPreview), findsOneWidget);
-    expect(find.byType(ColorExtractorChips), findsOneWidget);
+    expect(find.text('Fotografe a peça'), findsOneWidget);
+    // Sem foto analisada não há cores extraídas nem cadastro possível
+    expect(find.byType(ColorExtractorChips), findsNothing);
 
     final ctaFinder = find.widgetWithText(ElevatedButton, 'Catalogar no Acervo');
     await tester.scrollUntilVisible(
@@ -37,6 +39,7 @@ void main() {
     );
 
     expect(ctaFinder, findsOneWidget);
+    expect(tester.widget<ElevatedButton>(ctaFinder).onPressed, isNull);
   });
 
   testWidgets('HarmonIA OnboardingProfileScreen smoke test', (WidgetTester tester) async {

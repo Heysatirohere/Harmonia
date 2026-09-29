@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../../data/services/supabase_auth_service.dart';
 
@@ -55,6 +56,26 @@ class ApiClient {
           body: body != null ? jsonEncode(body) : null,
         )
         .timeout(timeoutDuration);
+  }
+
+  /// Envia um arquivo como multipart/form-data no campo `file`.
+  Future<http.Response> postFile(
+    String endpoint, {
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+    Duration? timeout,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$endpoint'))
+      ..headers.addAll(_headers..remove('Content-Type'))
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: MediaType.parse(contentType),
+      ));
+    final streamed = await request.send().timeout(timeout ?? timeoutDuration);
+    return http.Response.fromStream(streamed);
   }
 
   Future<http.Response> delete(String endpoint) async {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/color/lab_color.dart';
+
 /// Modelo de Dados da Peça de Vestuário no Inventário Virtual HarmonIA
 /// Contém metadados editoriais de morfocromia (CIE Lab*), sustentabilidade e uso.
 class ClothingItem {
@@ -16,6 +18,10 @@ class ClothingItem {
   final int? iheScore; // Score IHE de harmonização pré-calculado
   final double? price;
   final String? storeNameOverride;
+  final double? labL; // Coordenadas numéricas da cor dominante (persistidas na API)
+  final double? labA;
+  final double? labB;
+  final double? formalityScore; // 0.0 (casual) a 1.0 (formal)
 
   const ClothingItem({
     required this.id,
@@ -31,6 +37,10 @@ class ClothingItem {
     this.iheScore,
     this.price,
     this.storeNameOverride,
+    this.labL,
+    this.labA,
+    this.labB,
+    this.formalityScore,
   });
 
   String get title => name;
@@ -52,6 +62,10 @@ class ClothingItem {
     int? iheScore,
     double? price,
     String? storeNameOverride,
+    double? labL,
+    double? labA,
+    double? labB,
+    double? formalityScore,
   }) {
     return ClothingItem(
       id: id ?? this.id,
@@ -67,6 +81,10 @@ class ClothingItem {
       iheScore: iheScore ?? this.iheScore,
       price: price ?? this.price,
       storeNameOverride: storeNameOverride ?? this.storeNameOverride,
+      labL: labL ?? this.labL,
+      labA: labA ?? this.labA,
+      labB: labB ?? this.labB,
+      formalityScore: formalityScore ?? this.formalityScore,
     );
   }
 
@@ -77,15 +95,16 @@ class ClothingItem {
     final dominantA = (json['dominant_a'] as num?)?.toDouble() ?? 20.0;
     final dominantB = (json['dominant_b'] as num?)?.toDouble() ?? 15.0;
 
-    final approxGrey = ((dominantL / 100.0) * 255).clamp(40, 240).toInt();
-    final color = Color.fromARGB(255, (approxGrey + 10).clamp(0, 255), approxGrey, (approxGrey - 10).clamp(0, 255));
-
     return ClothingItem(
       id: json['id'] as String? ?? '',
       name: subcat ?? category,
       category: category,
-      dominantColor: color,
-      labColorSpace: 'L* ${dominantL.toStringAsFixed(1)}, a* ${dominantA.toStringAsFixed(1)}, b* ${dominantB.toStringAsFixed(1)}',
+      dominantColor: labToColor(dominantL, dominantA, dominantB),
+      labColorSpace: formatLab(dominantL, dominantA, dominantB),
+      labL: dominantL,
+      labA: dominantA,
+      labB: dominantB,
+      formalityScore: (json['formality_score'] as num?)?.toDouble(),
       usageRate: (json['usage_rate'] as int?) ?? 0,
       imageUrl: json['image_url'] as String? ?? '',
       brandOrProvenance: json['cut_type'] != null ? 'Corte ${json['cut_type']}' : 'Acervo Pessoal',
@@ -95,16 +114,29 @@ class ClothingItem {
     );
   }
 
+  /// Coordenadas L*a*b* numéricas; peças antigas/mock só têm o rótulo em [labColorSpace].
+  (double, double, double) get labCoordinates {
+    if (labL != null && labA != null && labB != null) return (labL!, labA!, labB!);
+    final values = RegExp(r'-?\d+(?:\.\d+)?')
+        .allMatches(labColorSpace)
+        .map((m) => double.parse(m.group(0)!))
+        .toList();
+    if (values.length != 3) {
+      throw FormatException('Coordenadas L*a*b* ausentes na peça "$name": $labColorSpace');
+    }
+    return (values[0], values[1], values[2]);
+  }
+
   Map<String, dynamic> toApiJson() {
+    final (l, a, b) = labCoordinates;
     return {
       'category': category,
       'subcategory': name,
       'image_url': imageUrl,
-      'dominant_l': 58.4,
-      'dominant_a': 28.2,
-      'dominant_b': 24.1,
-      'formality_score': 0.65,
-      'cut_type': 'acinturado',
+      'dominant_l': l,
+      'dominant_a': a,
+      'dominant_b': b,
+      'formality_score': formalityScore ?? 0.5,
     };
   }
 }

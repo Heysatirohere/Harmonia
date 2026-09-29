@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/services/wardrobe_api_service.dart';
 import '../../models/clothing_item.dart';
+import '../../models/garment_segmentation.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/color_extractor_chips.dart';
 import '../widgets/segmentation_preview.dart';
@@ -29,9 +30,12 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
   final WardrobeApiService _wardrobeService = WardrobeApiService();
   final ImagePicker _picker = ImagePicker();
 
-  // Foto capturada pelo usuário
+  // Foto capturada pelo usuário e resultado do recorte/extração cromática (RF04, RF05)
   Uint8List? _capturedBytes;
   String? _capturedFileName;
+  GarmentSegmentation? _segmentation;
+  bool _isSegmenting = false;
+  String? _segmentationError;
   bool _isUploading = false;
 
   // Dados da inferência da IA / edição do usuário
@@ -54,29 +58,18 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
   bool _isConsciousFashion = true;
   int _selectedColorIndex = 0;
 
-  final List<ExtractedColorCentroid> _extractedCentroids = const [
-    ExtractedColorCentroid(
-      color: AppColors.accentTerracotta,
-      hexCode: '#A34836',
-      nuanceName: 'Terracota Ateliê',
-      labCoordinates: 'L* 58.4, a* 28.2, b* 24.1',
-      percentage: 62,
-    ),
-    ExtractedColorCentroid(
-      color: AppColors.accentSand,
-      hexCode: '#D9CDBF',
-      nuanceName: 'Areia Suave',
-      labCoordinates: 'L* 82.1, a* 4.3, b* 11.8',
-      percentage: 24,
-    ),
-    ExtractedColorCentroid(
-      color: AppColors.textPrimary,
-      hexCode: '#1A1817',
-      nuanceName: 'Carvão Profundo',
-      labCoordinates: 'L* 14.2, a* 0.5, b* -0.8',
-      percentage: 14,
-    ),
-  ];
+  List<ExtractedColorCentroid> get _extractedCentroids => [
+        for (final c in _segmentation?.colors ?? const <GarmentColor>[])
+          ExtractedColorCentroid(
+            color: c.color,
+            hexCode: c.hex,
+            nuanceName: c.name,
+            labCoordinates: c.labLabel,
+            percentage: c.percentage,
+          ),
+      ];
+
+  bool get _canCatalog => _segmentation != null && !_isUploading;
 
   @override
   void dispose() {
@@ -161,21 +154,53 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
           }
         });
         HapticFeedback.mediumImpact();
+        await _analyzePhoto();
       }
     } catch (e) {
       debugPrint('[ScanItemScreen] Erro ao selecionar imagem: $e');
     }
   }
 
+  /// Envia a foto ao pipeline de recorte de fundo e extração cromática
+  Future<void> _analyzePhoto() async {
+    final bytes = _capturedBytes;
+    if (bytes == null) return;
+
+    setState(() {
+      _isSegmenting = true;
+      _segmentation = null;
+      _segmentationError = null;
+      _selectedColorIndex = 0;
+    });
+
+    try {
+      final result = await _wardrobeService.segmentGarment(
+        imageBytes: bytes,
+        fileName: _capturedFileName ?? 'peca.jpg',
+      );
+      if (!mounted || !identical(bytes, _capturedBytes)) return;
+      setState(() => _segmentation = result);
+      HapticFeedback.selectionClick();
+    } on SegmentationException catch (e) {
+      if (!mounted || !identical(bytes, _capturedBytes)) return;
+      setState(() => _segmentationError = e.message);
+    } finally {
+      if (mounted && identical(bytes, _capturedBytes)) {
+        setState(() => _isSegmenting = false);
+      }
+    }
+  }
+
   Future<void> _handleCatalogItem() async {
-    if (_isUploading) return;
+    final segmentation = _segmentation;
+    if (segmentation == null || _isUploading) return;
 
     HapticFeedback.mediumImpact();
     setState(() {
       _isUploading = true;
     });
 
-    final selectedCentroid = _extractedCentroids[_selectedColorIndex];
+    final selectedColor = segmentation.colors[_selectedColorIndex];
     final defaultUrl =
         'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80';
 
@@ -185,8 +210,12 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
           ? 'Peça sem nome'
           : _nameController.text.trim(),
       category: _categories[_selectedCategoryIndex],
-      dominantColor: selectedCentroid.color,
-      labColorSpace: selectedCentroid.labCoordinates,
+      dominantColor: selectedColor.color,
+      labColorSpace: selectedColor.labLabel,
+      labL: selectedColor.l,
+      labA: selectedColor.a,
+      labB: selectedColor.b,
+      formalityScore: _formalityLevel,
       usageRate: 1,
       imageUrl: defaultUrl,
       brandOrProvenance: _provenanceController.text.trim().isEmpty
@@ -194,15 +223,15 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
           : _provenanceController.text.trim(),
       isConsciousFashion: _isConsciousFashion,
       consciousNote: _isConsciousFashion ? _esgNoteController.text.trim() : null,
-      iheScore: 91,
     );
 
     // Upload no Supabase Storage e persistência no banco
     ClothingItem catalogedItem = newItem;
     try {
+      // Envia o recorte PNG com canal alfa, não a foto original
       catalogedItem = await _wardrobeService.uploadAndCatalogGarment(
-        imageBytes: _capturedBytes,
-        fileName: _capturedFileName,
+        imageBytes: segmentation.cutoutPng,
+        fileName: 'garment_${DateTime.now().microsecondsSinceEpoch}.png',
         item: newItem,
       );
     } catch (e) {
@@ -246,7 +275,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedCentroid = _extractedCentroids[_selectedColorIndex];
+    final centroids = _extractedCentroids;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -269,11 +298,11 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 child: SegmentationPreview(
-                  rawImageUrl:
-                      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
-                  croppedImageUrl:
-                      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
-                  localImageBytes: _capturedBytes,
+                  originalBytes: _capturedBytes,
+                  cutoutBytes: _segmentation?.cutoutPng,
+                  isProcessing: _isSegmenting,
+                  errorMessage: _segmentationError,
+                  onRetry: _analyzePhoto,
                   onChangePhoto: _showSourcePicker,
                 ),
               ),
@@ -291,13 +320,22 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Extração de Cores no Espaço CIE L*a*b*
-                    ColorExtractorChips(
-                      centroids: _extractedCentroids,
-                      selectedIndex: _selectedColorIndex,
-                      onSelectCentroid: (index) {
-                        setState(() => _selectedColorIndex = index);
-                      },
-                    ),
+                    if (centroids.isNotEmpty)
+                      ColorExtractorChips(
+                        centroids: centroids,
+                        selectedIndex: _selectedColorIndex,
+                        onSelectCentroid: (index) {
+                          setState(() => _selectedColorIndex = index);
+                        },
+                      )
+                    else
+                      Text(
+                        _isSegmenting
+                            ? 'ANALISANDO CORES NO ESPAÇO CIE L*a*b*...'
+                            : 'AS CORES DOMINANTES SURGEM APÓS A ANÁLISE DA FOTO',
+                        style: AppTypography.metadataBadge(color: AppColors.textMuted)
+                            .copyWith(fontSize: 9.5),
+                      ),
 
                     const SizedBox(height: 24),
                     const Divider(color: AppColors.borderSubtle, height: 1),
@@ -529,7 +567,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                 child: SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: _isUploading ? null : _handleCatalogItem,
+                    onPressed: _canCatalog ? _handleCatalogItem : null,
                     icon: _isUploading
                         ? const SizedBox(
                             width: 18,
@@ -539,14 +577,16 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                               valueColor: AlwaysStoppedAnimation<Color>(AppColors.surfaceCanvas),
                             ),
                           )
-                        : const Icon(
+                        : Icon(
                             Icons.checkroom_rounded,
-                            color: AppColors.surfaceCanvas,
+                            color: _segmentation == null ? AppColors.textMuted : AppColors.surfaceCanvas,
                             size: 20,
                           ),
                     label: Text(
                       _isUploading ? 'Catalogando Peça...' : 'Catalogar no Acervo',
-                      style: AppTypography.uiHeadline(color: AppColors.surfaceCanvas).copyWith(
+                      style: AppTypography.uiHeadline(
+                        color: _segmentation == null ? AppColors.textMuted : AppColors.surfaceCanvas,
+                      ).copyWith(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.2,
@@ -554,6 +594,9 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accentTerracotta,
+                      // Enquanto cataloga, mantém o terracota; sem análise concluída, fica apagado
+                      disabledBackgroundColor:
+                          _isUploading ? AppColors.accentTerracotta : AppColors.surfaceSubtle,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),

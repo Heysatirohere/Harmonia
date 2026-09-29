@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
+import '../../models/garment_segmentation.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_storage_service.dart';
 
@@ -94,15 +96,8 @@ class WardrobeApiService {
       final userId = SupabaseAuthService().currentUserId;
       if (supabase != null && userId != null) {
         final res = await supabase.from('clothing_items').insert({
+          ...item.toApiJson(),
           'user_id': userId,
-          'category': item.category,
-          'subcategory': item.name,
-          'image_url': item.imageUrl,
-          'dominant_l': 58.4,
-          'dominant_a': 28.2,
-          'dominant_b': 24.1,
-          'formality_score': 0.65,
-          'cut_type': 'acinturado',
           'is_archived': false,
         }).select().single();
         return ClothingItem.fromJson(res);
@@ -139,6 +134,46 @@ class WardrobeApiService {
     // 2. Persistência da peça no banco de dados (API ou Supabase)
     final savedItem = await createClothingItem(itemWithUrl);
     return savedItem ?? itemWithUrl;
+  }
+
+  /// Remove o fundo da foto e extrai as cores dominantes em CIE L*a*b* (RF04, RF05).
+  /// Lança [SegmentationException] com mensagem pronta para o usuário em caso de falha.
+  Future<GarmentSegmentation> segmentGarment({
+    required Uint8List imageBytes,
+    required String fileName,
+  }) async {
+    final http.Response response;
+    try {
+      response = await _client.postFile(
+        '/wardrobe/segment',
+        bytes: imageBytes,
+        fileName: fileName,
+        contentType: _imageContentType(fileName),
+        // A primeira chamada carrega o modelo de recorte na memória do servidor
+        timeout: const Duration(seconds: 60),
+      );
+    } catch (e) {
+      debugPrint('[WardrobeApiService] Falha de rede na segmentação: $e');
+      throw const SegmentationException('Não foi possível conectar ao servidor de análise.');
+    }
+
+    if (response.statusCode == 200) {
+      return GarmentSegmentation.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+
+    debugPrint('[WardrobeApiService] Segmentação recusada: ${response.statusCode} - ${response.body}');
+    String? detail;
+    try {
+      detail = (jsonDecode(response.body) as Map<String, dynamic>)['detail'] as String?;
+    } catch (_) {}
+    throw SegmentationException(detail ?? 'Não foi possível analisar a foto.');
+  }
+
+  static String _imageContentType(String fileName) {
+    final name = fileName.toLowerCase();
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 
   /// Exclui peça do acervo no backend

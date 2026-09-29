@@ -219,16 +219,21 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text(
-                          'Harmonia com seu Acervo',
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            fontStyle: FontStyle.italic,
-                            color: AppColors.textPrimary,
+                        Flexible(
+                          child: Text(
+                            'Harmonia com seu Acervo',
+                            style: GoogleFonts.playfairDisplay(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 12),
                         Text(
                           '${result.compatibleMatches.length} peças alinhadas',
                           style: GoogleFonts.plusJakartaSans(

@@ -42,6 +42,8 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvasDark,
       body: Stack(
+        // O body do Scaffold tem altura livre; sem expand a Stack encolhe até a barra do topo
+        fit: StackFit.expand,
         children: [
           // Camera Simulation Background with error handling
           Positioned.fill(
@@ -75,42 +77,48 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
           ),
 
           // Top Navigation Bar
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.borderGold, width: 0.8),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.flare, color: AppColors.iheGold, size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          'MIRROR MODE • PROVADOR',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.borderGold, width: 0.8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.flare, color: AppColors.iheGold, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            'MIRROR MODE • PROVADOR',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 40),
-                ],
+                    const SizedBox(width: 40),
+                  ],
+                ),
               ),
             ),
           ),
@@ -121,6 +129,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
             right: 0,
             bottom: 40,
             child: SafeArea(
+              top: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

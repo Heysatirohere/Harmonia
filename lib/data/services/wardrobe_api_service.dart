@@ -91,8 +91,8 @@ class WardrobeApiService {
     // 2. Fallback de persistência direta no Supabase PostgreSQL
     try {
       final supabase = SupabaseConfig.client;
-      if (supabase != null) {
-        final userId = SupabaseAuthService().currentUserId;
+      final userId = SupabaseAuthService().currentUserId;
+      if (supabase != null && userId != null) {
         final res = await supabase.from('clothing_items').insert({
           'user_id': userId,
           'category': item.category,

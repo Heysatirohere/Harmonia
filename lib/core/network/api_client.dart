@@ -26,14 +26,11 @@ class ApiClient {
     return 'http://127.0.0.1:8000/api/v1';
   }
 
-  /// ID do usuário autenticado no Supabase (ou ID padrão em desenvolvimento)
-  String get currentUserId => SupabaseAuthService().currentUserId;
-
+  /// A API identifica o usuário apenas pelo JWT do Supabase no header Authorization
   Map<String, String> get _headers {
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'X-User-ID': currentUserId,
     };
     final token = SupabaseAuthService().currentAccessToken;
     if (token != null) {

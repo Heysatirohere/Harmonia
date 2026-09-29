@@ -9,7 +9,6 @@ void main() {
     test('ApiClient initializes with proper base configuration', () {
       final client = ApiClient();
       expect(client.baseUrl, isNotEmpty);
-      expect(client.currentUserId, isNotEmpty);
     });
 
     test('WardrobeApiService returns resilient fallback when offline', () async {

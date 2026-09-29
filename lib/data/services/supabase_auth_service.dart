@@ -24,10 +24,8 @@ class SupabaseAuthService implements AuthRepository {
   /// Retorna o usuário logado atualmente
   User? get currentUser => _client?.auth.currentUser;
 
-  /// Retorna o ID do usuário (ou ID de desenvolvimento mock se offline)
-  String get currentUserId {
-    return currentUser?.id ?? 'e2b34a62-7f39-44d5-86f3-181559868e4c';
-  }
+  /// ID do usuário logado, ou null sem sessão ativa
+  String? get currentUserId => currentUser?.id;
 
   /// Verifica se há sessão ativa
   bool get isAuthenticated => currentUser != null;

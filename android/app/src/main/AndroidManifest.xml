@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Necessária no build de release para Supabase (Auth/Storage) e API -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="harmonia_mvp"
         android:name="${applicationName}"

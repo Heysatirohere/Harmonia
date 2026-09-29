@@ -4,14 +4,42 @@ Testa os Endpoints Health, Auth, Wardrobe (RN01, RN02, RF06) e Outfits/IHE (RN02
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import jwt
 import pytest
 import httpx
+from cryptography.hazmat.primitives.asymmetric import ec
 from httpx import ASGITransport
 
 from app.main import app
+from app.core import security
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.entities import User, ClothingItem
+
+
+TEST_SUPABASE_URL = "https://harmonia-test.supabase.co"
+TEST_JWT_SECRET = "test-jwt-secret-with-at-least-32-bytes!!"
+
+
+def make_token(user_id, email="user@harmonia.app", secret=TEST_JWT_SECRET, expires_in=3600, **overrides):
+    """Gera um access token no formato emitido pelo Supabase Auth (HS256 legado)."""
+    now = datetime.now(timezone.utc)
+    claims = {
+        "sub": str(user_id),
+        "email": email,
+        "aud": "authenticated",
+        "role": "authenticated",
+        "iss": f"{TEST_SUPABASE_URL}/auth/v1",
+        "iat": now,
+        "exp": now + timedelta(seconds=expires_in),
+    }
+    claims.update(overrides)
+    return jwt.encode(claims, secret, algorithm="HS256")
+
+
+def auth_headers(user_id, **kwargs):
+    return {"Authorization": f"Bearer {make_token(user_id, **kwargs)}"}
 
 
 # -----------------------------------------------------------------------------
@@ -169,7 +197,9 @@ async def override_get_db():
 
 
 @pytest.fixture(autouse=True)
-def setup_test_environment():
+def setup_test_environment(monkeypatch):
+    monkeypatch.setattr(settings, "SUPABASE_URL", TEST_SUPABASE_URL)
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", TEST_JWT_SECRET)
     store.clear()
     app.dependency_overrides[get_db] = override_get_db
     yield
@@ -195,26 +225,6 @@ async def test_health_check_endpoint():
 
 
 @pytest.mark.anyio
-async def test_mock_auth_session_endpoint():
-    """Valida a criação de sessão mock de desenvolvimento no POST /api/v1/auth/mock-session."""
-    payload = {
-        "email": "test.designer@harmonia.app",
-        "body_shape": "AMPULHETA",
-        "seasonal_palette": "OUTONO_QUENTE",
-        "is_premium": False
-    }
-
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/api/v1/auth/mock-session", json=payload)
-
-    assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert data["user"]["email"] == "test.designer@harmonia.app"
-    assert data["user"]["body_shape"] == "AMPULHETA"
-
-
-@pytest.mark.anyio
 async def test_calculate_ihe_endpoint_success():
     """Valida o endpoint POST /api/v1/outfits/calculate-ihe retornando os 4 pilares e IHE."""
     payload = {
@@ -231,7 +241,9 @@ async def test_calculate_ihe_endpoint_success():
     }
 
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/api/v1/outfits/calculate-ihe", json=payload)
+        response = await client.post(
+            "/api/v1/outfits/calculate-ihe", json=payload, headers=auth_headers(uuid.uuid4())
+        )
 
     assert response.status_code == 200
     data = response.json()
@@ -274,8 +286,9 @@ async def test_freemium_item_quota_limit_rn02():
 
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
-            f"/api/v1/wardrobe/items?user_id={user_id}",
-            json=item_payload
+            "/api/v1/wardrobe/items",
+            json=item_payload,
+            headers=auth_headers(user_id),
         )
 
     assert response.status_code == 403
@@ -315,8 +328,9 @@ async def test_freemium_look_daily_quota_limit_rn02():
 
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
-            f"/api/v1/outfits/calculate-ihe?user_id={user_id}",
-            json=payload
+            "/api/v1/outfits/calculate-ihe",
+            json=payload,
+            headers=auth_headers(user_id),
         )
 
     assert response.status_code == 403
@@ -355,18 +369,18 @@ async def test_multi_tenant_isolation_rn01():
 
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # 1. Usuário B tenta listar peças e não deve ver a peça do Usuário A
-        res_list = await client.get(f"/api/v1/wardrobe/items?user_id={user_b_id}")
+        res_list = await client.get("/api/v1/wardrobe/items", headers=auth_headers(user_b_id))
         assert res_list.status_code == 200
         items_b = res_list.json()
         assert len(items_b) == 0
 
         # 2. Usuário B tenta excluir a peça do Usuário A e recebe 403 Forbidden
-        res_del = await client.delete(f"/api/v1/wardrobe/items/{item_a_id}?user_id={user_b_id}")
+        res_del = await client.delete(f"/api/v1/wardrobe/items/{item_a_id}", headers=auth_headers(user_b_id))
         assert res_del.status_code == 403
         assert "Acesso negado" in res_del.json()["detail"]
 
         # 3. Usuário A lista suas peças e encontra sua peça
-        res_list_a = await client.get(f"/api/v1/wardrobe/items?user_id={user_a_id}")
+        res_list_a = await client.get("/api/v1/wardrobe/items", headers=auth_headers(user_a_id))
         assert res_list_a.status_code == 200
         items_a = res_list_a.json()
         assert len(items_a) == 1
@@ -433,7 +447,7 @@ async def test_generate_daily_outfits_endpoint():
             "is_raining": False,
             "limit": 3
         }
-        res = await client.post(f"/api/v1/outfits/generate-daily?user_id={user_id}", json=payload)
+        res = await client.post("/api/v1/outfits/generate-daily", json=payload, headers=auth_headers(user_id))
         assert res.status_code == 200
         data = res.json()
         assert len(data) >= 1
@@ -444,3 +458,149 @@ async def test_generate_daily_outfits_endpoint():
         assert "styling_advice" in best
         assert len(best["items"]) >= 1
 
+
+
+# -----------------------------------------------------------------------------
+# Autenticação via JWT do Supabase (RF01, RNF02, RN01)
+# -----------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_protected_endpoints_require_bearer_token():
+    """Sem Authorization, as rotas protegidas respondem 401."""
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        responses = [
+            await client.get("/api/v1/wardrobe/items"),
+            await client.delete(f"/api/v1/wardrobe/items/{uuid.uuid4()}"),
+            await client.post("/api/v1/outfits/generate-daily", json={"occasion": "CASUAL"}),
+        ]
+
+    for response in responses:
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == "Bearer"
+
+
+@pytest.mark.anyio
+async def test_x_user_id_header_is_not_trusted():
+    """O header X-User-ID legado não concede acesso ao acervo de outro usuário (RN01)."""
+    victim_id = uuid.uuid4()
+    attacker_id = uuid.uuid4()
+    for uid, email in ((victim_id, "victim@harmonia.app"), (attacker_id, "attacker@harmonia.app")):
+        store.users[uid] = User(
+            id=uid, email=email, hashed_password="pw", is_premium=True, created_at=datetime.now(timezone.utc)
+        )
+    victim_item = ClothingItem(
+        id=uuid.uuid4(), user_id=victim_id, category="top", image_url="https://example.com/v.png",
+        dominant_l=50.0, dominant_a=10.0, dominant_b=10.0, formality_score=0.5, is_archived=False,
+        created_at=datetime.now(timezone.utc)
+    )
+    store.clothing_items[victim_item.id] = victim_item
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        anonymous = await client.get("/api/v1/wardrobe/items", headers={"X-User-ID": str(victim_id)})
+        impersonating = await client.get(
+            f"/api/v1/wardrobe/items?user_id={victim_id}",
+            headers={"X-User-ID": str(victim_id), **auth_headers(attacker_id)},
+        )
+
+    assert anonymous.status_code == 401
+    assert impersonating.status_code == 200
+    assert impersonating.json() == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "token_kwargs, expected_detail",
+    [
+        ({"secret": "outro-segredo-que-nao-e-o-do-projeto!!"}, "Token de acesso inválido."),
+        ({"expires_in": -60}, "Sessão expirada. Faça login novamente."),
+        ({"aud": "anon"}, "Token de acesso inválido."),
+        ({"iss": "https://outro-projeto.supabase.co/auth/v1"}, "Token de acesso inválido."),
+        ({"sub": "nao-e-um-uuid"}, "Token de acesso sem identificador de usuário válido."),
+    ],
+)
+async def test_rejects_invalid_tokens(token_kwargs, expected_detail):
+    """Assinatura, expiração, audiência, emissor e `sub` são todos validados."""
+    headers = auth_headers(uuid.uuid4(), **token_kwargs)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/items", headers=headers)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == expected_detail
+
+
+@pytest.mark.anyio
+async def test_accepts_asymmetric_token_via_jwks(monkeypatch):
+    """Tokens ES256 (chaves assimétricas do Supabase) são validados pela chave pública do JWKS."""
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    requested_urls = []
+
+    class FakeJwksClient:
+        def get_signing_key_from_jwt(self, token):
+            return jwt.PyJWK.from_dict(
+                {**jwt.algorithms.ECAlgorithm.to_jwk(private_key.public_key(), as_dict=True), "alg": "ES256"}
+            )
+
+    def fake_jwks_client(url):
+        requested_urls.append(url)
+        return FakeJwksClient()
+
+    monkeypatch.setattr(security, "_jwks_client", fake_jwks_client)
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", None)
+
+    user_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    token = jwt.encode(
+        {
+            "sub": str(user_id),
+            "email": "es256@harmonia.app",
+            "aud": "authenticated",
+            "iss": f"{TEST_SUPABASE_URL}/auth/v1",
+            "exp": now + timedelta(hours=1),
+        },
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "test-key"},
+    )
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/items", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    assert requested_urls == [f"{TEST_SUPABASE_URL}/auth/v1/.well-known/jwks.json"]
+
+
+@pytest.mark.anyio
+async def test_hs256_token_rejected_when_secret_not_configured(monkeypatch):
+    """Sem SUPABASE_JWT_SECRET, tokens HS256 não são aceitos (evita confusão de algoritmo)."""
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", None)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/items", headers=auth_headers(uuid.uuid4()))
+
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_profile_provisioned_from_verified_token_claims():
+    """Usuário autenticado sem linha em public.users é provisionado com o e-mail do token."""
+    user_id = uuid.uuid4()
+    item_payload = {
+        "category": "top",
+        "image_url": "https://example.supabase.co/storage/v1/object/wardrobe-items/top.png",
+        "dominant_l": 50.0,
+        "dominant_a": 10.0,
+        "dominant_b": 10.0,
+        "formality_score": 0.5,
+    }
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/wardrobe/items",
+            json=item_payload,
+            headers=auth_headers(user_id, email="nova.conta@harmonia.app"),
+        )
+
+    assert response.status_code == 201
+    assert store.users[user_id].email == "nova.conta@harmonia.app"
+    assert store.users[user_id].items_count == 1

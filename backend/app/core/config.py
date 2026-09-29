@@ -48,10 +48,15 @@ class Settings(BaseSettings):
         description="URL de conexão assíncrona com PostgreSQL via asyncpg"
     )
 
-    # Segurança e Autenticação JWT
-    SECRET_KEY: str = "harmonia_super_secret_key_change_in_production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Validação dos access tokens do Supabase Auth (RNF02)
+    SUPABASE_JWT_SECRET: Optional[str] = Field(
+        default=None,
+        description="JWT Secret legado (HS256). Sem ele, os tokens são validados pelo JWKS do projeto"
+    )
+    SUPABASE_JWT_AUDIENCE: str = Field(
+        default="authenticated",
+        description="Claim `aud` esperado nos access tokens de usuários logados"
+    )
 
     # Limites das Cotas Freemium (RN02)
     FREEMIUM_MAX_CLOTHING_ITEMS: int = 30

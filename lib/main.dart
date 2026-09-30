@@ -12,7 +12,7 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light, // todas as Salas são escuras
       // Barra do sistema contínua com a EditorialNavBar (tapeçaria noir)
       systemNavigationBarColor: AppColors.tapestryNoir,
       systemNavigationBarIconBrightness: Brightness.light,

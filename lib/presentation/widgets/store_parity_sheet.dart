@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/store_parity_result.dart';
 
 /// Bandeja Deslizante de Paridade de Provador (RF09)
+/// Translúcida sobre a câmera: tapeçaria noir a 70% com desfoque de 16px e texto marfim (AGENTS.md 7.3)
 class StoreParitySheet extends StatefulWidget {
   final StoreParityResult parityResult;
   final ScrollController? scrollController;
@@ -27,7 +28,7 @@ class StoreParitySheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.4),
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.72,
         minChildSize: 0.40,
@@ -69,10 +70,10 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceCanvas.withValues(alpha: 0.92),
+            color: AppColors.tapestryNoir.withValues(alpha: 0.7),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border.all(
-              color: AppColors.borderGold,
+              color: AppColors.hairlineGold,
               width: 0.8,
             ),
           ),
@@ -85,7 +86,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                     width: 38,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.textSecondary.withValues(alpha: 0.3),
+                      color: AppColors.ivoryMuted.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -107,10 +108,9 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                             color: storeGarment.dominantColor,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.borderGold,
+                              color: AppColors.hairlineGold,
                               width: 1.2,
                             ),
-                            boxShadow: AppColors.floatingGarmentShadow,
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -124,7 +124,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.8,
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.ivoryMuted,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -133,7 +133,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                                 style: GoogleFonts.bodoniModa(
                                   fontSize: 19,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                                  color: AppColors.ivoryText,
                                 ),
                               ),
                               if (storeGarment.price != null) ...[
@@ -143,7 +143,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                                   style: GoogleFonts.interTight(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.accentTerracotta,
+                                    color: AppColors.gildedLeaf,
                                   ),
                                 ),
                               ],
@@ -158,7 +158,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                               style: GoogleFonts.bodoniModa(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.iheGold,
+                                color: AppColors.gildedLeaf,
                               ),
                             ),
                             Text(
@@ -166,7 +166,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                               style: GoogleFonts.interTight(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.textSecondary,
+                                color: AppColors.ivoryMuted,
                               ),
                             ),
                           ],
@@ -181,10 +181,10 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.iheGoldLight,
+                          color: AppColors.gildedVeil,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColors.borderGold,
+                            color: AppColors.hairlineGold,
                             width: 0.8,
                           ),
                         ),
@@ -192,7 +192,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                           children: [
                             const Text('✦ ',
                                 style: TextStyle(
-                                    color: AppColors.iheGold, fontSize: 12)),
+                                    color: AppColors.gildedLeaf, fontSize: 12)),
                             Expanded(
                               child: Text(
                                 'PARIDADE CONFIRMADA • PEÇA RECOMENDADA PARA SEU ACERVO',
@@ -200,7 +200,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
-                                  color: AppColors.iheGold,
+                                  color: AppColors.gildedLeaf,
                                 ),
                               ),
                             ),
@@ -213,7 +213,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                       style: GoogleFonts.interTight(
                         fontSize: 12.5,
                         height: 1.45,
-                        color: AppColors.textSecondary,
+                        color: AppColors.ivoryMuted,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -229,7 +229,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                               fontStyle: FontStyle.italic,
-                              color: AppColors.textPrimary,
+                              color: AppColors.ivoryText,
                             ),
                           ),
                         ),
@@ -239,7 +239,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                           style: GoogleFonts.interTight(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
+                            color: AppColors.ivoryMuted,
                           ),
                         ),
                       ],
@@ -284,13 +284,12 @@ class _ParityMatchCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.surfaceCanvas : AppColors.surfaceRaised,
+        color: isSelected ? const Color(0x29F4EEE1) : AppColors.ivoryVeil,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? AppColors.iheGold : AppColors.borderSubtle,
+          color: isSelected ? AppColors.gildedLeaf : AppColors.hairlineIvory,
           width: isSelected ? 1.2 : 0.8,
         ),
-        boxShadow: AppColors.floatingGarmentShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -298,7 +297,7 @@ class _ParityMatchCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          splashColor: AppColors.borderGold,
+          splashColor: AppColors.hairlineGold,
           highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -314,7 +313,7 @@ class _ParityMatchCard extends StatelessWidget {
                         color: closetItem.dominantColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.borderSubtle,
+                          color: AppColors.hairlineIvory,
                           width: 0.8,
                         ),
                       ),
@@ -330,7 +329,7 @@ class _ParityMatchCard extends StatelessWidget {
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.6,
-                              color: AppColors.textSecondary,
+                              color: AppColors.ivoryMuted,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -339,7 +338,7 @@ class _ParityMatchCard extends StatelessWidget {
                             style: GoogleFonts.bodoniModa(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: AppColors.ivoryText,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -347,7 +346,7 @@ class _ParityMatchCard extends StatelessWidget {
                             closetItem.provenance,
                             style: GoogleFonts.interTight(
                               fontSize: 10.5,
-                              color: AppColors.textSecondary,
+                              color: AppColors.ivoryMuted,
                             ),
                           ),
                         ],
@@ -359,10 +358,10 @@ class _ParityMatchCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.iheGoldLight,
+                        color: AppColors.gildedVeil,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppColors.borderGold,
+                          color: AppColors.hairlineGold,
                           width: 0.6,
                         ),
                       ),
@@ -371,7 +370,7 @@ class _ParityMatchCard extends StatelessWidget {
                         style: GoogleFonts.bodoniModa(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.iheGold,
+                          color: AppColors.gildedLeaf,
                         ),
                       ),
                     ),
@@ -382,7 +381,7 @@ class _ParityMatchCard extends StatelessWidget {
                   match.matchReason,
                   style: GoogleFonts.interTight(
                     fontSize: 11.5,
-                    color: AppColors.textPrimary.withValues(alpha: 0.85),
+                    color: AppColors.ivoryText.withValues(alpha: 0.85),
                     height: 1.35,
                   ),
                 ),
@@ -391,10 +390,10 @@ class _ParityMatchCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceRaised,
+                      color: AppColors.ivoryVeil,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppColors.borderSubtle,
+                        color: AppColors.hairlineIvory,
                         width: 0.6,
                       ),
                     ),
@@ -408,7 +407,7 @@ class _ParityMatchCard extends StatelessWidget {
                         Container(
                           width: 1,
                           height: 20,
-                          color: AppColors.borderSubtle,
+                          color: AppColors.hairlineIvory,
                         ),
                         _MatchDetailStat(
                           label: 'Silhueta & Biótipo',
@@ -445,7 +444,7 @@ class _MatchDetailStat extends StatelessWidget {
           style: GoogleFonts.interTight(
             fontSize: 8.5,
             fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
+            color: AppColors.ivoryMuted,
           ),
         ),
         const SizedBox(height: 2),
@@ -454,7 +453,7 @@ class _MatchDetailStat extends StatelessWidget {
           style: GoogleFonts.bodoniModa(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: AppColors.accentTerracotta,
+            color: AppColors.gildedLeaf,
           ),
         ),
       ],

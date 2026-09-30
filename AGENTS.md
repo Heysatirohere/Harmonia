@@ -124,6 +124,7 @@ Look do Dia / IHE: velvetBordeaux → gildedOchre na seção do medidor IHE.
 Guarda-Roupa (Arara Virtual): cabeçalho em silkEmerald; em "Todos", cada categoria é uma seção com sua Sala (Partes de cima: silkEmerald · Partes de baixo: velvetBordeaux · Calçados: gildedOchre · Peças únicas: frescoBlue · demais: verdigris); com filtro ativo, a tela inteira dissolve para a Sala da categoria.
 Digitalizar Peça: frescoBlue (a peça recortada precisa de fundo frio para a cor dela se destacar).
 Dashboard de Rotação: gildedOchre → verdigris.
+Lacunas do Acervo & Afiliação: verdigris, uma folha paperBone por lacuna.
 Feed Comunitário: tapestryNoir.
 Mirror Mode (provador): tapestryNoir sobre a câmera, sem textura (a câmera é a cenografia).
 Perfil, Conta e Autenticação: velvetBordeaux com folhas em paperBone.

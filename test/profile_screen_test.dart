@@ -10,7 +10,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Ateliê & Perfil'), findsOneWidget);
+    expect(find.text('ATELIÊ & PERFIL'), findsOneWidget);
     expect(find.text('Helena von Suttner'), findsOneWidget);
     expect(find.text('SAÚDE DA ASSINATURA (RN02)'), findsOneWidget);
     expect(find.text('Recalibrar Colorimetria'), findsOneWidget);

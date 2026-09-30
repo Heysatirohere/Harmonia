@@ -5,11 +5,12 @@ import 'app_colors.dart';
 /// Tipografia Editorial do HarmonIA conforme AGENTS.md (seção 5)
 /// - Títulos & Métricas: didone de altíssimo contraste (Bodoni Moda)
 /// - Corpo & UI Operacional: grotesca neutra (Inter Tight)
+/// Cor padrão = tinta (para folhas paperBone); sobre uma Sala, passe as cores ivory explicitamente.
 class AppTypography {
   AppTypography._();
 
   // Títulos Editoriais (Serif)
-  static TextStyle editorialTitleLarge({Color color = AppColors.textPrimary}) {
+  static TextStyle editorialTitleLarge({Color color = AppColors.inkText}) {
     return GoogleFonts.bodoniModa(
       fontSize: 24,
       fontWeight: FontWeight.w600,
@@ -19,7 +20,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle editorialTitleMedium({Color color = AppColors.textPrimary}) {
+  static TextStyle editorialTitleMedium({Color color = AppColors.inkText}) {
     return GoogleFonts.bodoniModa(
       fontSize: 19,
       fontWeight: FontWeight.w600,
@@ -29,7 +30,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle editorialTitleSmall({Color color = AppColors.textPrimary}) {
+  static TextStyle editorialTitleSmall({Color color = AppColors.inkText}) {
     return GoogleFonts.bodoniModa(
       fontSize: 16,
       fontWeight: FontWeight.w600,
@@ -40,7 +41,7 @@ class AppTypography {
   }
 
   // Métricas de IHE & Números de Destaque
-  static TextStyle iheMetric({Color color = AppColors.iheGold}) {
+  static TextStyle iheMetric({Color color = AppColors.gildedInk}) {
     return GoogleFonts.bodoniModa(
       fontSize: 20,
       fontWeight: FontWeight.w700,
@@ -50,7 +51,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle iheMetricLarge({Color color = AppColors.textPrimary}) {
+  static TextStyle iheMetricLarge({Color color = AppColors.inkText}) {
     return GoogleFonts.bodoniModa(
       fontSize: 32,
       fontWeight: FontWeight.w700,
@@ -61,7 +62,7 @@ class AppTypography {
   }
 
   // Corpo & Operacional (Sans-serif)
-  static TextStyle bodyMedium({Color color = AppColors.textPrimary}) {
+  static TextStyle bodyMedium({Color color = AppColors.inkText}) {
     return GoogleFonts.interTight(
       fontSize: 14,
       fontWeight: FontWeight.w400,
@@ -71,7 +72,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle bodySmall({Color color = AppColors.textSecondary}) {
+  static TextStyle bodySmall({Color color = AppColors.inkSecondary}) {
     return GoogleFonts.interTight(
       fontSize: 12,
       fontWeight: FontWeight.w400,
@@ -82,7 +83,7 @@ class AppTypography {
   }
 
   // Rótulos, Badges & Metadados
-  static TextStyle authorName({Color color = AppColors.textPrimary}) {
+  static TextStyle authorName({Color color = AppColors.inkText}) {
     return GoogleFonts.interTight(
       fontSize: 14,
       fontWeight: FontWeight.w600,
@@ -91,7 +92,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle metaLabel({Color color = AppColors.textSecondary}) {
+  static TextStyle metaLabel({Color color = AppColors.inkSecondary}) {
     return GoogleFonts.interTight(
       fontSize: 11,
       fontWeight: FontWeight.w500,
@@ -100,7 +101,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle sealLabel({Color color = AppColors.iheGold}) {
+  static TextStyle sealLabel({Color color = AppColors.gildedInk}) {
     return GoogleFonts.interTight(
       fontSize: 11,
       fontWeight: FontWeight.w700,
@@ -109,7 +110,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle esgTag({Color color = AppColors.accentOlive}) {
+  static TextStyle esgTag({Color color = AppColors.verdigrisInk}) {
     return GoogleFonts.interTight(
       fontSize: 10,
       fontWeight: FontWeight.w600,
@@ -119,7 +120,7 @@ class AppTypography {
   }
 
   // Métodos de Suporte Editorial
-  static TextStyle displayEditorial({Color color = AppColors.textPrimary}) {
+  static TextStyle displayEditorial({Color color = AppColors.inkText}) {
     return GoogleFonts.bodoniModa(
       fontSize: 32,
       fontWeight: FontWeight.w600,
@@ -129,7 +130,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle subtitleCuratorial({Color color = AppColors.textSecondary}) {
+  static TextStyle subtitleCuratorial({Color color = AppColors.inkSecondary}) {
     return GoogleFonts.bodoniModa(
       fontSize: 18,
       fontWeight: FontWeight.w400,
@@ -139,7 +140,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle uiHeadline({Color color = AppColors.textPrimary}) {
+  static TextStyle uiHeadline({Color color = AppColors.inkText}) {
     return GoogleFonts.interTight(
       fontSize: 15,
       fontWeight: FontWeight.w600,
@@ -149,7 +150,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle bodyReading({Color color = AppColors.textPrimary}) {
+  static TextStyle bodyReading({Color color = AppColors.inkText}) {
     return GoogleFonts.interTight(
       fontSize: 13,
       fontWeight: FontWeight.w400,
@@ -158,7 +159,7 @@ class AppTypography {
     );
   }
 
-  static TextStyle metadataBadge({Color color = AppColors.textSecondary}) {
+  static TextStyle metadataBadge({Color color = AppColors.inkSecondary}) {
     return GoogleFonts.interTight(
       fontSize: 11,
       fontWeight: FontWeight.w600,

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../mocks/mock_community_feed.dart';
 import '../../models/community_post.dart';
+import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../widgets/editorial_feed_card.dart';
+import '../widgets/filter_chips_bar.dart';
 import '../widgets/share_outfit_sheet.dart';
 
+/// Feed Comunitário "Editorial Gallery" (RF14/RF15) sobre a tapeçaria noir (AGENTS.md 7.4)
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
 
@@ -84,89 +88,50 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     final filtered = _filteredPosts;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
-        elevation: 0,
-        centerTitle: false,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Editorial Gallery',
-              style: GoogleFonts.bodoniModa(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: AtelierRoom.tapestryNoir,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: RoomHeader(
+                eyebrow: 'Comunidade • RF14/RF15',
+                title: 'Editorial',
+                subtitle: 'Inspirações de quem compartilha seu estilo',
+                room: AtelierRoom.tapestryNoir,
+                trailing: RoomIconButton(
+                  icon: Icons.add_photo_alternate_outlined,
+                  label: 'Compartilhar look',
+                  filled: true,
+                  onTap: () => ShareOutfitSheet.show(context),
+                ),
               ),
             ),
-            Text(
-              'INSPIRAÇÕES DA COMUNIDADE (RF14/RF15)',
-              style: GoogleFonts.interTight(
-                color: AppColors.textMuted,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
+            SliverToBoxAdapter(
+              child: FilterChipsBar(
+                categories: _filterChips,
+                selectedIndex: _filterChips.indexOf(_selectedFilter),
+                onCategorySelected: (index) => _onFilterSelected(_filterChips[index]),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+              sliver: SliverList.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final post = filtered[index];
+                  return EditorialFeedCard(
+                    post: post,
+                    onLikeToggle: () => _toggleLike(index),
+                    onSaveToggle: () => _toggleSave(index),
+                  );
+                },
               ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_photo_alternate_outlined, color: AppColors.textPrimary),
-            onPressed: () => ShareOutfitSheet.show(context),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Horizontal Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: _filterChips.map((chip) {
-                final isSelected = _selectedFilter == chip;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(chip),
-                    selected: isSelected,
-                    onSelected: (_) => _onFilterSelected(chip),
-                    selectedColor: AppColors.surfaceRaised,
-                    backgroundColor: AppColors.surfaceCanvas,
-                    labelStyle: GoogleFonts.interTight(
-                      color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                    side: BorderSide(
-                      color: isSelected ? AppColors.iheGold : AppColors.borderSubtle,
-                      width: isSelected ? 1.2 : 0.8,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Feed List
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final post = filtered[index];
-                return EditorialFeedCard(
-                  post: post,
-                  onLikeToggle: () => _toggleLike(index),
-                  onSaveToggle: () => _toggleSave(index),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

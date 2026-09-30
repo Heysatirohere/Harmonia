@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../domain/repositories/auth_repository.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../auth/auth_scope.dart';
 import '../widgets/editorial_form.dart';
 
@@ -112,7 +115,9 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     try {
       await AuthScope.of(context).sendPasswordReset(email);
-      if (mounted) setState(() => _success = 'Se houver conta para $email, o link de redefinição chegará em instantes.');
+      if (mounted) {
+        setState(() => _success = 'Se houver conta para $email, o link de redefinição chegará em instantes.');
+      }
     } on AuthFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -123,39 +128,50 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: AutofillGroup(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildMasthead(),
-                      const SizedBox(height: 40),
-                      _ModeSwitch(mode: _mode, onChanged: _switchMode),
-                      const SizedBox(height: 28),
-                      if (_error != null) ...[
-                        FormNotice(message: _error!),
-                        const SizedBox(height: AppSpacing.elementGap),
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: AtelierRoom.velvetBordeaux,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin, vertical: 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: AutofillGroup(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildMasthead(),
+                        const SizedBox(height: 40),
+                        AtelierSheet(
+                          padding: const EdgeInsets.all(AppSpacing.pageMargin),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _ModeSwitch(mode: _mode, onChanged: _switchMode),
+                              const SizedBox(height: 28),
+                              if (_error != null) ...[
+                                FormNotice(message: _error!),
+                                const SizedBox(height: AppSpacing.elementGap),
+                              ],
+                              if (_success != null) ...[
+                                FormNotice(message: _success!, tone: FormNoticeTone.success),
+                                const SizedBox(height: AppSpacing.elementGap),
+                              ],
+                              _buildFields(),
+                              const SizedBox(height: 28),
+                              EditorialButton(
+                                label: _isSignUp ? 'Criar conta' : 'Entrar',
+                                isLoading: _isLoading,
+                                onPressed: _submit,
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
-                      if (_success != null) ...[
-                        FormNotice(message: _success!, tone: FormNoticeTone.success),
-                        const SizedBox(height: AppSpacing.elementGap),
-                      ],
-                      _buildFields(),
-                      const SizedBox(height: 28),
-                      EditorialButton(
-                        label: _isSignUp ? 'Criar conta' : 'Entrar',
-                        isLoading: _isLoading,
-                        onPressed: _submit,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -172,14 +188,10 @@ class _AuthScreenState extends State<AuthScreen> {
         Text(
           'ATELIÊ DIGITAL',
           textAlign: TextAlign.center,
-          style: AppTypography.metadataBadge(color: AppColors.iheGold).copyWith(letterSpacing: 2.4),
+          style: AppTypography.atelierMeta(color: AppColors.gildedLeaf).copyWith(letterSpacing: 2.4),
         ),
         const SizedBox(height: 12),
-        Text(
-          'HarmonIA',
-          textAlign: TextAlign.center,
-          style: AppTypography.displayEditorial().copyWith(fontSize: 40),
-        ),
+        Text('HarmonIA', textAlign: TextAlign.center, style: AppTypography.heroDisplay().copyWith(fontSize: 52)),
         const SizedBox(height: 8),
         AnimatedSwitcher(
           duration: AppMotion.medium,
@@ -188,7 +200,7 @@ class _AuthScreenState extends State<AuthScreen> {
             _isSignUp ? 'Seu acervo, curado desde o primeiro dia.' : 'Que bom ter você de volta ao seu acervo.',
             key: ValueKey(_mode),
             textAlign: TextAlign.center,
-            style: AppTypography.subtitleCuratorial(),
+            style: AppTypography.subtitleCuratorial(color: AppColors.ivoryMuted),
           ),
         ),
       ],
@@ -251,10 +263,7 @@ class _AuthScreenState extends State<AuthScreen> {
               enabled: !_isLoading,
             ),
             const SizedBox(height: 20),
-            _ConsentToggle(
-              value: _consentGiven,
-              onChanged: (value) => setState(() => _consentGiven = value),
-            ),
+            _ConsentToggle(value: _consentGiven, onChanged: (value) => setState(() => _consentGiven = value)),
           ] else ...[
             const SizedBox(height: 12),
             Align(
@@ -266,10 +275,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Text(
                     'Esqueci minha senha',
-                    style: AppTypography.bodySmall(color: AppColors.textPrimary).copyWith(
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppColors.textMuted,
-                    ),
+                    style: AppTypography.bodySmall(
+                      color: AppColors.inkText,
+                    ).copyWith(decoration: TextDecoration.underline, decorationColor: AppColors.inkSecondary),
                   ),
                 ),
               ),
@@ -292,25 +300,17 @@ class _ModeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.borderSubtle, width: 0.8)),
+        border: Border(bottom: BorderSide(color: AppColors.hairlineInk, width: 0.8)),
       ),
       child: Stack(
         children: [
-          Row(
-            children: [
-              _tab('Entrar', _AuthMode.signIn),
-              _tab('Criar conta', _AuthMode.signUp),
-            ],
-          ),
+          Row(children: [_tab('Entrar', _AuthMode.signIn), _tab('Criar conta', _AuthMode.signUp)]),
           Positioned.fill(
             child: AnimatedAlign(
               duration: AppMotion.medium,
               curve: AppMotion.editorialDecel,
               alignment: mode == _AuthMode.signIn ? Alignment.bottomLeft : Alignment.bottomRight,
-              child: FractionallySizedBox(
-                widthFactor: 0.5,
-                child: Container(height: 1.2, color: AppColors.textPrimary),
-              ),
+              child: FractionallySizedBox(widthFactor: 0.5, child: Container(height: 1.2, color: AppColors.inkText)),
             ),
           ),
         ],
@@ -332,9 +332,7 @@ class _ModeSwitch extends StatelessWidget {
             child: AnimatedDefaultTextStyle(
               duration: AppMotion.fast,
               curve: AppMotion.editorialDecel,
-              style: AppTypography.uiHeadline(
-                color: selected ? AppColors.textPrimary : AppColors.textMuted,
-              ),
+              style: AppTypography.uiHeadline(color: selected ? AppColors.inkText : AppColors.inkSecondary),
               textAlign: TextAlign.center,
               child: Text(label),
             ),
@@ -374,14 +372,11 @@ class _ConsentToggle extends StatelessWidget {
               height: 18,
               margin: const EdgeInsets.only(top: 1),
               decoration: BoxDecoration(
-                color: value ? AppColors.textPrimary : Colors.transparent,
+                color: value ? AppColors.inkText : Colors.transparent,
                 borderRadius: BorderRadius.circular(5),
-                border: Border.all(
-                  color: value ? AppColors.textPrimary : AppColors.textMuted,
-                  width: 1,
-                ),
+                border: Border.all(color: value ? AppColors.inkText : AppColors.inkSecondary, width: 1),
               ),
-              child: value ? const Icon(Icons.check, size: 12, color: AppColors.surfaceCanvas) : null,
+              child: value ? const Icon(Icons.check, size: 12, color: AppColors.paperBone) : null,
             ),
             const SizedBox(width: 12),
             Expanded(

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 import 'clothing_item.dart';
 
 /// Distribuição Cromática Dominante do Guarda-Roupa (CIE L*a*b*)
@@ -94,25 +93,25 @@ class WardrobeAnalytics {
     final colors = [
       const DominantColorShare(
         colorName: 'Terracota Ateliê',
-        color: AppColors.accentTerracotta,
+        color: Color(0xFFA34836),
         percentage: 34.0,
         labCoordinates: 'L* 58.4, a* 28.2, b* 24.1',
       ),
       const DominantColorShare(
         colorName: 'Areia Suave & Linho',
-        color: AppColors.accentSand,
+        color: Color(0xFFD9CDBF),
         percentage: 26.0,
         labCoordinates: 'L* 82.1, a* 4.3, b* 11.8',
       ),
       const DominantColorShare(
         colorName: 'Verde Oliva Botânico',
-        color: AppColors.accentOlive,
+        color: Color(0xFF4B5842),
         percentage: 22.0,
         labCoordinates: 'L* 44.2, a* -6.1, b* 18.5',
       ),
       const DominantColorShare(
         colorName: 'Carvão Editorial',
-        color: AppColors.textPrimary,
+        color: Color(0xFF1A1817),
         percentage: 18.0,
         labCoordinates: 'L* 21.0, a* 0.5, b* 1.2',
       ),

@@ -110,20 +110,20 @@ void main() {
       );
 
       // Header e Título
-      expect(find.text('Sugestão Diária'), findsOneWidget);
-      expect(find.text('CURADORIA HARMONIA • 27 SETEMBRO'), findsOneWidget);
+      expect(find.text('Look do Dia'), findsOneWidget);
+      expect(find.textContaining('CURADORIA •'), findsOneWidget, reason: 'data do dia, não mais fixa');
 
       // WeatherContextBadge no topo
       expect(find.byType(WeatherContextBadge), findsOneWidget);
 
       // Elementos do Look
-      expect(find.text('LOOK FORTEMENTE RECOMENDADO'), findsOneWidget);
-      expect(find.text('Sobreposição Terracota em Linho Cru'), findsOneWidget);
+      expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsOneWidget);
+      expect(find.text('Sobreposição terracota em linho cru'), findsOneWidget);
       expect(find.text('Blazer Desestruturado em Linho'), findsOneWidget);
 
       // Botões de Ação 3 Toques
-      expect(find.text('Aprovar Look do Dia'), findsOneWidget);
-      expect(find.text('Simular no Provador (Mirror Mode)'), findsOneWidget);
+      expect(find.text('Aprovar look do dia', skipOffstage: false), findsOneWidget);
+      expect(find.text('Simular no provador', skipOffstage: false), findsOneWidget);
     });
 
     testWidgets('approving look changes state and displays feedback snackbar', (WidgetTester tester) async {
@@ -138,10 +138,12 @@ void main() {
       );
 
       // Clica em 'Aprovar Look do Dia'
-      await tester.tap(find.text('Aprovar Look do Dia'));
+      await tester.ensureVisible(find.text('Aprovar look do dia'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aprovar look do dia'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Look Aprovado'), findsOneWidget);
+      expect(find.text('Look aprovado'), findsOneWidget);
       expect(find.text('Look do dia registrado no seu acervo!'), findsOneWidget);
     });
   });

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../models/community_post.dart';
+import '../../theme/app_theme.dart';
 
+/// Post do "Editorial Gallery" direto sobre a tapeçaria noir (AGENTS.md 7.4):
+/// foto de página inteira, hotspots em anel dourado e ficha da peça em papel.
 class EditorialFeedCard extends StatefulWidget {
   final CommunityPost post;
   final VoidCallback? onLikeToggle;
@@ -28,296 +29,281 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
   Widget build(BuildContext context) {
     final post = widget.post;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSubtle, width: 0.8),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 44),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Author Header
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.surfaceRaised,
-                  child: Text(
-                    post.authorName[0],
-                    style: GoogleFonts.bodoniModa(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+          // Autor
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.hairlineGold, width: 1.0),
+                ),
+                child: Text(
+                  post.authorName[0],
+                  style: AppTypography.displayEditorial(color: AppColors.ivoryText).copyWith(fontSize: 16),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(post.authorName, style: AppTypography.uiHeadline(color: AppColors.ivoryText)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${post.authorBiotype} • ${post.authorColorPalette}'.toUpperCase(),
+                      style: AppTypography.atelierMeta().copyWith(fontSize: 9),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        post.authorName,
-                        style: GoogleFonts.interTight(
-                          color: AppColors.textPrimary,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          _buildBadge(post.authorBiotype),
-                          const SizedBox(width: 6),
-                          _buildBadge(post.authorColorPalette),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderGold, width: 0.6),
-                  ),
-                  child: Text(
-                    '✦ ${post.iheScore.toStringAsFixed(1)}%',
-                    style: GoogleFonts.interTight(
-                      color: AppColors.iheGold,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              Text(
+                '✦ ${post.iheScore.toStringAsFixed(1)}%',
+                style: AppTypography.displayEditorial(color: AppColors.gildedLeaf).copyWith(fontSize: 18),
+              ),
+            ],
           ),
+          const SizedBox(height: 14),
 
-          // Editorial Photo Container with Hotspots
+          // Foto editorial com hotspots (posições relativas ao tamanho real da foto)
           AspectRatio(
             aspectRatio: 3 / 4,
             child: ClipRRect(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Image.network(
-                      post.outfitImageUrl,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.network(
+                        post.outfitImageUrl,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.medium,
+                        cacheWidth: (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context)).round(),
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: const Color(0x14F4EEE1),
                           child: const Center(
-                            child: Icon(Icons.style_outlined, color: AppColors.iheGold, size: 48),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Hotspots overlay
-                  ...post.garmentHotspots.map((hotspot) {
-                    final isSelected = _selectedHotspot == hotspot;
-                    return Positioned(
-                      left: hotspot.xRatio * 300,
-                      top: hotspot.yRatio * 400,
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _selectedHotspot = isSelected ? null : hotspot;
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.accentTerracotta
-                                : Colors.white.withValues(alpha: 0.85),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.iheGold,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.circle,
-                            size: 8,
-                            color: isSelected ? Colors.white : AppColors.accentTerracotta,
+                            child: Icon(Icons.style_outlined, color: AppColors.gildedLeaf, size: 44),
                           ),
                         ),
                       ),
-                    );
-                  }),
-
-                  // Expanded Hotspot Info Chip
-                  if (_selectedHotspot != null)
-                    Positioned(
-                      bottom: 16,
-                      left: 16,
-                      right: 16,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceCanvas.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderGold, width: 0.8),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Color(int.parse(_selectedHotspot!.colorHex.replaceAll('#', '0xFF'))),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 1.5),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _selectedHotspot!.name,
-                                    style: GoogleFonts.interTight(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_selectedHotspot!.brand} • ${_selectedHotspot!.fabric}',
-                                    style: GoogleFonts.interTight(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 16, color: AppColors.textSecondary),
-                              onPressed: () => setState(() => _selectedHotspot = null),
-                            ),
-                          ],
+                    ),
+                    for (final hotspot in post.garmentHotspots)
+                      Positioned(
+                        left: hotspot.xRatio * constraints.maxWidth - 14,
+                        top: hotspot.yRatio * constraints.maxHeight - 14,
+                        child: _HotspotRing(
+                          selected: _selectedHotspot == hotspot,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _selectedHotspot = _selectedHotspot == hotspot ? null : hotspot;
+                            });
+                          },
                         ),
                       ),
-                    ),
-                ],
+                    if (_selectedHotspot != null)
+                      Positioned(
+                        bottom: 14,
+                        left: 14,
+                        right: 14,
+                        child: _HotspotSheet(
+                          hotspot: _selectedHotspot!,
+                          onClose: () => setState(() => _selectedHotspot = null),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // Actions & Caption
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        widget.onLikeToggle?.call();
-                      },
-                      child: Row(
-                        children: [
-                          Icon(
-                            post.isLiked ? Icons.favorite : Icons.favorite_border,
-                            size: 20,
-                            color: post.isLiked ? AppColors.accentTerracotta : AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${post.likeCount}',
-                            style: GoogleFonts.interTight(
-                              color: AppColors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        widget.onSaveToggle?.call();
-                      },
-                      child: Icon(
-                        post.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                        size: 20,
-                        color: post.isSaved ? AppColors.accentTerracotta : AppColors.textSecondary,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      post.isPublic ? 'PÚBLICO' : 'PRIVADO',
-                      style: GoogleFonts.interTight(
-                        color: AppColors.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  post.outfitTitle,
-                  style: GoogleFonts.bodoniModa(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  children: post.tags.map((t) => Text(
-                    '#$t',
-                    style: GoogleFonts.interTight(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )).toList(),
-                ),
-              ],
-            ),
+          const SizedBox(height: 14),
+
+          // Título, ações e tags
+          Text(
+            post.outfitTitle,
+            style: AppTypography.displayEditorial(color: AppColors.ivoryText).copyWith(fontSize: 22, height: 1.15),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final tag in post.tags) Text('#$tag', style: AppTypography.bodySmall(color: AppColors.ivoryMuted)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _FeedAction(
+                icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
+                active: post.isLiked,
+                label: '${post.likeCount}',
+                semanticLabel: post.isLiked ? 'Descurtir' : 'Curtir',
+                onTap: widget.onLikeToggle,
+              ),
+              const SizedBox(width: 22),
+              _FeedAction(
+                icon: post.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                active: post.isSaved,
+                semanticLabel: post.isSaved ? 'Remover do moodboard' : 'Salvar no moodboard',
+                onTap: widget.onSaveToggle,
+              ),
+              const Spacer(),
+              Text(post.isPublic ? 'PÚBLICO' : 'PRIVADO', style: AppTypography.atelierMeta().copyWith(fontSize: 9.5)),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildBadge(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: GoogleFonts.interTight(
-          color: AppColors.textSecondary,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
+class _FeedAction extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final String? label;
+  final String semanticLabel;
+  final VoidCallback? onTap;
+
+  const _FeedAction({
+    required this.icon,
+    required this.active,
+    required this.semanticLabel,
+    this.label,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Cinábrio sobre a tapeçaria noir: 3,3:1, suficiente para ícone
+    final color = active ? AppColors.accentCinnabar : AppColors.ivoryText;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap?.call();
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Row(
+          children: [
+            AnimatedSwitcher(
+              duration: AppMotion.fast,
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: CurvedAnimation(parent: animation, curve: AppMotion.theatricalGesture),
+                child: child,
+              ),
+              child: Icon(icon, key: ValueKey(active), size: 22, color: color),
+            ),
+            if (label != null) ...[
+              const SizedBox(width: 6),
+              Text(label!, style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 13)),
+            ],
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Anel capilar dourado sobre a peça da foto (AGENTS.md 7.4)
+class _HotspotRing extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _HotspotRing({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Detalhes da peça',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.editorialDecel,
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: selected ? AppColors.gildedLeaf : AppColors.tapestryNoir.withValues(alpha: 0.35),
+            border: Border.all(color: AppColors.gildedLeaf, width: 1.2),
+          ),
+          child: Center(
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? AppColors.tapestryNoir : AppColors.gildedLeaf,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ficha da peça em papel sobre a foto: marca, tecido e cor
+class _HotspotSheet extends StatelessWidget {
+  final GarmentHotspot hotspot;
+  final VoidCallback onClose;
+
+  const _HotspotSheet({required this.hotspot, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      decoration: BoxDecoration(
+        color: AppColors.paperBone,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        boxShadow: AppColors.paperShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Color(int.parse(hotspot.colorHex.replaceAll('#', '0xFF'))),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.hairlineInk, width: 1.0),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(hotspot.name, style: AppTypography.uiHeadline(color: AppColors.inkText).copyWith(fontSize: 13.5)),
+                Text(
+                  '${hotspot.brand} • ${hotspot.fabric}',
+                  style: AppTypography.bodySmall(color: AppColors.inkSecondary),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Fechar',
+            icon: const Icon(Icons.close, size: 16, color: AppColors.inkSecondary),
+            onPressed: onClose,
+          ),
+        ],
       ),
     );
   }

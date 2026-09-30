@@ -194,7 +194,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('Guarda-roupa', style: AppTypography.heroDisplay()),
+                Text('Guarda-roupa', style: AppTypography.heroDisplay().copyWith(fontSize: 40)),
                 const SizedBox(height: 4),
                 Text(
                   'The Floating Canvas',

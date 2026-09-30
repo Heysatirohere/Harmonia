@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../mocks/mock_weather.dart';
 import '../../models/weather_context.dart';
+import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../widgets/weather_context_badge.dart';
 import 'store_mirror_screen.dart';
 
 /// Tela de Sugestão Diária de Look (DailyOutfitScreen - RF16)
 ///
-/// Segue a diretriz máxima do AGENTS.md:
-/// - Fundo creme quente (#FBF9F5)
-/// - Posicionamento fluido do WeatherContextBadge no topo
-/// - "Floating Canvas" para a arara virtual de peças sem molduras duras
-/// - Medidor de IHE tipo chancela joalheria
-/// - Regra dos 3 toques para aprovação e provador
+/// Renascença do Ateliê (AGENTS.md 4.2 e 7.2):
+/// - Veludo bordô na composição do look; ao rolar até o IHE, a Sala dissolve em ocre dourado
+/// - Peças listadas direto sobre a Sala, sem cartões
+/// - Pontuação IHE em Bodoni de joalheria e ações em até 3 toques
 class DailyOutfitScreen extends StatefulWidget {
   final WeatherContext? weatherContext;
 
@@ -32,10 +32,20 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   late final WeatherContext _weather;
   bool _isApproved = false;
 
+  static const _months = [
+    'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+  ];
+
   @override
   void initState() {
     super.initState();
     _weather = widget.weatherContext ?? MockWeather.current;
+  }
+
+  String get _today {
+    final now = DateTime.now();
+    return '${now.day} de ${_months[now.month - 1]}';
   }
 
   void _handleApproveLook() {
@@ -46,23 +56,19 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: AppColors.tapestryNoir,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+          side: const BorderSide(color: AppColors.hairlineGold, width: 0.8),
+        ),
         content: Row(
           children: [
-            const Icon(Icons.check_circle_outline,
-                color: AppColors.iheGold, size: 18),
-            const SizedBox(width: 8),
+            const Icon(Icons.check_circle_outline, color: AppColors.gildedLeaf, size: 18),
+            const SizedBox(width: 10),
             Text(
-              _isApproved
-                  ? 'Look do dia registrado no seu acervo!'
-                  : 'Aprovação desfeita.',
-              style: GoogleFonts.interTight(
-                color: AppColors.surfaceCanvas,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
-              ),
+              _isApproved ? 'Look do dia registrado no seu acervo!' : 'Aprovação desfeita.',
+              style: AppTypography.bodyReading(color: AppColors.ivoryText),
             ),
           ],
         ),
@@ -70,17 +76,22 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     );
   }
 
-  void _handleOpenMirrorMode() {
+  void _openMirrorMode() {
+    HapticFeedback.mediumImpact();
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreMirrorScreen()));
+  }
+
+  void _handleOpenMirrorSheet() {
     HapticFeedback.lightImpact();
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
       builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceRaised,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppColors.borderSubtle, width: 0.8),
+        padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + MediaQuery.paddingOf(ctx).bottom),
+        decoration: const BoxDecoration(
+          color: AppColors.paperBone,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLarge)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -89,59 +100,31 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.3),
+                color: AppColors.hairlineInk,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
-            const Icon(Icons.center_focus_strong,
-                size: 32, color: AppColors.iheGold),
+            const SizedBox(height: 20),
+            const Icon(Icons.center_focus_strong, size: 30, color: AppColors.gildedInk),
             const SizedBox(height: 10),
             Text(
-              'Mirror Mode • Provador AR',
-              style: GoogleFonts.bodoniModa(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+              'Mirror Mode',
+              style: AppTypography.displayEditorial(color: AppColors.inkText).copyWith(fontSize: 26),
             ),
             const SizedBox(height: 6),
             Text(
-              'HUD minimalista ativado para paridade física com as peças do seu guarda-roupa.',
+              'HUD de enquadramento para comparar a peça da loja com o seu guarda-roupa.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.interTight(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+              style: AppTypography.bodyReading(color: AppColors.inkSecondary),
             ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const StoreMirrorScreen(),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentTerracotta,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(
-                  'Iniciar Câmera de Paridade',
-                  style: GoogleFonts.interTight(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+            const SizedBox(height: 20),
+            CinnabarButton(
+              label: 'Iniciar câmera de paridade',
+              icon: Icons.photo_camera_outlined,
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openMirrorMode();
+              },
             ),
           ],
         ),
@@ -151,359 +134,207 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const iheScore = 89;
+    final strong = iheScore >= 75;
+
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'CURADORIA HARMONIA • 27 SETEMBRO',
-              style: GoogleFonts.interTight(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Sugestão Diária',
-              style: GoogleFonts.bodoniModa(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Modo Provador (Mirror Mode)',
-            icon: const Icon(Icons.center_focus_strong,
-                color: AppColors.iheGold, size: 22),
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const StoreMirrorScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune, color: AppColors.textPrimary, size: 22),
-            onPressed: () {
-              HapticFeedback.selectionClick();
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: AtelierRoom.velvetBordeaux,
+        child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. POSICIONAMENTO FLUIDO DO BADGE DE CLIMA NO TOPO (RF16)
-              WeatherContextBadge(weatherContext: _weather),
-
-              const SizedBox(height: 20),
-
-              // 2. CHANCELA IHE & TÍTULO EDITORIAL DO LOOK
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.borderSubtle,
-                    width: 0.8,
-                  ),
+          slivers: [
+            const RoomMarker(room: AtelierRoom.velvetBordeaux),
+            SliverToBoxAdapter(
+              child: RoomHeader(
+                eyebrow: 'Curadoria • $_today',
+                title: 'Look do Dia',
+                subtitle: 'Sobreposição terracota em linho cru',
+                room: AtelierRoom.velvetBordeaux,
+                trailing: RoomIconButton(
+                  icon: Icons.center_focus_strong,
+                  label: 'Modo Provador (Mirror Mode)',
+                  onTap: _openMirrorMode,
                 ),
+              ),
+            ),
+
+            // 1. Clima local (RF16)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+              sliver: SliverToBoxAdapter(child: WeatherContextBadge(weatherContext: _weather)),
+            ),
+
+            // 2. "The Floating Canvas": peças do look direto sobre o veludo
+            const SliverToBoxAdapter(child: RoomSectionTitle(title: 'Composição', meta: '3 peças')),
+            const SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate.fixed([
+                  _GarmentRow(
+                    category: 'Alfaiataria • superior',
+                    title: 'Blazer Desestruturado em Linho',
+                    provenance: 'Acervo pessoal • 4 anos de uso',
+                    color: Color(0xFFA34836),
+                    tag: '100% linho reciclado',
+                  ),
+                  _GarmentRow(
+                    category: 'Base superior',
+                    title: 'Regata Seda Areia',
+                    provenance: 'Brechó vintage paulistano',
+                    color: Color(0xFFD9CDBF),
+                    tag: 'Segunda mão certificada',
+                  ),
+                  _GarmentRow(
+                    category: 'Base inferior',
+                    title: 'Pantalona Ampla Off-White',
+                    provenance: 'Ateliê sustentável local',
+                    color: Color(0xFFF1ECE2),
+                    tag: 'Algodão orgânico',
+                    isLast: true,
+                  ),
+                ]),
+              ),
+            ),
+
+            // 3. Medidor IHE: a Sala dissolve em ocre dourado
+            const RoomMarker(room: AtelierRoom.gildedOchre),
+            const SliverToBoxAdapter(child: RoomSectionTitle(title: 'Harmonia do look', meta: 'IHE')),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+              sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Badge IHE Selo Joalheria
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: AppColors.iheGoldLight,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppColors.borderGold,
-                              width: 0.8,
-                            ),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$iheScore',
+                            style: AppTypography.heroDisplay().copyWith(fontSize: 96, height: 0.9),
                           ),
-                          child: Row(
-                            children: [
-                              const Text('✦ ',
-                                  style: TextStyle(
-                                      color: AppColors.iheGold, fontSize: 10)),
-                              Text(
-                                'LOOK FORTEMENTE RECOMENDADO',
-                                style: GoogleFonts.interTight(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.6,
-                                  color: AppColors.iheGold,
-                                ),
-                              ),
-                            ],
+                          TextSpan(
+                            text: '%',
+                            style: AppTypography.heroDisplay(color: AppColors.gildedLeaf).copyWith(fontSize: 48),
                           ),
-                        ),
-                        // Score IHE 89%
-                        Text(
-                          '89%',
-                          style: GoogleFonts.bodoniModa(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.iheGold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Text(
-                      'Sobreposição Terracota em Linho Cru',
-                      style: GoogleFonts.bodoniModa(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        ],
                       ),
                     ),
-
-                    const SizedBox(height: 6),
-
+                    if (strong) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Text('✦ ', style: TextStyle(fontSize: 16, color: AppColors.gildedLeaf)),
+                          Text(
+                            'LOOK FORTEMENTE RECOMENDADO',
+                            style: AppTypography.atelierMeta(color: AppColors.ivoryText),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 14),
                     Text(
-                      'Composição pensada para o clima de ${_weather.city} (${_weather.formattedTemperature}), garantindo transição perfeita entre ambientes.',
-                      style: GoogleFonts.interTight(
-                        fontSize: 12.5,
-                        color: AppColors.textSecondary,
-                        height: 1.45,
+                      'Composição pensada para o clima de ${_weather.city} (${_weather.formattedTemperature}), '
+                      'garantindo transição perfeita entre ambientes.',
+                      style: AppTypography.bodyReading(color: AppColors.ivoryMuted).copyWith(fontSize: 14),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // 4. Ações de 3 toques (RNF06)
+                    CinnabarButton(
+                      label: _isApproved ? 'Look aprovado' : 'Aprovar look do dia',
+                      icon: _isApproved ? Icons.check_circle : Icons.favorite_border,
+                      onPressed: _handleApproveLook,
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: _handleOpenMirrorSheet,
+                        icon: const Icon(Icons.remove_red_eye_outlined, size: 18, color: AppColors.ivoryText),
+                        label: Text(
+                          'Simular no provador',
+                          style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 14),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.hairlineIvory, width: 1.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // 3. "THE FLOATING CANVAS" (ARARA VIRTUAL)
-              Text(
-                'COMPOSIÇÃO DO ACERVO',
-                style: GoogleFonts.interTight(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Cards Flutuantes de Peças (Floating Canvas)
-              const _GarmentItemCard(
-                category: 'ALFAIATARIA (SUPERIOR)',
-                title: 'Blazer Desestruturado em Linho',
-                provenance: 'Acervo Pessoal • 4 anos de uso',
-                colorAccent: AppColors.accentTerracotta,
-                tag: '100% Linho Reciclado',
-              ),
-              const SizedBox(height: 10),
-              const _GarmentItemCard(
-                category: 'BASE SUPERIOR',
-                title: 'Regata Seda Areia',
-                provenance: 'Brechó Vintage Paulistano',
-                colorAccent: AppColors.accentSand,
-                tag: 'Segunda Mão Certificada',
-              ),
-              const SizedBox(height: 10),
-              const _GarmentItemCard(
-                category: 'BASE INFERIOR',
-                title: 'Pantalona Ampla Off-White',
-                provenance: 'Ateliê Sustentável Local',
-                colorAccent: AppColors.accentOlive,
-                tag: 'Algodão Orgânico',
-              ),
-
-              const SizedBox(height: 24),
-
-              // 4. AÇÕES DE 3 TOQUES (RNF06)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _handleApproveLook,
-                  icon: Icon(
-                    _isApproved ? Icons.check_circle : Icons.favorite_border,
-                    size: 18,
-                  ),
-                  label: Text(
-                    _isApproved ? 'Look Aprovado' : 'Aprovar Look do Dia',
-                    style: GoogleFonts.interTight(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isApproved
-                        ? AppColors.accentOlive
-                        : AppColors.accentTerracotta,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _handleOpenMirrorMode,
-                  icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
-                  label: Text(
-                    'Simular no Provador (Mirror Mode)',
-                    style: GoogleFonts.interTight(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                        color: AppColors.borderSubtle, width: 0.8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: AppColors.surfaceRaised,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+            SliverToBoxAdapter(child: SizedBox(height: MediaQuery.sizeOf(context).height * 0.5)),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Widget individual da peça flutuante no Floating Canvas
-class _GarmentItemCard extends StatelessWidget {
+/// Peça do look direto sobre a Sala: amostra tonal, nome em Bodoni e proveniência
+class _GarmentRow extends StatelessWidget {
   final String category;
   final String title;
   final String provenance;
-  final Color colorAccent;
+  final Color color;
   final String tag;
+  final bool isLast;
 
-  const _GarmentItemCard({
+  const _GarmentRow({
     required this.category,
     required this.title,
     required this.provenance,
-    required this.colorAccent,
+    required this.color,
     required this.tag,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.borderSubtle,
-          width: 0.8,
-        ),
-        boxShadow: AppColors.floatingGarmentShadow,
+        border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.hairlineIvory, width: 0.6)),
       ),
       child: Row(
         children: [
-          // Amostra Tonal da Cor
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: colorAccent,
+              color: color,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.borderSubtle,
-                width: 0.8,
-              ),
+              border: Border.all(color: AppColors.hairlineIvory, width: 1.0),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  category,
-                  style: GoogleFonts.interTight(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
+                Text(category.toUpperCase(), style: AppTypography.atelierMeta().copyWith(fontSize: 9.5)),
+                const SizedBox(height: 3),
                 Text(
                   title,
-                  style: GoogleFonts.bodoniModa(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: AppTypography.displayEditorial(color: AppColors.ivoryText).copyWith(fontSize: 18, height: 1.2),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  provenance,
-                  style: GoogleFonts.interTight(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
+                const SizedBox(height: 3),
+                Text(provenance, style: AppTypography.bodySmall(color: AppColors.ivoryMuted)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.eco_outlined, size: 12, color: AppColors.verdigrisLight),
+                    const SizedBox(width: 5),
+                    Text(tag, style: AppTypography.bodySmall(color: AppColors.verdigrisLight).copyWith(fontSize: 11.5)),
+                  ],
                 ),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCanvas,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.borderSubtle,
-                width: 0.6,
-              ),
-            ),
-            child: Text(
-              tag,
-              style: GoogleFonts.interTight(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.accentOlive,
-              ),
             ),
           ),
         ],

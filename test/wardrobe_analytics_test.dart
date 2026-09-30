@@ -42,7 +42,7 @@ void main() {
       );
 
       // 1. Cabeçalho Editorial
-      expect(find.text('Saúde do Guarda-Roupa'), findsOneWidget);
+      expect(find.text('Saúde do Acervo'), findsOneWidget);
       expect(find.text('INTELIGÊNCIA PATRIMONIAL & ESG'), findsOneWidget);
 
       // 2. Card de Diagnóstico ESG

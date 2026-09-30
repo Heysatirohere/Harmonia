@@ -40,7 +40,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvasDark,
+      backgroundColor: AppColors.tapestryNoir,
       body: Stack(
         // O body do Scaffold tem altura livre; sem expand a Stack encolhe até a barra do topo
         fit: StackFit.expand,
@@ -53,9 +53,9 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
               filterQuality: FilterQuality.medium,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
-                  color: AppColors.surfaceCanvasDark,
+                  color: AppColors.tapestryNoir,
                   child: const Center(
-                    child: Icon(Icons.camera_alt_outlined, color: Colors.white30, size: 64),
+                    child: Icon(Icons.camera_alt_outlined, color: AppColors.hairlineIvory, size: 64),
                   ),
                 );
               },
@@ -63,7 +63,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
           ),
           Positioned.fill(
             child: Container(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: AppColors.tapestryNoir.withValues(alpha: 0.35),
             ),
           ),
 
@@ -71,7 +71,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
           Positioned.fill(
             child: CustomPaint(
               painter: _ViewfinderPainter(
-                lineColor: AppColors.borderGold,
+                lineColor: AppColors.gildedLeaf,
               ),
             ),
           ),
@@ -89,25 +89,25 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.ivoryText, size: 20),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
+                        color: AppColors.tapestryNoir.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.borderGold, width: 0.8),
+                        border: Border.all(color: AppColors.hairlineGold, width: 0.8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.flare, color: AppColors.iheGold, size: 14),
+                          const Icon(Icons.flare, color: AppColors.gildedLeaf, size: 14),
                           const SizedBox(width: 6),
                           Text(
                             'MIRROR MODE • PROVADOR',
                             style: GoogleFonts.interTight(
-                              color: Colors.white,
+                              color: AppColors.ivoryText,
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.8,
@@ -154,8 +154,8 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
                       child: CustomPaint(
                         size: const Size(76, 76),
                         painter: _ShutterButtonPainter(
-                          borderColor: AppColors.iheGold,
-                          innerColor: AppColors.surfaceCanvas,
+                          borderColor: AppColors.gildedLeaf,
+                          innerColor: AppColors.ivoryText,
                         ),
                       ),
                     ),
@@ -164,7 +164,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
                   Text(
                     'Toque para analisar paridade com seu acervo',
                     style: GoogleFonts.interTight(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: AppColors.ivoryMuted,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
                     ),
@@ -192,18 +192,18 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.surfaceCanvas
-              : Colors.black.withValues(alpha: 0.45),
+              ? AppColors.ivoryText
+              : AppColors.tapestryNoir.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.iheGold : Colors.white24,
+            color: isSelected ? AppColors.gildedLeaf : AppColors.hairlineIvory,
             width: 1.0,
           ),
         ),
         child: Text(
           storeName,
           style: GoogleFonts.interTight(
-            color: isSelected ? AppColors.textPrimary : Colors.white,
+            color: isSelected ? AppColors.inkText : AppColors.ivoryText,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),

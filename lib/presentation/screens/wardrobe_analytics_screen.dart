@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../models/wardrobe_analytics.dart';
 import '../../theme/app_theme.dart';
-import '../widgets/ihe_score_gauge.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 
 /// Tela do Dashboard Analítico de Rotação de Acervo & ESG (Seção 3.2.2 da Doc)
 ///
@@ -17,16 +17,16 @@ import '../widgets/ihe_score_gauge.dart';
 class WardrobeAnalyticsScreen extends StatefulWidget {
   final List<ClothingItem>? items;
 
-  const WardrobeAnalyticsScreen({
-    super.key,
-    this.items,
-  });
+  const WardrobeAnalyticsScreen({super.key, this.items});
 
   @override
   State<WardrobeAnalyticsScreen> createState() => _WardrobeAnalyticsScreenState();
 }
 
 class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
+  /// Cor de dado (não é token de interface): areia escurecida, visível sobre o papel
+  static const _idle30Color = Color(0xFFA89170);
+
   late final WardrobeAnalytics _analytics;
 
   @override
@@ -48,69 +48,45 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Widget section(Widget child, {bool sheet = true}) => SliverPadding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 0, AppSpacing.pageMargin, 20),
+      sliver: SliverToBoxAdapter(child: sheet ? AtelierSheet(child: child) : child),
+    );
+
+    // Ocre dourado no diagnóstico e nas métricas; verdete na reativação das peças adormecidas
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'INTELIGÊNCIA PATRIMONIAL & ESG',
-              style: AppTypography.metadataBadge(color: AppColors.accentOlive).copyWith(
-                fontSize: 9.0,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Saúde do Guarda-Roupa',
-              style: AppTypography.displayEditorial().copyWith(
-                fontSize: 20,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: AtelierRoom.gildedOchre,
+        child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. CARD PRINCIPAL DE DIAGNÓSTICO ESG & ROTAÇÃO
-              _buildEsgHealthSummaryCard(),
-
-              const SizedBox(height: 24),
-
-              // 2. INDICADOR MULTICRITÉRIO DE OCIOSIDADE (30, 60, 90 DIAS)
-              _buildRotationTimelineSection(),
-
-              const SizedBox(height: 28),
-
-              // 3. MAPA DE PROPORÇÃO CROMÁTICA DOMINANTE (CIE L*a*b*)
-              _buildChromaticDistributionSection(),
-
-              const SizedBox(height: 28),
-
-              // 4. MÉTRICAS FINANCEIRAS: CUSTO POR USO & CAPITAL OCIOSO
-              _buildFinancialMetricsSection(),
-
-              const SizedBox(height: 28),
-
-              // 5. VITRINE DE REATIVAÇÃO DE PEÇAS ADORMECIDAS (>90 DIAS)
-              _buildDormantPiecesSection(),
-
-              const SizedBox(height: 36),
-            ],
-          ),
+          slivers: [
+            const RoomMarker(room: AtelierRoom.gildedOchre),
+            SliverToBoxAdapter(
+              child: RoomHeader(
+                eyebrow: 'Inteligência patrimonial & ESG',
+                title: 'Saúde do Acervo',
+                subtitle: 'Rotação, ociosidade e custo por uso',
+                room: AtelierRoom.gildedOchre,
+                onBack: () => Navigator.of(context).pop(),
+              ),
+            ),
+            // 1. Diagnóstico ESG & rotação (já é uma folha)
+            section(_buildEsgHealthSummaryCard(), sheet: false),
+            // 2. Ociosidade (30, 60, 90 dias)
+            section(_buildRotationTimelineSection()),
+            // 3. Proporção cromática dominante (CIE L*a*b*)
+            section(_buildChromaticDistributionSection()),
+            // 4. Custo por uso & capital ocioso (já é uma folha)
+            section(_buildFinancialMetricsSection(), sheet: false),
+            // 5. Reativação de peças adormecidas (>90 dias)
+            const RoomMarker(room: AtelierRoom.verdigris),
+            const SliverToBoxAdapter(
+              child: RoomSectionTitle(title: 'Peças adormecidas', meta: '> 90 dias'),
+            ),
+            section(_buildDormantPiecesSection()),
+            SliverToBoxAdapter(child: SizedBox(height: MediaQuery.sizeOf(context).height * 0.4)),
+          ],
         ),
       ),
     );
@@ -120,35 +96,36 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-        border: Border.all(color: AppColors.borderSubtle, width: 0.8),
-        boxShadow: AppColors.editorialShadow,
+        boxShadow: AppColors.paperShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppColors.accentOlive.withValues(alpha: 0.12),
+                  color: AppColors.verdigrisInk.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.accentOlive.withValues(alpha: 0.3), width: 0.8),
+                  border: Border.all(color: AppColors.verdigrisInk.withValues(alpha: 0.3), width: 0.8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.eco_outlined, color: AppColors.accentOlive, size: 14),
+                    const Icon(Icons.eco_outlined, color: AppColors.verdigrisInk, size: 14),
                     const SizedBox(width: 5),
                     Text(
                       'DIRETRIZ ESG & CIRCULARIDADE',
-                      style: AppTypography.metadataBadge(color: AppColors.accentOlive).copyWith(
-                        fontSize: 9.0,
-                        letterSpacing: 0.8,
-                      ),
+                      style: AppTypography.metadataBadge(
+                        color: AppColors.verdigrisInk,
+                      ).copyWith(fontSize: 9.0, letterSpacing: 0.8),
                     ),
                   ],
                 ),
@@ -158,7 +135,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                 style: GoogleFonts.bodoniModa(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.accentTerracotta,
+                  color: AppColors.accentCinnabar,
                 ),
               ),
             ],
@@ -169,18 +146,14 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
             style: GoogleFonts.bodoniModa(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: AppColors.inkText,
               height: 1.25,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'A indústria têxtil aponta que a maioria das pessoas usa menos de 1/3 do armário. O HarmonIA propõe novas coordenações para elevar a sua rotação para mais de 75%.',
-            style: AppTypography.bodyReading().copyWith(
-              color: AppColors.textSecondary,
-              fontSize: 12.0,
-              height: 1.45,
-            ),
+            style: AppTypography.bodyReading().copyWith(color: AppColors.inkSecondary, fontSize: 12.0, height: 1.45),
           ),
         ],
       ),
@@ -193,10 +166,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
       children: [
         Text(
           'ROTAÇÃO DE ACERVO POR PERÍODO (3.2.2)',
-          style: AppTypography.metadataBadge(color: AppColors.textSecondary).copyWith(
-            fontSize: 10,
-            letterSpacing: 1.0,
-          ),
+          style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 10, letterSpacing: 1.0),
         ),
         const SizedBox(height: 12),
         // Barra proporcional contínua
@@ -206,10 +176,10 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
             height: 12,
             child: Row(
               children: [
-                _buildSegmentBar(_analytics.activePiecesCount, AppColors.accentOlive),
-                _buildSegmentBar(_analytics.idle30DaysCount, AppColors.accentSand),
-                _buildSegmentBar(_analytics.idle60DaysCount, AppColors.iheGold),
-                _buildSegmentBar(_analytics.idle90DaysCount, AppColors.accentTerracotta),
+                _buildSegmentBar(_analytics.activePiecesCount, AppColors.verdigrisInk),
+                _buildSegmentBar(_analytics.idle30DaysCount, _idle30Color),
+                _buildSegmentBar(_analytics.idle60DaysCount, AppColors.gildedInk),
+                _buildSegmentBar(_analytics.idle90DaysCount, AppColors.accentCinnabar),
               ],
             ),
           ),
@@ -222,7 +192,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               child: _buildTimeWindowCard(
                 title: 'Ativas (<30d)',
                 count: _analytics.activePiecesCount,
-                color: AppColors.accentOlive,
+                color: AppColors.verdigrisInk,
               ),
             ),
             const SizedBox(width: 8),
@@ -230,7 +200,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               child: _buildTimeWindowCard(
                 title: 'Atenção (30–60d)',
                 count: _analytics.idle30DaysCount,
-                color: AppColors.accentSand,
+                color: _idle30Color,
               ),
             ),
           ],
@@ -242,7 +212,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               child: _buildTimeWindowCard(
                 title: 'Ociosas (60–90d)',
                 count: _analytics.idle60DaysCount,
-                color: AppColors.iheGold,
+                color: AppColors.gildedInk,
               ),
             ),
             const SizedBox(width: 8),
@@ -250,7 +220,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               child: _buildTimeWindowCard(
                 title: 'Dormindo (>90d)',
                 count: _analytics.idle90DaysCount,
-                color: AppColors.accentTerracotta,
+                color: AppColors.accentCinnabar,
               ),
             ),
           ],
@@ -269,18 +239,14 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
     );
   }
 
-  Widget _buildTimeWindowCard({
-    required String title,
-    required int count,
-    required Color color,
-  }) {
+  Widget _buildTimeWindowCard({required String title, required int count, required Color color}) {
     final pct = _analytics.totalPieces > 0 ? (count / _analytics.totalPieces) * 100 : 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: AppColors.paperBoneRaised,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-        border: Border.all(color: AppColors.borderSubtle, width: 0.6),
+        border: Border.all(color: AppColors.hairlineInk, width: 0.6),
       ),
       child: Row(
         children: [
@@ -299,17 +265,13 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                   style: GoogleFonts.interTight(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    color: AppColors.inkSecondary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '$count peças (${pct.toStringAsFixed(0)}%)',
-                  style: GoogleFonts.interTight(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: GoogleFonts.interTight(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkText),
                 ),
               ],
             ),
@@ -323,19 +285,20 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 12,
+          runSpacing: 4,
           children: [
             Text(
               'PROPORÇÃO CROMÁTICA DOMINANTE (CIE LAB*)',
-              style: AppTypography.metadataBadge(color: AppColors.textSecondary).copyWith(
-                fontSize: 10,
-                letterSpacing: 1.0,
-              ),
+              style: AppTypography.metadataBadge(
+                color: AppColors.inkSecondary,
+              ).copyWith(fontSize: 10, letterSpacing: 1.0),
             ),
             const Text(
               '✦ Cartela Outono',
-              style: TextStyle(fontSize: 11, color: AppColors.iheGold, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 11, color: AppColors.gildedInk, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -343,9 +306,9 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.surfaceRaised,
+            color: AppColors.paperBoneRaised,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-            border: Border.all(color: AppColors.borderSubtle, width: 0.8),
+            border: Border.all(color: AppColors.hairlineInk, width: 0.8),
           ),
           child: Column(
             children: _analytics.colorDistribution.map((c) {
@@ -359,7 +322,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       decoration: BoxDecoration(
                         color: c.color,
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.borderSubtle, width: 0.8),
+                        border: Border.all(color: AppColors.hairlineInk, width: 0.8),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -375,7 +338,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                                 style: GoogleFonts.interTight(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
+                                  color: AppColors.inkText,
                                 ),
                               ),
                               Text(
@@ -383,7 +346,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                                 style: GoogleFonts.interTight(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                                  color: AppColors.inkText,
                                 ),
                               ),
                             ],
@@ -391,10 +354,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                           const SizedBox(height: 3),
                           Text(
                             c.labCoordinates,
-                            style: GoogleFonts.interTight(
-                              fontSize: 10,
-                              color: AppColors.textMuted,
-                            ),
+                            style: GoogleFonts.interTight(fontSize: 10, color: AppColors.inkSecondary),
                           ),
                           const SizedBox(height: 6),
                           ClipRRect(
@@ -402,7 +362,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                             child: LinearProgressIndicator(
                               value: c.percentage / 100.0,
                               minHeight: 4,
-                              backgroundColor: AppColors.surfaceSubtle,
+                              backgroundColor: AppColors.paperBone,
                               valueColor: AlwaysStoppedAnimation<Color>(c.color),
                             ),
                           ),
@@ -423,23 +383,22 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-        border: Border.all(color: AppColors.borderGold, width: 0.8),
+        border: Border.all(color: AppColors.hairlineInk, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppColors.iheGold),
+              const Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppColors.gildedInk),
               const SizedBox(width: 8),
               Text(
                 'MÉTRICA PATRIMONIAL & CUSTO POR USO',
-                style: AppTypography.metadataBadge(color: AppColors.iheGold).copyWith(
-                  fontSize: 9.5,
-                  letterSpacing: 1.0,
-                ),
+                style: AppTypography.metadataBadge(
+                  color: AppColors.gildedInk,
+                ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
               ),
             ],
           ),
@@ -452,7 +411,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                   children: [
                     Text(
                       'Custo Médio / Uso',
-                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.textSecondary),
+                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.inkSecondary),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -460,13 +419,13 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       style: GoogleFonts.bodoniModa(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        color: AppColors.inkText,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(width: 1, height: 40, color: AppColors.borderSubtle),
+              Container(width: 1, height: 40, color: AppColors.hairlineInk),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -474,7 +433,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                   children: [
                     Text(
                       'Capital Ocioso Parado',
-                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.textSecondary),
+                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.inkSecondary),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -482,7 +441,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       style: GoogleFonts.bodoniModa(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.accentTerracotta,
+                        color: AppColors.accentCinnabar,
                       ),
                     ),
                   ],
@@ -509,19 +468,14 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               children: [
                 Text(
                   'REATIVAR PEÇAS ADORMECIDAS (>90D)',
-                  style: AppTypography.metadataBadge(color: AppColors.accentTerracotta).copyWith(
-                    fontSize: 9.5,
-                    letterSpacing: 1.0,
-                  ),
+                  style: AppTypography.metadataBadge(
+                    color: AppColors.accentCinnabar,
+                  ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Resgate de Patrimônio Ocioso',
-                  style: GoogleFonts.bodoniModa(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: GoogleFonts.bodoniModa(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.inkText),
                 ),
               ],
             ),
@@ -541,9 +495,9 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                 margin: const EdgeInsets.only(right: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
+                  color: AppColors.paperBoneRaised,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                  border: Border.all(color: AppColors.borderSubtle, width: 0.8),
+                  border: Border.all(color: AppColors.hairlineInk, width: 0.8),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,19 +506,16 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          color: AppColors.surfaceSubtle,
+                          color: AppColors.paperBone,
                           child: Center(
                             child: piece.imageUrl.isNotEmpty
                                 ? Image.network(
                                     piece.imageUrl,
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.checkroom,
-                                      color: AppColors.textMuted,
-                                      size: 32,
-                                    ),
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
                                   )
-                                : const Icon(Icons.checkroom, color: AppColors.textMuted, size: 32),
+                                : const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
                           ),
                         ),
                       ),
@@ -577,7 +528,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       style: GoogleFonts.interTight(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: AppColors.inkText,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -585,7 +536,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       'Sem uso recente',
                       style: GoogleFonts.interTight(
                         fontSize: 10,
-                        color: AppColors.accentTerracotta,
+                        color: AppColors.accentCinnabar,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -597,7 +548,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                         onPressed: () => _handleReactivatePiece(piece),
                         style: OutlinedButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          side: const BorderSide(color: AppColors.accentTerracotta, width: 0.8),
+                          side: const BorderSide(color: AppColors.accentCinnabar, width: 0.8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                         child: Text(
@@ -605,7 +556,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                           style: GoogleFonts.interTight(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.accentTerracotta,
+                            color: AppColors.accentCinnabar,
                           ),
                         ),
                       ),
@@ -632,7 +583,7 @@ class _ReactivateGarmentSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -643,36 +594,25 @@ class _ReactivateGarmentSheet extends StatelessWidget {
             child: Container(
               width: 36,
               height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.borderSubtle,
-                borderRadius: BorderRadius.circular(2),
-              ),
+              decoration: BoxDecoration(color: AppColors.hairlineInk, borderRadius: BorderRadius.circular(2)),
             ),
           ),
           const SizedBox(height: 18),
           Text(
             'REATIVAÇÃO DE PATRIMÔNIO (ESG)',
-            style: AppTypography.metadataBadge(color: AppColors.accentOlive).copyWith(
-              fontSize: 9.5,
-              letterSpacing: 1.0,
-            ),
+            style: AppTypography.metadataBadge(
+              color: AppColors.verdigrisInk,
+            ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
           ),
           const SizedBox(height: 6),
           Text(
             'Coordenar "${item.name}"',
-            style: GoogleFonts.bodoniModa(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
+            style: GoogleFonts.bodoniModa(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.inkText),
           ),
           const SizedBox(height: 8),
           Text(
             'Esta peça está classificada como adormecida no seu acervo (>90 dias). O motor do IHE sugere combiná-la com tons neutros em linho ou areia suave para reinseri-la na sua rotina matinal.',
-            style: AppTypography.bodyReading().copyWith(
-              color: AppColors.textSecondary,
-              fontSize: 12.5,
-            ),
+            style: AppTypography.bodyReading().copyWith(color: AppColors.inkSecondary, fontSize: 12.5),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -683,10 +623,10 @@ class _ReactivateGarmentSheet extends StatelessWidget {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    backgroundColor: AppColors.textPrimary,
+                    backgroundColor: AppColors.tapestryNoir,
                     content: Text(
                       'Combinação de reativação gerada com sucesso!',
-                      style: GoogleFonts.interTight(color: Colors.white),
+                      style: GoogleFonts.interTight(color: AppColors.ivoryText),
                     ),
                   ),
                 );
@@ -694,14 +634,11 @@ class _ReactivateGarmentSheet extends StatelessWidget {
               icon: const Icon(Icons.auto_awesome, size: 16),
               label: Text(
                 'Gerar Look com Esta Peça',
-                style: GoogleFonts.interTight(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
+                style: GoogleFonts.interTight(fontWeight: FontWeight.w600, fontSize: 13),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentTerracotta,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.accentCinnabar,
+                foregroundColor: AppColors.ivoryText,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

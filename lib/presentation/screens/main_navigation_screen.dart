@@ -68,7 +68,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final action = await showModalBottomSheet<_CaptureOption>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: AppColors.textPrimary.withValues(alpha: 0.24),
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
       builder: (_) => const _CaptureTray(),
     );
     if (!mounted || action == null) return;
@@ -130,7 +130,7 @@ class _CaptureTray extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 12, AppSpacing.pageMargin, 12),
       decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLarge)),
       ),
       child: SafeArea(
@@ -144,15 +144,15 @@ class _CaptureTray extends StatelessWidget {
                 width: 32,
                 height: 3,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSubtle,
+                  color: AppColors.hairlineInk,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            Text('CAPTURAR', style: AppTypography.metadataBadge(color: AppColors.iheGold)),
+            Text('CAPTURAR', style: AppTypography.atelierMeta(color: AppColors.gildedInk)),
             const SizedBox(height: 4),
-            Text('O que vamos ver agora?', style: AppTypography.subtitleCuratorial(color: AppColors.textPrimary)),
+            Text('O que vamos ver agora?', style: AppTypography.sectionDisplay(color: AppColors.inkText).copyWith(fontSize: 24)),
             const SizedBox(height: 20),
             const _TrayOption(
               option: _CaptureOption.scanItem,
@@ -160,7 +160,7 @@ class _CaptureTray extends StatelessWidget {
               title: 'Digitalizar peça',
               subtitle: 'Foto, recorte e catalogação no acervo',
             ),
-            const Divider(height: 1, thickness: 0.6, color: AppColors.borderSubtle),
+            const Divider(height: 1, thickness: 0.6, color: AppColors.hairlineInk),
             const _TrayOption(
               option: _CaptureOption.storeMirror,
               icon: Icons.center_focus_strong_outlined,
@@ -199,7 +199,7 @@ class _TrayOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: AppColors.textPrimary),
+            Icon(icon, size: 22, color: AppColors.inkText),
             const SizedBox(width: AppSpacing.elementGap),
             Expanded(
               child: Column(
@@ -211,7 +211,7 @@ class _TrayOption extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward, size: 16, color: AppColors.textMuted),
+            const Icon(Icons.arrow_forward, size: 16, color: AppColors.inkSecondary),
           ],
         ),
       ),

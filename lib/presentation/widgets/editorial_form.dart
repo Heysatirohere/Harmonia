@@ -67,23 +67,23 @@ class _EditorialTextFieldState extends State<EditorialTextField> {
           onFieldSubmitted: widget.onSubmitted,
           autocorrect: !widget.obscure,
           enableSuggestions: !widget.obscure,
-          cursorColor: AppColors.accentTerracotta,
+          cursorColor: AppColors.accentCinnabar,
           cursorWidth: 1.2,
           style: AppTypography.bodyReading(),
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: AppTypography.bodyReading(color: AppColors.textMuted),
+            hintStyle: AppTypography.bodyReading(color: AppColors.inkSecondary),
             filled: true,
-            fillColor: AppColors.surfaceRaised,
+            fillColor: AppColors.paperBoneRaised,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            errorStyle: AppTypography.bodySmall(color: AppColors.accentTerracotta).copyWith(fontSize: 11),
-            border: _border(AppColors.borderSubtle, 0.8),
-            enabledBorder: _border(AppColors.borderSubtle, 0.8),
-            disabledBorder: _border(AppColors.borderSubtle, 0.8),
-            focusedBorder: _border(AppColors.textPrimary, 1.0),
-            errorBorder: _border(AppColors.accentTerracotta, 0.8),
-            focusedErrorBorder: _border(AppColors.accentTerracotta, 1.0),
+            errorStyle: AppTypography.bodySmall(color: AppColors.accentCinnabar).copyWith(fontSize: 11),
+            border: _border(AppColors.hairlineInk, 0.8),
+            enabledBorder: _border(AppColors.hairlineInk, 0.8),
+            disabledBorder: _border(AppColors.hairlineInk, 0.8),
+            focusedBorder: _border(AppColors.inkText, 1.0),
+            errorBorder: _border(AppColors.accentCinnabar, 0.8),
+            focusedErrorBorder: _border(AppColors.accentCinnabar, 1.0),
             suffixIcon: widget.obscure
                 ? IconButton(
                     tooltip: _obscured ? 'Mostrar senha' : 'Ocultar senha',
@@ -91,7 +91,7 @@ class _EditorialTextFieldState extends State<EditorialTextField> {
                     icon: Icon(
                       _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                       size: 18,
-                      color: AppColors.textMuted,
+                      color: AppColors.inkSecondary,
                     ),
                     onPressed: () {
                       HapticFeedback.selectionClick();
@@ -108,7 +108,8 @@ class _EditorialTextFieldState extends State<EditorialTextField> {
 
 enum EditorialButtonTone { primary, outline, destructive }
 
-/// Botão autoral: preenchido em carvão, contorno capilar ou destrutivo.
+/// Botão autoral para folhas de papel: cinábrio (ação primária), contorno de tinta ou destrutivo.
+/// O destrutivo é só contorno cinábrio, para não competir com a ação primária.
 /// O estado de espera pulsa a opacidade do rótulo (sem spinner padrão).
 class EditorialButton extends StatelessWidget {
   final String label;
@@ -127,9 +128,9 @@ class EditorialButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (Color background, Color foreground, Color border) = switch (tone) {
-      EditorialButtonTone.primary => (AppColors.textPrimary, AppColors.surfaceCanvas, AppColors.textPrimary),
-      EditorialButtonTone.outline => (Colors.transparent, AppColors.textPrimary, AppColors.borderSubtle),
-      EditorialButtonTone.destructive => (AppColors.accentTerracotta, AppColors.surfaceCanvas, AppColors.accentTerracotta),
+      EditorialButtonTone.primary => (AppColors.accentCinnabar, AppColors.ivoryText, AppColors.accentCinnabar),
+      EditorialButtonTone.outline => (Colors.transparent, AppColors.inkText, AppColors.inkSecondary),
+      EditorialButtonTone.destructive => (Colors.transparent, AppColors.accentCinnabar, AppColors.accentCinnabar),
     };
     final enabled = onPressed != null && !isLoading;
 
@@ -246,7 +247,7 @@ class FormNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = tone == FormNoticeTone.error ? AppColors.accentTerracotta : AppColors.accentOlive;
+    final accent = tone == FormNoticeTone.error ? AppColors.accentCinnabar : AppColors.verdigrisInk;
     return Semantics(
       liveRegion: true,
       child: Container(

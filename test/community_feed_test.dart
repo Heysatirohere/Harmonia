@@ -19,7 +19,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Editorial Gallery'), findsOneWidget);
+      expect(find.text('Editorial'), findsOneWidget);
       expect(find.text('Todos'), findsOneWidget);
       expect(find.text('Meu Biótipo'), findsOneWidget);
 

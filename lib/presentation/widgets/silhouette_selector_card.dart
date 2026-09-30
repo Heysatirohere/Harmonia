@@ -34,21 +34,21 @@ class SilhouetteSelectorCard extends StatelessWidget {
         curve: AppMotion.editorialDecel,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.surfaceRaised : AppColors.surfaceCanvas,
+          color: isSelected ? AppColors.paperBoneRaised : AppColors.paperBone,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
           border: Border.all(
-            color: isSelected ? AppColors.accentTerracotta : AppColors.borderSubtle,
+            color: isSelected ? AppColors.accentCinnabar : AppColors.hairlineInk,
             width: isSelected ? 1.4 : 0.6,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.accentTerracotta.withValues(alpha: 0.1),
+                    color: AppColors.accentCinnabar.withValues(alpha: 0.1),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
                 ]
-              : AppColors.editorialShadow,
+              : AppColors.paperShadow,
         ),
         child: Row(
           children: [
@@ -59,10 +59,10 @@ class SilhouetteSelectorCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
-                    ? AppColors.accentTerracotta.withValues(alpha: 0.1)
-                    : AppColors.surfaceRaised,
+                    ? AppColors.accentCinnabar.withValues(alpha: 0.1)
+                    : AppColors.paperBoneRaised,
                 border: Border.all(
-                  color: isSelected ? AppColors.accentTerracotta : AppColors.borderSubtle,
+                  color: isSelected ? AppColors.accentCinnabar : AppColors.hairlineInk,
                   width: 0.8,
                 ),
               ),
@@ -71,7 +71,7 @@ class SilhouetteSelectorCard extends StatelessWidget {
                   size: const Size(28, 28),
                   painter: _SilhouetteLinearPainter(
                     type: silhouette,
-                    color: isSelected ? AppColors.accentTerracotta : AppColors.textPrimary,
+                    color: isSelected ? AppColors.accentCinnabar : AppColors.inkText,
                   ),
                 ),
               ),
@@ -92,13 +92,13 @@ class SilhouetteSelectorCard extends StatelessWidget {
                         style: AppTypography.displayEditorial().copyWith(
                           fontSize: 17,
                           height: 1.2,
-                          color: isSelected ? AppColors.accentTerracotta : AppColors.textPrimary,
+                          color: isSelected ? AppColors.accentCinnabar : AppColors.inkText,
                         ),
                       ),
                       if (isSelected)
                         const Icon(
                           Icons.check_circle_rounded,
-                          color: AppColors.accentTerracotta,
+                          color: AppColors.accentCinnabar,
                           size: 18,
                         ),
                     ],
@@ -107,7 +107,7 @@ class SilhouetteSelectorCard extends StatelessWidget {
                   Text(
                     silhouette.description,
                     style: AppTypography.bodySmall(
-                      color: AppColors.textSecondary,
+                      color: AppColors.inkSecondary,
                     ).copyWith(fontSize: 11.5, height: 1.35),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

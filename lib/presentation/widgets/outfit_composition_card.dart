@@ -56,13 +56,13 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: AppColors.paperBoneRaised,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
         border: Border.all(
-          color: AppColors.borderSubtle,
+          color: AppColors.hairlineInk,
           width: 0.8,
         ),
-        boxShadow: AppColors.editorialShadow,
+        boxShadow: AppColors.paperShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +80,7 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                       Text(
                         widget.outfit.occasion.toUpperCase(),
                         style: AppTypography.metadataBadge(
-                          color: AppColors.accentTerracotta,
+                          color: AppColors.accentCinnabar,
                         ).copyWith(fontSize: 10, letterSpacing: 1.2),
                       ),
                       const SizedBox(height: 4),
@@ -100,9 +100,9 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceCanvas,
+                      color: AppColors.paperBone,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderSubtle, width: 0.6),
+                      border: Border.all(color: AppColors.hairlineInk, width: 0.6),
                     ),
                     child: AnimatedRotation(
                       turns: _isExpanded ? 0.5 : 0.0,
@@ -111,7 +111,7 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                       child: const Icon(
                         Icons.keyboard_arrow_down_rounded,
                         size: 20,
-                        color: AppColors.textPrimary,
+                        color: AppColors.inkText,
                       ),
                     ),
                   ),
@@ -136,10 +136,10 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
               margin: const EdgeInsets.symmetric(horizontal: 16.0),
               padding: const EdgeInsets.all(12.0),
               decoration: BoxDecoration(
-                color: AppColors.surfaceCanvas,
+                color: AppColors.paperBone,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
                 border: Border.all(
-                  color: AppColors.borderSubtle,
+                  color: AppColors.hairlineInk,
                   width: 0.6,
                 ),
               ),
@@ -156,7 +156,7 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                   Container(
                     width: 0.6,
                     height: 140,
-                    color: AppColors.borderSubtle,
+                    color: AppColors.hairlineInk,
                   ),
                   // Peça Inferior (Bottom)
                   Expanded(
@@ -169,7 +169,7 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                   Container(
                     width: 0.6,
                     height: 140,
-                    color: AppColors.borderSubtle,
+                    color: AppColors.hairlineInk,
                   ),
                   // Calçado
                   Expanded(
@@ -192,11 +192,11 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(color: AppColors.borderSubtle, height: 1),
+                  const Divider(color: AppColors.hairlineInk, height: 1),
                   const SizedBox(height: 14),
                   Text(
                     'NOTA CURATORIAL',
-                    style: AppTypography.metadataBadge(color: AppColors.textSecondary)
+                    style: AppTypography.metadataBadge(color: AppColors.inkSecondary)
                         .copyWith(fontSize: 9.5),
                   ),
                   const SizedBox(height: 4),
@@ -207,7 +207,7 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                   const SizedBox(height: 14),
                   Text(
                     'COMPOSIÇÃO TÊXTIL DO LOOK',
-                    style: AppTypography.metadataBadge(color: AppColors.textSecondary)
+                    style: AppTypography.metadataBadge(color: AppColors.inkSecondary)
                         .copyWith(fontSize: 9.5),
                   ),
                   const SizedBox(height: 8),
@@ -228,7 +228,7 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                           Expanded(
                             child: Text(
                               garment.name,
-                              style: AppTypography.bodySmall(color: AppColors.textPrimary)
+                              style: AppTypography.bodySmall(color: AppColors.inkText)
                                   .copyWith(fontWeight: FontWeight.w600),
                             ),
                           ),
@@ -263,14 +263,14 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                     child: OutlinedButton(
                       onPressed: _handleDiscard,
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.borderSubtle, width: 0.8),
+                        side: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
                         ),
                       ),
                       child: Text(
                         'Passar Look',
-                        style: AppTypography.uiHeadline(color: AppColors.textSecondary)
+                        style: AppTypography.uiHeadline(color: AppColors.inkSecondary)
                             .copyWith(fontSize: 13),
                       ),
                     ),
@@ -286,16 +286,16 @@ class _OutfitCompositionCardState extends State<OutfitCompositionCard> {
                       onPressed: _handleApprove,
                       icon: const Icon(
                         Icons.check_circle_outline_rounded,
-                        color: AppColors.surfaceCanvas,
+                        color: AppColors.paperBone,
                         size: 18,
                       ),
                       label: Text(
                         'Aprovar este Look',
-                        style: AppTypography.uiHeadline(color: AppColors.surfaceCanvas)
+                        style: AppTypography.uiHeadline(color: AppColors.paperBone)
                             .copyWith(fontSize: 13.5, fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentTerracotta,
+                        backgroundColor: AppColors.accentCinnabar,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
@@ -331,7 +331,7 @@ class _GarmentCanvasSlot extends StatelessWidget {
       children: [
         Text(
           slotLabel,
-          style: AppTypography.metadataBadge(color: AppColors.textMuted)
+          style: AppTypography.metadataBadge(color: AppColors.inkSecondary)
               .copyWith(fontSize: 8.5, letterSpacing: 0.6),
         ),
         const SizedBox(height: 6),
@@ -350,7 +350,7 @@ class _GarmentCanvasSlot extends StatelessWidget {
                   cacheHeight: targetHeight > 0 ? targetHeight : null,
                   errorBuilder: (context, error, stackTrace) => const Icon(
                     Icons.checkroom_outlined,
-                    color: AppColors.textMuted,
+                    color: AppColors.inkSecondary,
                     size: 24,
                   ),
                 ),
@@ -361,7 +361,7 @@ class _GarmentCanvasSlot extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           item.name,
-          style: AppTypography.bodySmall(color: AppColors.textPrimary)
+          style: AppTypography.bodySmall(color: AppColors.inkText)
               .copyWith(fontSize: 10, fontWeight: FontWeight.w600),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

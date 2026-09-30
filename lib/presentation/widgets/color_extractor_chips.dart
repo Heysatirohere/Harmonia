@@ -47,14 +47,14 @@ class ColorExtractorChips extends StatelessWidget {
             Text(
               'CENTROIDES CROMÁTICOS (CIE L*a*b*)',
               style: AppTypography.metadataBadge(
-                color: AppColors.textSecondary,
+                color: AppColors.inkSecondary,
               ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
             ),
             if (centroids.isNotEmpty)
               Text(
                 centroids[selectedIndex.clamp(0, centroids.length - 1)].labCoordinates,
                 style: AppTypography.metadataBadge(
-                  color: AppColors.iheGold,
+                  color: AppColors.gildedInk,
                 ).copyWith(fontSize: 9.0, fontWeight: FontWeight.w700),
               ),
           ],
@@ -82,16 +82,16 @@ class ColorExtractorChips extends StatelessWidget {
                   curve: AppMotion.editorialDecel,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.surfaceRaised : AppColors.surfaceCanvas,
+                    color: isSelected ? AppColors.paperBoneRaised : AppColors.paperBone,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected ? AppColors.accentTerracotta : AppColors.borderSubtle,
+                      color: isSelected ? AppColors.accentCinnabar : AppColors.hairlineInk,
                       width: isSelected ? 1.2 : 0.6,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppColors.accentTerracotta.withValues(alpha: 0.12),
+                              color: AppColors.accentCinnabar.withValues(alpha: 0.12),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -109,7 +109,7 @@ class ColorExtractorChips extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: centroid.color,
                           border: Border.all(
-                            color: AppColors.borderSubtle,
+                            color: AppColors.hairlineInk,
                             width: 0.8,
                           ),
                         ),
@@ -120,7 +120,7 @@ class ColorExtractorChips extends StatelessWidget {
                                   height: 6,
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: AppColors.surfaceCanvas,
+                                    color: AppColors.paperBone,
                                   ),
                                 ),
                               )
@@ -143,14 +143,14 @@ class ColorExtractorChips extends StatelessWidget {
                               Text(
                                 centroid.hexCode,
                                 style: AppTypography.metadataBadge(
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.inkSecondary,
                                 ).copyWith(fontSize: 8.5),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 '${centroid.percentage}%',
                                 style: AppTypography.metadataBadge(
-                                  color: AppColors.accentTerracotta,
+                                  color: AppColors.accentCinnabar,
                                 ).copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
                               ),
                             ],

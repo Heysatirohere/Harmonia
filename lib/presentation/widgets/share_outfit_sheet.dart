@@ -46,12 +46,12 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: AppColors.tapestryNoir,
         content: Text(
           _isPublic
               ? 'Inspiração publicada na comunidade HarmonIA!'
               : 'Look salvo privadamente em seus rascunhos.',
-          style: GoogleFonts.interTight(color: Colors.white, fontSize: 13),
+          style: GoogleFonts.interTight(color: AppColors.ivoryText, fontSize: 13),
         ),
       ),
     );
@@ -62,9 +62,9 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: AppColors.borderGold, width: 0.8),
+        border: Border.all(color: AppColors.hairlineInk, width: 0.8),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -75,7 +75,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.3),
+                color: AppColors.inkSecondary.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -84,7 +84,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           Text(
             'Compartilhar Inspiração',
             style: GoogleFonts.bodoniModa(
-              color: AppColors.textPrimary,
+              color: AppColors.inkText,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -93,7 +93,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           Text(
             'Insira uma nota editorial sobre a combinação para a comunidade.',
             style: GoogleFonts.interTight(
-              color: AppColors.textSecondary,
+              color: AppColors.inkSecondary,
               fontSize: 12.5,
             ),
           ),
@@ -103,19 +103,19 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           TextField(
             controller: _captionController,
             maxLines: 3,
-            style: GoogleFonts.interTight(color: AppColors.textPrimary, fontSize: 13.5),
+            style: GoogleFonts.interTight(color: AppColors.inkText, fontSize: 13.5),
             decoration: InputDecoration(
               hintText: 'Ex: "Combinação leve de alfaiataria em linho para tardes quentes..."',
-              hintStyle: GoogleFonts.interTight(color: AppColors.textMuted, fontSize: 12.5),
+              hintStyle: GoogleFonts.interTight(color: AppColors.inkSecondary, fontSize: 12.5),
               filled: true,
-              fillColor: AppColors.surfaceRaised,
+              fillColor: AppColors.paperBoneRaised,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.borderSubtle),
+                borderSide: const BorderSide(color: AppColors.hairlineInk),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.iheGold),
+                borderSide: const BorderSide(color: AppColors.gildedInk),
               ),
             ),
           ),
@@ -130,7 +130,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
                   Text(
                     'Privacidade da Publicação (RN05)',
                     style: GoogleFonts.interTight(
-                      color: AppColors.textPrimary,
+                      color: AppColors.inkText,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -140,7 +140,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
                         ? 'Visível para toda a comunidade'
                         : 'Privado (apenas no seu acervo)',
                     style: GoogleFonts.interTight(
-                      color: AppColors.textSecondary,
+                      color: AppColors.inkSecondary,
                       fontSize: 11.5,
                     ),
                   ),
@@ -149,7 +149,8 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
               const Spacer(),
               Switch.adaptive(
                 value: _isPublic,
-                activeColor: AppColors.accentTerracotta,
+                activeThumbColor: AppColors.ivoryText,
+                activeTrackColor: AppColors.accentCinnabar,
                 onChanged: (val) {
                   HapticFeedback.selectionClick();
                   setState(() {
@@ -167,8 +168,8 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
             child: ElevatedButton(
               onPressed: _handlePublish,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentTerracotta,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.accentCinnabar,
+                foregroundColor: AppColors.ivoryText,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),

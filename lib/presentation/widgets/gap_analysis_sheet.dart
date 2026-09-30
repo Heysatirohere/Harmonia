@@ -26,9 +26,9 @@ class GapAnalysisSheet extends StatelessWidget {
         maxChildSize: 0.95,
         builder: (_, controller) => Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceCanvas,
+            color: AppColors.paperBone,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: AppColors.borderGold, width: 0.8),
+            border: Border.all(color: AppColors.hairlineInk, width: 0.8),
           ),
           child: ListView(
             controller: controller,
@@ -39,7 +39,7 @@ class GapAnalysisSheet extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.textSecondary.withValues(alpha: 0.3),
+                    color: AppColors.inkSecondary.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -62,10 +62,10 @@ class GapAnalysisSheet extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppColors.textPrimary,
+            backgroundColor: AppColors.tapestryNoir,
             content: Text(
               'Redirecionando para ${product.storeDisplayName}...',
-              style: GoogleFonts.interTight(color: Colors.white),
+              style: GoogleFonts.interTight(color: AppColors.ivoryText),
             ),
           ),
         );
@@ -89,16 +89,16 @@ class GapAnalysisSheet extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppColors.surfaceRaised,
+                color: AppColors.paperBoneRaised,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: AppColors.borderGold,
+                  color: AppColors.hairlineInk,
                   width: 1.0,
                 ),
               ),
               child: const Icon(
                 Icons.checkroom_outlined,
-                color: AppColors.iheGold,
+                color: AppColors.gildedInk,
                 size: 28,
               ),
             ),
@@ -110,7 +110,7 @@ class GapAnalysisSheet extends StatelessWidget {
                   Text(
                     gap.missingCategory,
                     style: GoogleFonts.bodoniModa(
-                      color: AppColors.textPrimary,
+                      color: AppColors.inkText,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -119,14 +119,14 @@ class GapAnalysisSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSubtle,
+                      color: AppColors.paperBone,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.borderGold, width: 0.6),
+                      border: Border.all(color: AppColors.hairlineInk, width: 0.6),
                     ),
                     child: Text(
                       '✦ +${gap.deltaIhe.toStringAsFixed(1)}% NO ÍNDICE DE HARMONIA',
                       style: GoogleFonts.interTight(
-                        color: AppColors.iheGold,
+                        color: AppColors.gildedInk,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
@@ -143,7 +143,7 @@ class GapAnalysisSheet extends StatelessWidget {
         Text(
           gap.stylisticRationale,
           style: GoogleFonts.interTight(
-            color: AppColors.textSecondary,
+            color: AppColors.inkSecondary,
             fontSize: 13,
             height: 1.4,
           ),
@@ -153,7 +153,7 @@ class GapAnalysisSheet extends StatelessWidget {
         Text(
           'PEÇAS SUGERIDAS DOS PARCEIROS (RN03)',
           style: GoogleFonts.interTight(
-            color: AppColors.textMuted,
+            color: AppColors.inkSecondary,
             fontSize: 10.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
@@ -166,7 +166,7 @@ class GapAnalysisSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Text(
               'Nenhum item com estoque disponível no momento.',
-              style: GoogleFonts.interTight(color: AppColors.textMuted, fontSize: 12),
+              style: GoogleFonts.interTight(color: AppColors.inkSecondary, fontSize: 12),
             ),
           )
         else
@@ -181,9 +181,9 @@ class GapAnalysisSheet extends StatelessWidget {
                   width: 154,
                   margin: const EdgeInsets.only(right: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
+                    color: AppColors.paperBoneRaised,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.borderSubtle, width: 0.8),
+                    border: Border.all(color: AppColors.hairlineInk, width: 0.8),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,9 +200,9 @@ class GapAnalysisSheet extends StatelessWidget {
                             filterQuality: FilterQuality.medium,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
-                                color: AppColors.surfaceSubtle,
+                                color: AppColors.paperBone,
                                 child: const Center(
-                                  child: Icon(Icons.shopping_bag_outlined, color: AppColors.iheGold, size: 24),
+                                  child: Icon(Icons.shopping_bag_outlined, color: AppColors.gildedInk, size: 24),
                                 ),
                               );
                             },
@@ -217,7 +217,7 @@ class GapAnalysisSheet extends StatelessWidget {
                             Text(
                               product.storeDisplayName,
                               style: GoogleFonts.interTight(
-                                color: AppColors.textMuted,
+                                color: AppColors.inkSecondary,
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -228,7 +228,7 @@ class GapAnalysisSheet extends StatelessWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.interTight(
-                                color: AppColors.textPrimary,
+                                color: AppColors.inkText,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -237,7 +237,7 @@ class GapAnalysisSheet extends StatelessWidget {
                             Text(
                               product.formattedPrice,
                               style: GoogleFonts.interTight(
-                                color: AppColors.accentTerracotta,
+                                color: AppColors.accentCinnabar,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -249,10 +249,10 @@ class GapAnalysisSheet extends StatelessWidget {
                               child: ElevatedButton(
                                 onPressed: () => _openAffiliateUrl(context, product),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.surfaceCanvas,
-                                  foregroundColor: AppColors.textPrimary,
+                                  backgroundColor: AppColors.paperBone,
+                                  foregroundColor: AppColors.inkText,
                                   elevation: 0,
-                                  side: const BorderSide(color: AppColors.borderSubtle),
+                                  side: const BorderSide(color: AppColors.hairlineInk),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   padding: EdgeInsets.zero,
                                 ),

@@ -7,7 +7,7 @@ import 'dart:typed_data';
 /// Visualizador da Remoção de Fundo e Segmentação Semântica (Canal Alfa)
 /// Conforme AGENTS.md Seção 5.1 e RNF06:
 /// - Alternância "Foto Original / Recorte" entre os bytes reais devolvidos pelo pipeline (RF04)
-/// - Sem BoxShadow no PNG recortado; sombra só na bandeja
+/// - Sem BoxShadow: vitrine translúcida sobre a Sala, PNG recortado sem sombra de caixa
 /// - Reamostragem com FilterQuality.medium e decodificação limitada via cacheWidth
 /// - Shimmer aquecido enquanto o servidor processa a foto
 class SegmentationPreview extends StatefulWidget {
@@ -58,14 +58,14 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
     return Container(
       height: 280,
       width: double.infinity,
+      // Vitrine escura e translúcida: a Sala aparece por trás e a peça recortada se destaca
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: AppColors.tapestryNoir.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
         border: Border.all(
-          color: AppColors.borderSubtle,
+          color: AppColors.hairlineIvory,
           width: 0.8,
         ),
-        boxShadow: AppColors.editorialShadow,
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -127,21 +127,21 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceCanvas.withValues(alpha: 0.95),
+                    color: AppColors.paperBone.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.borderSubtle,
+                      color: AppColors.hairlineInk,
                       width: 0.6,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.photo_camera_outlined, size: 14, color: AppColors.textPrimary),
+                      const Icon(Icons.photo_camera_outlined, size: 14, color: AppColors.inkText),
                       const SizedBox(width: 4),
                       Text(
                         'TROCAR FOTO',
-                        style: AppTypography.metadataBadge(color: AppColors.textPrimary)
+                        style: AppTypography.metadataBadge(color: AppColors.inkText)
                             .copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
                       ),
                     ],
@@ -158,10 +158,10 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceCanvas.withValues(alpha: 0.9),
+                  color: AppColors.paperBone.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.borderSubtle,
+                    color: AppColors.hairlineInk,
                     width: 0.6,
                   ),
                 ),
@@ -173,14 +173,14 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
                       height: 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _showingCutout ? AppColors.accentOlive : AppColors.accentTerracotta,
+                        color: _showingCutout ? AppColors.verdigrisInk : AppColors.accentCinnabar,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       _showingCutout ? 'IA SEGMENTADA • CANAL ALFA' : 'FOTO ORIGINAL (COM FUNDO)',
                       style: AppTypography.metadataBadge(
-                        color: AppColors.textPrimary,
+                        color: AppColors.inkText,
                       ).copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
                     ),
                   ],
@@ -209,7 +209,7 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
                   curve: AppMotion.editorialDecel,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.textPrimary,
+                    color: AppColors.inkText,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: const [
                       BoxShadow(
@@ -224,14 +224,14 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
                     children: [
                       const Icon(
                         Icons.auto_fix_high_rounded,
-                        color: AppColors.iheGold,
+                        color: AppColors.gildedLeaf,
                         size: 15,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         _showingCutout ? 'VER FOTO ORIGINAL' : 'VER RECORTE',
                         style: AppTypography.metadataBadge(
-                          color: AppColors.surfaceCanvas,
+                          color: AppColors.paperBone,
                         ).copyWith(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.8),
                       ),
                     ],
@@ -260,17 +260,16 @@ class _CapturePrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.checkroom_outlined, color: AppColors.textMuted, size: 44),
+            const Icon(Icons.checkroom_outlined, color: AppColors.ivoryMuted, size: 44),
             const SizedBox(height: 14),
             Text(
               'Fotografe a peça',
-              style: AppTypography.subtitleCuratorial(),
+              style: AppTypography.sectionDisplay().copyWith(fontSize: 24),
             ),
             const SizedBox(height: 6),
             Text(
               'NO CABIDE OU SOBRE UMA SUPERFÍCIE LISA',
-              style: AppTypography.metadataBadge(color: AppColors.textSecondary)
-                  .copyWith(fontSize: 8.5),
+              style: AppTypography.atelierMeta().copyWith(fontSize: 9),
             ),
           ],
         ),
@@ -290,16 +289,16 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas.withValues(alpha: 0.96),
+        color: AppColors.paperBone.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-        border: Border.all(color: AppColors.accentTerracotta.withValues(alpha: 0.4), width: 0.8),
+        border: Border.all(color: AppColors.accentCinnabar.withValues(alpha: 0.4), width: 0.8),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               message,
-              style: AppTypography.bodySmall(color: AppColors.textPrimary).copyWith(fontSize: 11.5),
+              style: AppTypography.bodySmall(color: AppColors.inkText).copyWith(fontSize: 11.5),
             ),
           ),
           if (onRetry != null)
@@ -308,10 +307,10 @@ class _ErrorBanner extends StatelessWidget {
                 HapticFeedback.selectionClick();
                 onRetry!();
               },
-              style: TextButton.styleFrom(foregroundColor: AppColors.accentTerracotta),
+              style: TextButton.styleFrom(foregroundColor: AppColors.accentCinnabar),
               child: Text(
                 'TENTAR DE NOVO',
-                style: AppTypography.metadataBadge(color: AppColors.accentTerracotta)
+                style: AppTypography.metadataBadge(color: AppColors.accentCinnabar)
                     .copyWith(fontSize: 9, fontWeight: FontWeight.w700),
               ),
             ),
@@ -343,8 +342,8 @@ class __WarmShimmerProcessingPlaceholderState
     )..repeat(reverse: true);
 
     _colorAnimation = ColorTween(
-      begin: AppColors.surfaceRaised,
-      end: AppColors.surfaceSubtle,
+      begin: const Color(0x0FF4EEE1),
+      end: const Color(0x2EF4EEE1),
     ).animate(
       CurvedAnimation(
         parent: _shimmerController,
@@ -378,8 +377,7 @@ class __WarmShimmerProcessingPlaceholderState
             const SizedBox(height: 12),
             Text(
               'REMOVENDO FUNDO E ISOLANDO CANAL ALFA...',
-              style: AppTypography.metadataBadge(color: AppColors.accentTerracotta)
-                  .copyWith(fontSize: 8.5, letterSpacing: 0.8),
+              style: AppTypography.atelierMeta().copyWith(fontSize: 9),
             ),
           ],
         ),
@@ -392,8 +390,9 @@ class __WarmShimmerProcessingPlaceholderState
 class _AlphaGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint1 = Paint()..color = AppColors.surfaceRaised.withValues(alpha: 0.4);
-    final paint2 = Paint()..color = AppColors.surfaceSubtle.withValues(alpha: 0.3);
+    // Xadrez de transparência discreto sobre a vitrine escura
+    final paint1 = Paint()..color = AppColors.ivoryText.withValues(alpha: 0.07);
+    final paint2 = Paint()..color = AppColors.ivoryText.withValues(alpha: 0.02);
 
     const checkSize = 12.0;
 

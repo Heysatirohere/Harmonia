@@ -1,61 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../mocks/mock_gap_analysis.dart';
+import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../widgets/gap_analysis_sheet.dart';
 
+/// Lacunas do Acervo & Afiliação (RF11/RF12): cada lacuna em uma folha de papel sobre o verdete
 class GapAnalysisScreen extends StatelessWidget {
   const GapAnalysisScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final gaps = MockGapAnalysis.gaps;
+    const room = AtelierRoom.verdigris;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: room,
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.zero,
           children: [
-            Text(
-              'Otimização de Acervo',
-              style: GoogleFonts.bodoniModa(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-              ),
+            RoomHeader(
+              eyebrow: 'Lacunas & afiliação • RF11/RF12',
+              title: 'Otimização de Acervo',
+              subtitle: 'Peças-chave que destravam novas combinações',
+              room: room,
+              onBack: () => Navigator.maybePop(context),
             ),
-            Text(
-              'ANÁLISE DE LACUNAS & AFILIAÇÃO (RF11/RF12)',
-              style: GoogleFonts.interTight(
-                color: AppColors.textMuted,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
+            for (final gap in gaps)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 0, AppSpacing.pageMargin, 20),
+                child: AtelierSheet(child: GapAnalysisSheet(gap: gap)),
               ),
-            ),
+            const SizedBox(height: 28),
           ],
         ),
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: gaps.length,
-        itemBuilder: (context, index) {
-          final gap = gaps[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 20),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCanvas,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderSubtle, width: 0.8),
-            ),
-            child: GapAnalysisSheet(gap: gap),
-          );
-        },
       ),
     );
   }

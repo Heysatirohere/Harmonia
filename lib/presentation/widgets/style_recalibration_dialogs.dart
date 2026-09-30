@@ -10,15 +10,15 @@ class StyleRecalibrationDialogs {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceCanvas,
+        backgroundColor: AppColors.paperBone,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppColors.borderGold, width: 0.8),
+          side: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
         ),
         title: Text(
           'Recalibrar Colorimetria',
           style: GoogleFonts.bodoniModa(
-            color: AppColors.textPrimary,
+            color: AppColors.inkText,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -26,7 +26,7 @@ class StyleRecalibrationDialogs {
         content: Text(
           'Deseja reabrir o teste de iluminação assistida via câmera selfie para reavaliar sua cartela cromática pessoal no espaço CIE Lab*?',
           style: GoogleFonts.interTight(
-            color: AppColors.textSecondary,
+            color: AppColors.inkSecondary,
             fontSize: 13,
           ),
         ),
@@ -35,7 +35,7 @@ class StyleRecalibrationDialogs {
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'Cancelar',
-              style: GoogleFonts.interTight(color: AppColors.textSecondary),
+              style: GoogleFonts.interTight(color: AppColors.inkSecondary),
             ),
           ),
           ElevatedButton(
@@ -43,17 +43,17 @@ class StyleRecalibrationDialogs {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  backgroundColor: AppColors.textPrimary,
+                  backgroundColor: AppColors.tapestryNoir,
                   content: Text(
                     'Teste de colorimetria via selfie iniciado...',
-                    style: GoogleFonts.interTight(color: Colors.white),
+                    style: GoogleFonts.interTight(color: AppColors.ivoryText),
                   ),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentTerracotta,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.accentCinnabar,
+              foregroundColor: AppColors.ivoryText,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: Text('Iniciar Selfie Test', style: GoogleFonts.interTight()),
@@ -79,9 +79,9 @@ class StyleRecalibrationDialogs {
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppColors.surfaceCanvas,
+          color: AppColors.paperBone,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppColors.borderGold, width: 0.8),
+          border: Border.all(color: AppColors.hairlineInk, width: 0.8),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -92,7 +92,7 @@ class StyleRecalibrationDialogs {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.3),
+                  color: AppColors.inkSecondary.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -101,7 +101,7 @@ class StyleRecalibrationDialogs {
             Text(
               'Ajustar Biótipo Corporal',
               style: GoogleFonts.bodoniModa(
-                color: AppColors.textPrimary,
+                color: AppColors.inkText,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -110,18 +110,18 @@ class StyleRecalibrationDialogs {
             Text(
               'Selecione a silhueta que melhor representa suas proporções atuais.',
               style: GoogleFonts.interTight(
-                color: AppColors.textSecondary,
+                color: AppColors.inkSecondary,
                 fontSize: 12.5,
               ),
             ),
             const SizedBox(height: 16),
             ...silhouettes.map((s) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.accessibility_new, color: AppColors.iheGold),
+                  leading: const Icon(Icons.accessibility_new, color: AppColors.gildedInk),
                   title: Text(
                     s,
                     style: GoogleFonts.interTight(
-                      color: AppColors.textPrimary,
+                      color: AppColors.inkText,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),

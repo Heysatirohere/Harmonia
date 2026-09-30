@@ -42,11 +42,11 @@ class AppTheme {
 
   static ThemeData get lightTheme {
     return ThemeData(
-      scaffoldBackgroundColor: AppColors.surfaceCanvas,
+      scaffoldBackgroundColor: AppColors.tapestryNoir,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.accentTerracotta,
-        primary: AppColors.accentTerracotta,
-        surface: AppColors.surfaceCanvas,
+        seedColor: AppColors.accentCinnabar,
+        primary: AppColors.accentCinnabar,
+        surface: AppColors.paperBone,
       ),
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,

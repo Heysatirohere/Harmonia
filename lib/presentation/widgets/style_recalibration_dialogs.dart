@@ -1,138 +1,131 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
+import '../../models/user_style_profile.dart';
+import '../../theme/app_theme.dart';
+import '../atelier/atelier_widgets.dart';
+import 'color_palette_preview.dart';
 
+/// Folhas de recalibração do perfil morfocromático (RF18)
 class StyleRecalibrationDialogs {
-  static void showColorimetryRecalibration(BuildContext context) {
+  static void showColorimetryRecalibration(
+    BuildContext context, {
+    SeasonalPaletteType? current,
+    required ValueChanged<SeasonalPaletteType> onSelected,
+  }) {
     HapticFeedback.lightImpact();
-    showDialog<void>(
+    var selected = current ?? SeasonalPaletteType.outonoQuente;
+
+    showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.paperBone,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
-        ),
-        title: Text(
-          'Recalibrar Colorimetria',
-          style: GoogleFonts.bodoniModa(
-            color: AppColors.inkText,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: Text(
-          'Deseja reabrir o teste de iluminação assistida via câmera selfie para reavaliar sua cartela cromática pessoal no espaço CIE Lab*?',
-          style: GoogleFonts.interTight(
-            color: AppColors.inkSecondary,
-            fontSize: 13,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancelar',
-              style: GoogleFonts.interTight(color: AppColors.inkSecondary),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => _ReadingSheet(
+          title: 'Recalibrar Colorimetria',
+          subtitle: 'Escolha a cartela sazonal que melhor harmoniza com sua pele, olhos e cabelos.',
+          children: [
+            ColorPalettePreview(
+              paletteType: selected,
+              showCameraHud: false,
+              onPaletteSelected: (palette) => setSheetState(() => selected = palette),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: AppColors.tapestryNoir,
-                  content: Text(
-                    'Teste de colorimetria via selfie iniciado...',
-                    style: GoogleFonts.interTight(color: AppColors.ivoryText),
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentCinnabar,
-              foregroundColor: AppColors.ivoryText,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            const SizedBox(height: 20),
+            CinnabarButton(
+              label: 'Salvar cartela',
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                Navigator.of(ctx).pop();
+                onSelected(selected);
+              },
             ),
-            child: Text('Iniciar Selfie Test', style: GoogleFonts.interTight()),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  static void showBodyTypeAdjustment(BuildContext context, {required ValueChanged<String> onSelected}) {
+  static void showBodyTypeAdjustment(
+    BuildContext context, {
+    BodySilhouetteType? current,
+    required ValueChanged<BodySilhouetteType> onSelected,
+  }) {
     HapticFeedback.lightImpact();
-    final silhouettes = [
-      'Ampulheta',
-      'Triângulo Invertido',
-      'Retângulo',
-      'Pera / Triângulo',
-      'Oval',
-    ];
 
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.paperBone,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppColors.hairlineInk, width: 0.8),
+      builder: (ctx) => _ReadingSheet(
+        title: 'Ajustar Biótipo Corporal',
+        subtitle: 'Selecione a silhueta que melhor representa suas proporções atuais.',
+        children: [
+          for (final silhouette in BodySilhouetteType.values)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.accessibility_new, color: AppColors.gildedInk),
+              title: Text(silhouette.displayName, style: AppTypography.uiHeadline(color: AppColors.inkText)),
+              trailing: silhouette == current
+                  ? const Icon(Icons.check, color: AppColors.inkText, size: 18)
+                  : null,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                Navigator.of(ctx).pop();
+                if (silhouette != current) onSelected(silhouette);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Folha de leitura em papel cor de osso que sobe sobre a Sala
+class _ReadingSheet extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+
+  const _ReadingSheet({required this.title, required this.subtitle, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
+      // Material (e não Container) para as ListTiles pintarem o toque sobre o papel
+      child: Material(
+        color: AppColors.paperBone,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLarge)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.inkSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Ajustar Biótipo Corporal',
-              style: GoogleFonts.bodoniModa(
-                color: AppColors.inkText,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Selecione a silhueta que melhor representa suas proporções atuais.',
-              style: GoogleFonts.interTight(
-                color: AppColors.inkSecondary,
-                fontSize: 12.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...silhouettes.map((s) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.accessibility_new, color: AppColors.gildedInk),
-                  title: Text(
-                    s,
-                    style: GoogleFonts.interTight(
-                      color: AppColors.inkText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 12, AppSpacing.pageMargin, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 32,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.hairlineInk,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onSelected(s);
-                    Navigator.of(ctx).pop();
-                  },
-                )),
-          ],
+                ),
+                const SizedBox(height: 18),
+                Text(title, style: AppTypography.sectionDisplay(color: AppColors.inkText).copyWith(fontSize: 24)),
+                const SizedBox(height: 6),
+                Text(subtitle, style: AppTypography.bodySmall()),
+                const SizedBox(height: 16),
+                ...children,
+              ],
+            ),
+          ),
         ),
       ),
     );

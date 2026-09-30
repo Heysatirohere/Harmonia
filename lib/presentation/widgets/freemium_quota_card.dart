@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
-import '../../models/user_profile.dart';
+import '../../domain/models/style_profile.dart';
 
 class FreemiumQuotaCard extends StatelessWidget {
-  final UserProfile profile;
+  final StyleProfile profile;
   final VoidCallback? onUpgradeTap;
 
   const FreemiumQuotaCard({
@@ -17,7 +17,7 @@ class FreemiumQuotaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasHitLimit = profile.isPiecesQuotaReached || profile.isDailyLooksQuotaReached;
+    final hasHitLimit = profile.isItemsQuotaReached || profile.isDailyLooksQuotaReached;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -70,19 +70,19 @@ class FreemiumQuotaCard extends StatelessWidget {
           // Piece quota metric
           _buildThinRulerMetric(
             label: 'Acervo Cadastrado',
-            current: profile.registeredPiecesCount,
-            max: profile.maxPiecesQuota,
+            current: profile.itemsCount,
+            max: profile.maxItems,
             unit: 'peças',
-            ratio: profile.piecesRatio,
-            isWarning: profile.isPiecesQuotaReached,
+            ratio: profile.itemsRatio,
+            isWarning: profile.isItemsQuotaReached,
           ),
           const SizedBox(height: 14),
 
           // Daily looks metric
           _buildThinRulerMetric(
             label: 'Combinações Diárias por IA',
-            current: profile.dailyLooksGeneratedCount,
-            max: profile.maxDailyLooksQuota,
+            current: profile.looksToday,
+            max: profile.maxDailyLooks,
             unit: 'looks hoje',
             ratio: profile.dailyLooksRatio,
             isWarning: profile.isDailyLooksQuotaReached,

@@ -6,9 +6,10 @@ Conforme Seção 4 (Regras de Negócio e Requisitos) da Documentação do Harmon
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional, Literal
-from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator, ConfigDict, computed_field
 
-from app.engine.color_science import LabColor
+from app.engine.color_science import LabColor, normalize_palette
+from app.engine.morphology import normalize_biotype
 from app.core.config import settings
 
 
@@ -57,6 +58,46 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StyleProfileUpdate(BaseModel):
+    """
+    Atualização parcial do perfil morfocromático (RF02, RF18).
+    Os valores são normalizados para as chaves do motor do IHE (ex: 'Triângulo Invertido' -> 'TRIANGULO_INVERTIDO').
+    """
+    body_shape: Optional[str] = Field(default=None, description="Biótipo corporal (ex: AMPULHETA)")
+    seasonal_palette: Optional[str] = Field(default=None, description="Cartela sazonal (ex: OUTONO_QUENTE)")
+
+    @field_validator("body_shape")
+    @classmethod
+    def check_body_shape(cls, v: Optional[str]) -> Optional[str]:
+        return normalize_biotype(v) if v is not None else None
+
+    @field_validator("seasonal_palette")
+    @classmethod
+    def check_palette(cls, v: Optional[str]) -> Optional[str]:
+        return normalize_palette(v) if v is not None else None
+
+
+class StyleProfileResponse(BaseModel):
+    """Perfil de estilo do usuário autenticado com o uso da cota Freemium (RF02, RF18, RN02)."""
+    id: UUID
+    email: str
+    body_shape: Optional[str] = None
+    seasonal_palette: Optional[str] = None
+    is_premium: bool = False
+    items_count: int = 0
+    looks_generated_today: int = 0
+    max_items_allowed: int = settings.FREEMIUM_MAX_CLOTHING_ITEMS
+    max_daily_looks_allowed: int = settings.FREEMIUM_MAX_DAILY_LOOKS
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def onboarding_completed(self) -> bool:
+        """O onboarding está completo quando biótipo e cartela foram definidos."""
+        return self.body_shape is not None and self.seasonal_palette is not None
 
 
 class UserUsageSummary(BaseModel):

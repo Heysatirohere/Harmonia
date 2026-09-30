@@ -4,11 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
-import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_storage_service.dart';
+
+/// Falha ao ler ou salvar o acervo, com mensagem pronta para o usuário
+class WardrobeException implements Exception {
+  final String message;
+
+  const WardrobeException(this.message);
+
+  @override
+  String toString() => message;
+}
 
 /// Serviço de integração com o módulo de Acervo Virtual (Wardrobe) da API e Supabase (RF03, RF04, RF06, RN01, RN02)
 class WardrobeApiService {
@@ -16,7 +25,8 @@ class WardrobeApiService {
 
   WardrobeApiService({ApiClient? client}) : _client = client ?? ApiClient();
 
-  /// Busca peças do guarda-roupa via API com fallback gracioso para mock local caso offline
+  /// Busca peças do guarda-roupa via API, com o Supabase como segunda via.
+  /// Lança [WardrobeException] quando nenhuma das duas responde.
   Future<List<ClothingItem>> getClothingItems({
     String? category,
     double? minFormality,
@@ -38,10 +48,8 @@ class WardrobeApiService {
       final response = await _client.get('/wardrobe/items', queryParams: queryParams.isNotEmpty ? queryParams : null);
 
       if (response.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(response.body);
-        if (list.isNotEmpty) {
-          return list.map((item) => ClothingItem.fromJson(item as Map<String, dynamic>)).toList();
-        }
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return list.map((item) => ClothingItem.fromJson(item as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       debugPrint('[WardrobeApiService] Falha de conexão com backend API ($e). Tentando Supabase Database...');
@@ -56,22 +64,16 @@ class WardrobeApiService {
           query = query.eq('category', category);
         }
         final data = await query;
-        if (data is List && data.isNotEmpty) {
-          return data.map((json) => ClothingItem.fromJson(json as Map<String, dynamic>)).toList();
-        }
+        return data.map(ClothingItem.fromJson).toList();
       }
     } catch (e) {
-      debugPrint('[WardrobeApiService] Falha ao consultar Supabase diretamente ($e). Utilizando fallback local.');
+      debugPrint('[WardrobeApiService] Falha ao consultar Supabase diretamente ($e).');
     }
 
-    // 3. Fallback gracioso com curadoria mock local
-    if (category != null && category.isNotEmpty && category != 'Todos') {
-      return mockClothes.where((i) => i.category == category).toList();
-    }
-    return List.from(mockClothes);
+    throw const WardrobeException('Não foi possível carregar o seu acervo. Verifique sua conexão.');
   }
 
-  /// Cadastra nova peça de vestuário no backend
+  /// Cadastra nova peça de vestuário no backend. Retorna null se nada foi salvo.
   Future<ClothingItem?> createClothingItem(ClothingItem item) async {
     // 1. Tenta cadastrar via API FastAPI
     try {
@@ -106,7 +108,7 @@ class WardrobeApiService {
       debugPrint('[WardrobeApiService] Falha ao persistir no Supabase: $e');
     }
 
-    return item;
+    return null;
   }
 
   /// Realiza o fluxo completo: Upload da foto no Supabase Storage e persistência da peça no acervo
@@ -124,16 +126,20 @@ class WardrobeApiService {
         imageBytes: imageBytes,
         fileName: name,
       );
-      if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
-        finalImageUrl = uploadedUrl;
+      if (uploadedUrl == null || uploadedUrl.isEmpty) {
+        throw const WardrobeException('Não foi possível enviar a foto da peça. Tente novamente.');
       }
+      finalImageUrl = uploadedUrl;
     }
 
     final itemWithUrl = item.copyWith(imageUrl: finalImageUrl);
 
     // 2. Persistência da peça no banco de dados (API ou Supabase)
     final savedItem = await createClothingItem(itemWithUrl);
-    return savedItem ?? itemWithUrl;
+    if (savedItem == null) {
+      throw const WardrobeException('Não foi possível salvar a peça no acervo. Tente novamente.');
+    }
+    return savedItem;
   }
 
   /// Remove o fundo da foto e extrai as cores dominantes em CIE L*a*b* (RF04, RF05).

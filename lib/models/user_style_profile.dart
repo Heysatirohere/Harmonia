@@ -10,6 +10,29 @@ enum BodySilhouetteType {
 }
 
 extension BodySilhouetteExtension on BodySilhouetteType {
+  /// Chave do biótipo no motor do IHE (backend/app/engine/morphology.py)
+  String get apiKey {
+    switch (this) {
+      case BodySilhouetteType.ampulheta:
+        return 'AMPULHETA';
+      case BodySilhouetteType.retangulo:
+        return 'RETANGULO';
+      case BodySilhouetteType.triangulo:
+        return 'TRIANGULO';
+      case BodySilhouetteType.trianguloInvertido:
+        return 'TRIANGULO_INVERTIDO';
+      case BodySilhouetteType.oval:
+        return 'OVAL';
+    }
+  }
+
+  static BodySilhouetteType? fromApiKey(String? key) {
+    for (final type in BodySilhouetteType.values) {
+      if (type.apiKey == key) return type;
+    }
+    return null;
+  }
+
   String get displayName {
     switch (this) {
       case BodySilhouetteType.ampulheta:
@@ -73,6 +96,44 @@ enum SeasonalPaletteType {
 }
 
 extension SeasonalPaletteExtension on SeasonalPaletteType {
+  /// Chave da cartela no motor do IHE (backend/app/engine/color_science.py).
+  /// "Vivo" e "Vibrante" correspondem às cartelas "Brilhante" do motor.
+  String get apiKey {
+    switch (this) {
+      case SeasonalPaletteType.outonoQuente:
+        return 'OUTONO_QUENTE';
+      case SeasonalPaletteType.outonoSuave:
+        return 'OUTONO_SUAVE';
+      case SeasonalPaletteType.outonoEscuro:
+        return 'OUTONO_ESCURO';
+      case SeasonalPaletteType.invernoFrio:
+        return 'INVERNO_FRIO';
+      case SeasonalPaletteType.invernoVivo:
+        return 'INVERNO_BRILHANTE';
+      case SeasonalPaletteType.invernoEscuro:
+        return 'INVERNO_ESCURO';
+      case SeasonalPaletteType.primaveraClara:
+        return 'PRIMAVERA_CLARA';
+      case SeasonalPaletteType.primaveraQuente:
+        return 'PRIMAVERA_QUENTE';
+      case SeasonalPaletteType.primaveraVibrante:
+        return 'PRIMAVERA_BRILHANTE';
+      case SeasonalPaletteType.veraoSuave:
+        return 'VERAO_SUAVE';
+      case SeasonalPaletteType.veraoFrio:
+        return 'VERAO_FRIO';
+      case SeasonalPaletteType.veraoClaro:
+        return 'VERAO_CLARO';
+    }
+  }
+
+  static SeasonalPaletteType? fromApiKey(String? key) {
+    for (final type in SeasonalPaletteType.values) {
+      if (type.apiKey == key) return type;
+    }
+    return null;
+  }
+
   String get displayName {
     switch (this) {
       case SeasonalPaletteType.outonoQuente:

@@ -190,7 +190,6 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     });
 
     final selectedColor = segmentation.colors[_selectedColorIndex];
-    final defaultUrl = 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80';
 
     final newItem = ClothingItem(
       id: 'scanned-${DateTime.now().millisecondsSinceEpoch}',
@@ -203,7 +202,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       labB: selectedColor.b,
       formalityScore: _formalityLevel,
       usageRate: 1,
-      imageUrl: defaultUrl,
+      imageUrl: '', // preenchida com a URL do recorte após o upload
       brandOrProvenance: _provenanceController.text.trim().isEmpty
           ? 'Acervo Pessoal'
           : _provenanceController.text.trim(),
@@ -212,7 +211,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     );
 
     // Upload no Supabase Storage e persistência no banco
-    ClothingItem catalogedItem = newItem;
+    final ClothingItem catalogedItem;
     try {
       // Envia o recorte PNG com canal alfa, não a foto original
       catalogedItem = await _wardrobeService.uploadAndCatalogGarment(
@@ -220,8 +219,18 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
         fileName: 'garment_${DateTime.now().microsecondsSinceEpoch}.png',
         item: newItem,
       );
-    } catch (e) {
-      debugPrint('[ScanItemScreen] Erro na catalogação: $e');
+    } on WardrobeException catch (e) {
+      // A peça continua na tela para uma nova tentativa, sem perder a análise
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.tapestryNoir,
+            behavior: SnackBarBehavior.floating,
+            content: Text(e.message, style: AppTypography.bodyReading(color: AppColors.ivoryText)),
+          ),
+        );
+      }
+      return;
     } finally {
       if (mounted) {
         setState(() {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/services/wardrobe_api_service.dart';
-import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_widgets.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/room_scene.dart';
 import '../widgets/clothing_card.dart';
@@ -17,7 +17,9 @@ import 'wardrobe_analytics_screen.dart';
 /// - Com um filtro ativo, a tela inteira dissolve para a Sala da categoria
 /// - Peças flutuam direto sobre a cenografia; detalhes abrem numa folha paperBone
 class WardrobeScreen extends StatefulWidget {
-  const WardrobeScreen({super.key});
+  final WardrobeApiService? service;
+
+  const WardrobeScreen({super.key, this.service});
 
   /// Sala de cada categoria do acervo
   static AtelierRoom roomFor(String category) => switch (category) {
@@ -33,8 +35,10 @@ class WardrobeScreen extends StatefulWidget {
 }
 
 class _WardrobeScreenState extends State<WardrobeScreen> {
-  final WardrobeApiService _wardrobeService = WardrobeApiService();
-  List<ClothingItem> _items = List.from(mockClothes);
+  late final WardrobeApiService _wardrobeService = widget.service ?? WardrobeApiService();
+  List<ClothingItem> _items = const [];
+  bool _loading = true;
+  String? _loadError;
   int _selectedFilterIndex = 0;
   final List<String> _categories = const [
     'Todos',
@@ -51,11 +55,17 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 
   Future<void> _loadItems() async {
-    final items = await _wardrobeService.getClothingItems();
-    if (mounted && items.isNotEmpty) {
-      setState(() {
-        _items = items;
-      });
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final items = await _wardrobeService.getClothingItems();
+      if (mounted) setState(() => _items = items);
+    } on WardrobeException catch (e) {
+      if (mounted) setState(() => _loadError = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -95,13 +105,8 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => ScanItemScreen(
-          onItemCataloged: (item) {
-            _wardrobeService.createClothingItem(item);
-            setState(() {
-              _items.insert(0, item);
-              mockClothes.insert(0, item);
-            });
-          },
+          // A peça já foi salva pelo ScanItemScreen
+          onItemCataloged: (item) => setState(() => _items = [item, ..._items]),
         ),
       ),
     );
@@ -136,7 +141,9 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                 },
               ),
             ),
-            if (sections.isEmpty)
+            if (_loading && _items.isEmpty)
+              const SliverToBoxAdapter(child: SizedBox.shrink())
+            else if (sections.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _buildEmptyState(),
@@ -296,24 +303,37 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 
   Widget _buildEmptyState() {
+    final error = _loadError;
+    final (title, message) = switch ((error, _items.isEmpty)) {
+      (final String error, _) => ('O acervo não respondeu', error),
+      (null, true) => ('Sua arara está vazia', 'Digitalize a primeira peça para começar a montar looks.'),
+      (null, false) => ('Nenhuma peça nesta categoria', 'Digitalize novas peças em 1 toque para expandir sua arara virtual.'),
+    };
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.dry_cleaning_outlined, size: 44, color: AppColors.ivoryMuted),
-            const SizedBox(height: 16),
-            Text(
-              'Nenhuma peça nesta categoria',
-              style: AppTypography.subtitleCuratorial(color: AppColors.ivoryText),
+            Icon(
+              error != null ? Icons.cloud_off_outlined : Icons.dry_cleaning_outlined,
+              size: 44,
+              color: AppColors.ivoryMuted,
             ),
+            const SizedBox(height: 16),
+            Text(title, style: AppTypography.subtitleCuratorial(color: AppColors.ivoryText)),
             const SizedBox(height: 8),
             Text(
-              'Digitalize novas peças em 1 toque para expandir sua arara virtual.',
+              message,
               style: AppTypography.bodySmall(color: AppColors.ivoryMuted),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 20),
+            if (error != null)
+              RoomIconButton(icon: Icons.refresh, label: 'Tentar de novo', onTap: _loadItems)
+            else if (_items.isEmpty)
+              CinnabarButton(label: 'Digitalizar peça', icon: Icons.photo_camera_outlined, onPressed: _openScanner),
           ],
         ),
       ),

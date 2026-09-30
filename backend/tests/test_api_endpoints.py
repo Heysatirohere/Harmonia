@@ -604,3 +604,90 @@ async def test_profile_provisioned_from_verified_token_claims():
     assert response.status_code == 201
     assert store.users[user_id].email == "nova.conta@harmonia.app"
     assert store.users[user_id].items_count == 1
+
+
+# -----------------------------------------------------------------------------
+# Perfil de Estilo (RF02, RF18)
+# -----------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_read_profile_before_onboarding():
+    """Conta nova começa sem biótipo nem cartela e com o onboarding pendente."""
+    user_id = uuid.uuid4()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/users/me", headers=auth_headers(user_id, email="ana@harmonia.app"))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(user_id)
+    assert data["email"] == "ana@harmonia.app"
+    assert data["body_shape"] is None
+    assert data["seasonal_palette"] is None
+    assert data["onboarding_completed"] is False
+    assert data["max_items_allowed"] == settings.FREEMIUM_MAX_CLOTHING_ITEMS
+    assert data["max_daily_looks_allowed"] == settings.FREEMIUM_MAX_DAILY_LOOKS
+
+
+@pytest.mark.anyio
+async def test_update_profile_normalizes_and_completes_onboarding():
+    """Os valores são salvos nas chaves do motor do IHE e completam o onboarding."""
+    user_id = uuid.uuid4()
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.patch(
+            "/api/v1/users/me",
+            json={"body_shape": "Triângulo Invertido", "seasonal_palette": "outono quente"},
+            headers=headers,
+        )
+        reread = await client.get("/api/v1/users/me", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["body_shape"] == "TRIANGULO_INVERTIDO"
+    assert response.json()["seasonal_palette"] == "OUTONO_QUENTE"
+    assert response.json()["onboarding_completed"] is True
+    assert reread.json()["body_shape"] == "TRIANGULO_INVERTIDO"
+    assert store.users[user_id].seasonal_palette == "OUTONO_QUENTE"
+
+
+@pytest.mark.anyio
+async def test_partial_update_keeps_other_field():
+    """Recalibrar só o biótipo mantém a cartela já salva."""
+    user_id = uuid.uuid4()
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.patch(
+            "/api/v1/users/me",
+            json={"body_shape": "AMPULHETA", "seasonal_palette": "VERAO_FRIO"},
+            headers=headers,
+        )
+        response = await client.patch("/api/v1/users/me", json={"body_shape": "OVAL"}, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["body_shape"] == "OVAL"
+    assert response.json()["seasonal_palette"] == "VERAO_FRIO"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "payload",
+    [{"body_shape": "PERA"}, {"seasonal_palette": "INVERNO_VIVO"}],
+)
+async def test_update_profile_rejects_unknown_values(payload):
+    """Valores fora do vocabulário do motor do IHE são recusados com 422."""
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.patch("/api/v1/users/me", json=payload, headers=auth_headers(uuid.uuid4()))
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_profile_requires_bearer_token():
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        read = await client.get("/api/v1/users/me")
+        update = await client.patch("/api/v1/users/me", json={"body_shape": "OVAL"})
+
+    assert read.status_code == 401
+    assert update.status_code == 401

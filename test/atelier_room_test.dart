@@ -6,6 +6,8 @@ import 'package:harmonia_mvp/presentation/atelier/room_scene.dart';
 import 'package:harmonia_mvp/presentation/screens/wardrobe_screen.dart';
 import 'package:harmonia_mvp/presentation/widgets/filter_chips_bar.dart';
 
+import 'support/fake_wardrobe_service.dart';
+
 const _emerald = AtelierRoom.silkEmerald;
 const _bordeaux = AtelierRoom.velvetBordeaux;
 const _ochre = AtelierRoom.gildedOchre;
@@ -121,7 +123,7 @@ void main() {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.75;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(const MaterialApp(home: WardrobeScreen()));
+      await tester.pumpWidget(MaterialApp(home: WardrobeScreen(service: FakeWardrobeService(mockClothes))));
       await tester.pumpAndSettle();
     }
 

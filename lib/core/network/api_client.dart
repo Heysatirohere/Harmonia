@@ -65,6 +65,17 @@ class ApiClient {
         .timeout(timeoutDuration);
   }
 
+  Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body}) async {
+    final uri = Uri.parse('$baseUrl$endpoint');
+    return await http
+        .patch(
+          uri,
+          headers: _headers,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(timeoutDuration);
+  }
+
   /// Envia um arquivo como multipart/form-data no campo `file`.
   Future<http.Response> postFile(
     String endpoint, {

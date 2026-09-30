@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/services/wardrobe_api_service.dart';
-import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/editorial_nav_bar.dart';
@@ -87,9 +85,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+  /// A peça já foi salva pelo ScanItemScreen; aqui só se abre o Acervo atualizado
   void _onItemCataloged(ClothingItem item) {
-    WardrobeApiService().createClothingItem(item);
-    mockClothes.insert(0, item);
     setState(() {
       _wardrobeRevision++;
       _currentIndex = MainNavigationScreen.wardrobeTab;

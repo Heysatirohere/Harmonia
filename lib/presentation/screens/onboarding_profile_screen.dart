@@ -15,9 +15,17 @@ import '../widgets/silhouette_selector_card.dart';
 /// - Resposta háptica refinada com HapticFeedback
 /// - Botão primário em accentCinnabar
 class OnboardingProfileScreen extends StatefulWidget {
-  final VoidCallback? onCompleted;
+  /// Salva o perfil escolhido; uma falha mantém o usuário no resumo para tentar de novo
+  final Future<void> Function(BodySilhouetteType silhouette, SeasonalPaletteType palette)? onCompleted;
+  final BodySilhouetteType? initialSilhouette;
+  final SeasonalPaletteType? initialPalette;
 
-  const OnboardingProfileScreen({super.key, this.onCompleted});
+  const OnboardingProfileScreen({
+    super.key,
+    this.onCompleted,
+    this.initialSilhouette,
+    this.initialPalette,
+  });
 
   @override
   State<OnboardingProfileScreen> createState() => _OnboardingProfileScreenState();
@@ -27,8 +35,9 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
 
-  BodySilhouetteType _selectedSilhouette = BodySilhouetteType.ampulheta;
-  SeasonalPaletteType _selectedPalette = SeasonalPaletteType.outonoQuente;
+  late BodySilhouetteType _selectedSilhouette = widget.initialSilhouette ?? BodySilhouetteType.ampulheta;
+  late SeasonalPaletteType _selectedPalette = widget.initialPalette ?? SeasonalPaletteType.outonoQuente;
+  bool _saving = false;
 
   /// Boas-vindas, biótipo, colorimetria (fundo frio e neutro para julgar cores) e resumo
   static const _stepRooms = [
@@ -56,12 +65,29 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     }
   }
 
-  void _finishOnboarding() {
-    HapticFeedback.mediumImpact();
-    if (widget.onCompleted != null) {
-      widget.onCompleted!();
-    } else if (Navigator.canPop(context)) {
-      Navigator.pop(context);
+  Future<void> _finishOnboarding() async {
+    final onCompleted = widget.onCompleted;
+    if (onCompleted != null) {
+      setState(() => _saving = true);
+      try {
+        await onCompleted(_selectedSilhouette, _selectedPalette);
+      } catch (error) {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.tapestryNoir,
+            behavior: SnackBarBehavior.floating,
+            content: Text('$error', style: AppTypography.bodyReading(color: AppColors.ivoryText)),
+          ),
+        );
+        return;
+      }
+      HapticFeedback.mediumImpact();
+      if (mounted) setState(() => _saving = false);
+    } else {
+      HapticFeedback.mediumImpact();
+      if (Navigator.canPop(context)) Navigator.pop(context);
     }
   }
 
@@ -312,7 +338,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             SizedBox(
               height: 52,
               child: OutlinedButton(
-                onPressed: _previousPage,
+                onPressed: _saving ? null : _previousPage,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.hairlineIvory, width: 1.0),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
@@ -333,6 +359,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                   ? 'Entrar no HarmonIA'
                   : 'Avançar',
               onPressed: _currentStep == 3 ? _finishOnboarding : _nextPage,
+              busy: _saving,
             ),
           ),
         ],

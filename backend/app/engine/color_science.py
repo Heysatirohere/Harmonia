@@ -124,12 +124,17 @@ SEASONAL_PALETTES: Dict[str, List[LabColor]] = {
 }
 
 
-def get_seasonal_palette_centroids(palette_name: str) -> List[LabColor]:
-    """Retorna os centróides CIE L*a*b* da cartela sazonal expandida informada."""
+def normalize_palette(palette_name: str) -> str:
+    """Normaliza o nome da cartela sazonal para a chave canônica (ex: 'Outono Quente' -> 'OUTONO_QUENTE')."""
     key = palette_name.strip().upper().replace(" ", "_")
     if key not in SEASONAL_PALETTES:
         raise ValueError(f"Cartela sazonal '{palette_name}' não reconhecida. Opções: {list(SEASONAL_PALETTES.keys())}")
-    return SEASONAL_PALETTES[key]
+    return key
+
+
+def get_seasonal_palette_centroids(palette_name: str) -> List[LabColor]:
+    """Retorna os centróides CIE L*a*b* da cartela sazonal expandida informada."""
+    return SEASONAL_PALETTES[normalize_palette(palette_name)]
 
 
 def calculate_garment_s_cor(garment_color: LabColor, palette_name: str, sigma_c: float = 18.0) -> float:

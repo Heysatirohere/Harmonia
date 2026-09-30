@@ -268,3 +268,48 @@ class RecommendedOutfitResponse(BaseModel):
     styling_advice: str
     occasion: str
 
+
+
+# -----------------------------------------------------------------------------
+# Paridade de Provador (RF08, RF09)
+# -----------------------------------------------------------------------------
+
+class StoreParityRequest(BaseModel):
+    """Peça fotografada na loja: categoria escolhida pelo usuário e cor extraída do recorte."""
+    category: str = Field(..., min_length=1, description="Categoria da peça (ex: Partes de cima)")
+    dominant_l: float = Field(..., ge=0.0, le=100.0)
+    dominant_a: float = Field(..., ge=-128.0, le=127.0)
+    dominant_b: float = Field(..., ge=-128.0, le=127.0)
+    formality_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    occasion: str = Field(default="CASUAL")
+    temperature_celsius: float = Field(default=22.0)
+    is_raining: bool = Field(default=False)
+    limit: int = Field(default=5, ge=1, le=10, description="Máximo de peças do acervo no ranking")
+
+    @field_validator("occasion")
+    @classmethod
+    def check_occasion(cls, v: str) -> str:
+        return normalize_occasion(v)
+
+
+class ParityMatchResponse(BaseModel):
+    """Peça do acervo e o IHE do melhor look que ela forma com a peça da loja."""
+    item: ClothingItemResponse
+    ihe_percentage: float
+    s_cor: float
+    s_bio: float
+    is_strongly_recommended: bool
+    rationale: str
+
+
+class StoreParityResponse(BaseModel):
+    """Resultado da paridade: melhor look possível e ranking das peças de casa (RF09)."""
+    ihe_percentage: float = Field(..., description="IHE do melhor look com a peça da loja (0 sem looks)")
+    is_strongly_recommended: bool
+    palette_harmony: Optional[float] = Field(
+        default=None, description="S_cor da cor da peça contra a cartela do usuário (sem cartela: nulo)"
+    )
+    styling_advice: Optional[str] = None
+    looks_evaluated: int
+    strong_looks: int = Field(..., description="Looks com IHE >= 75% que a peça destravaria")
+    matches: List[ParityMatchResponse]

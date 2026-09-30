@@ -1,69 +1,159 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../mocks/mock_store_parity.dart';
+import '../../data/services/outfit_api_service.dart';
+import '../../data/services/wardrobe_api_service.dart';
+import '../../models/clothing_item.dart';
+import '../../models/garment_segmentation.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../widgets/store_parity_sheet.dart';
 
-/// Screen for Mirror Mode / Store Garment Parity Analysis (RF08)
+/// Foto capturada: bytes e nome do arquivo
+typedef CapturedPhoto = ({Uint8List bytes, String name});
+
+/// Abre a câmera ou a galeria; nos testes, substitui o seletor do sistema
+typedef PhotoCapture = Future<CapturedPhoto?> Function(ImageSource source);
+
+/// Modo Provador: paridade de uma peça da loja com o acervo (RF08, RF09)
+///
+/// Fluxo em 3 toques (RNF06): categoria → obturador → disparo da câmera.
+/// A foto passa pelo mesmo recorte e extração L*a*b* do scanner e é
+/// comparada com o acervo pelo motor do IHE, sem gastar a cota diária.
 class StoreMirrorScreen extends StatefulWidget {
-  const StoreMirrorScreen({super.key});
+  final WardrobeApiService? wardrobeService;
+  final OutfitApiService? outfitService;
+  final PhotoCapture? capturePhoto;
+
+  const StoreMirrorScreen({super.key, this.wardrobeService, this.outfitService, this.capturePhoto});
 
   @override
   State<StoreMirrorScreen> createState() => _StoreMirrorScreenState();
 }
 
 class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
-  String _selectedStore = 'Lojas Renner';
-  bool _isCapturing = false;
+  late final WardrobeApiService _wardrobeService = widget.wardrobeService ?? WardrobeApiService();
+  late final OutfitApiService _outfitService = widget.outfitService ?? OutfitApiService();
 
-  void _onCaptureGarment() async {
+  /// A segmentação ainda não classifica a peça (RF05), então a categoria é escolhida aqui
+  static const _categories = ['Partes de cima', 'Partes de baixo', 'Calçados', 'Peças únicas'];
+  String _category = _categories.first;
+
+  Uint8List? _photo;
+  bool _analyzing = false;
+
+  Future<CapturedPhoto?> _pickWithSystem(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85, maxWidth: 1400);
+    if (picked == null) return null;
+    return (bytes: await picked.readAsBytes(), name: picked.name);
+  }
+
+  Future<void> _capture(ImageSource source) async {
+    if (_analyzing) return;
     HapticFeedback.mediumImpact();
+
+    final CapturedPhoto? photo;
+    try {
+      photo = await (widget.capturePhoto ?? _pickWithSystem)(source);
+    } on PlatformException {
+      _showMessage('Não foi possível abrir a câmera. Verifique a permissão do app.');
+      return;
+    }
+    if (photo == null || !mounted) return;
+
     setState(() {
-      _isCapturing = true;
+      _photo = photo!.bytes;
+      _analyzing = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 350));
+    try {
+      final segmentation = await _wardrobeService.segmentGarment(imageBytes: photo.bytes, fileName: photo.name);
+      if (segmentation.colors.isEmpty) {
+        throw const SegmentationException('Não encontramos a cor da peça. Tente outra foto.');
+      }
+      final result = await _outfitService.analyzeStoreParity(
+        storeGarment: _storeGarment(segmentation.colors.first),
+      );
+      if (!mounted) return;
+      setState(() => _analyzing = false);
+      HapticFeedback.selectionClick();
+      await StoreParitySheet.show(context, parityResult: result);
+    } on SegmentationException catch (e) {
+      _showMessage(e.message);
+    } on OutfitException catch (e) {
+      _showMessage(e.message);
+    } finally {
+      if (mounted && _analyzing) setState(() => _analyzing = false);
+    }
+  }
 
+  ClothingItem _storeGarment(GarmentColor color) {
+    return ClothingItem(
+      id: 'store-${DateTime.now().millisecondsSinceEpoch}',
+      name: '${_singular(_category)} ${color.name.toLowerCase()}',
+      category: _category,
+      dominantColor: color.color,
+      labColorSpace: color.labLabel,
+      labL: color.l,
+      labA: color.a,
+      labB: color.b,
+      usageRate: 0,
+      imageUrl: '',
+      brandOrProvenance: 'Peça da loja',
+    );
+  }
+
+  static String _singular(String category) => switch (category) {
+        'Partes de cima' => 'Parte de cima',
+        'Partes de baixo' => 'Parte de baixo',
+        'Calçados' => 'Calçado',
+        _ => 'Peça única',
+      };
+
+  void _showMessage(String message) {
     if (!mounted) return;
-    setState(() {
-      _isCapturing = false;
-    });
-
-    StoreParitySheet.show(
-      context,
-      parityResult: MockStoreParity.sample,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.tapestryNoir,
+        behavior: SnackBarBehavior.floating,
+        content: Text(message, style: GoogleFonts.interTight(color: AppColors.ivoryText, fontSize: 13)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final photo = _photo;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+
     return Scaffold(
       backgroundColor: AppColors.tapestryNoir,
       body: Stack(
         // O body do Scaffold tem altura livre; sem expand a Stack encolhe até a barra do topo
         fit: StackFit.expand,
         children: [
-          // Camera Simulation Background with error handling
+          // A foto da peça vira a cenografia; antes dela, a tapeçaria noturna
           Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=1000',
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: AppColors.tapestryNoir,
-                  child: const Center(
-                    child: Icon(Icons.camera_alt_outlined, color: AppColors.hairlineIvory, size: 64),
-                  ),
-                );
-              },
-            ),
+            key: const Key('mirror_backdrop'),
+            child: photo != null
+                ? Image.memory(
+                    photo,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                    cacheWidth: (MediaQuery.sizeOf(context).width * dpr).round(),
+                    gaplessPlayback: true,
+                  )
+                : const RoomScene(room: AtelierRoom.tapestryNoir, child: SizedBox.expand()),
           ),
           Positioned.fill(
-            child: Container(
-              color: AppColors.tapestryNoir.withValues(alpha: 0.35),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 450),
+              curve: const Cubic(0.16, 1.0, 0.3, 1.0),
+              color: AppColors.tapestryNoir.withValues(alpha: _analyzing ? 0.6 : 0.35),
             ),
           ),
 
@@ -123,7 +213,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
             ),
           ),
 
-          // Store Switcher & Bottom Shutter Controls
+          // Categoria da peça & obturador
           Positioned(
             left: 0,
             right: 0,
@@ -133,40 +223,63 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Store selector chips
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildStoreChip('Lojas Renner'),
-                      const SizedBox(width: 12),
-                      _buildStoreChip('C&A'),
-                    ],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        for (final category in _categories) ...[
+                          _buildCategoryChip(category),
+                          if (category != _categories.last) const SizedBox(width: 10),
+                        ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 28),
 
-                  // Shutter Button
-                  GestureDetector(
-                    key: const Key('shutter_button'),
-                    onTap: _onCaptureGarment,
-                    child: AnimatedScale(
-                      scale: _isCapturing ? 0.92 : 1.0,
-                      duration: const Duration(milliseconds: 150),
-                      child: CustomPaint(
-                        size: const Size(76, 76),
-                        painter: _ShutterButtonPainter(
-                          borderColor: AppColors.gildedLeaf,
-                          innerColor: AppColors.ivoryText,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 40),
+                      const SizedBox(width: 28),
+                      // Obturador: abre a câmera
+                      GestureDetector(
+                        key: const Key('shutter_button'),
+                        onTap: () => _capture(ImageSource.camera),
+                        child: AnimatedScale(
+                          scale: _analyzing ? 0.92 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+                          child: CustomPaint(
+                            size: const Size(76, 76),
+                            painter: _ShutterButtonPainter(
+                              borderColor: AppColors.gildedLeaf,
+                              innerColor: AppColors.ivoryText,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 28),
+                      RoomIconButton(
+                        icon: Icons.photo_library_outlined,
+                        label: 'Escolher da galeria',
+                        onTap: () => _capture(ImageSource.gallery),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Toque para analisar paridade com seu acervo',
-                    style: GoogleFonts.interTight(
-                      color: AppColors.ivoryMuted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      _analyzing
+                          ? 'Comparando a peça com o seu acervo…'
+                          : 'Fotografe a peça da loja para comparar com o seu acervo',
+                      key: ValueKey(_analyzing),
+                      style: GoogleFonts.interTight(
+                        color: AppColors.ivoryMuted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -178,14 +291,12 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
     );
   }
 
-  Widget _buildStoreChip(String storeName) {
-    final isSelected = _selectedStore == storeName;
+  Widget _buildCategoryChip(String category) {
+    final isSelected = _category == category;
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        setState(() {
-          _selectedStore = storeName;
-        });
+        setState(() => _category = category);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -201,7 +312,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
           ),
         ),
         child: Text(
-          storeName,
+          category,
           style: GoogleFonts.interTight(
             color: isSelected ? AppColors.inkText : AppColors.ivoryText,
             fontSize: 12,

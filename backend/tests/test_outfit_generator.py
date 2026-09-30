@@ -122,3 +122,79 @@ def test_app_wardrobe_generates_complete_looks():
         frozenset({top.id, bottom.id, shoes.id}),
         frozenset({dress.id, shoes.id}),
     }
+
+
+# -----------------------------------------------------------------------------
+# Paridade de peça em loja (RF08, RF09)
+# -----------------------------------------------------------------------------
+
+from app.engine.outfit_generator import rank_store_parity
+
+
+def _parity_user():
+    return User(
+        id=uuid.uuid4(),
+        email="parity@harmonia.app",
+        hashed_password="hash",
+        body_shape="AMPULHETA",
+        seasonal_palette="OUTONO_QUENTE",
+    )
+
+
+def _piece(user, category, l_value, a_value=20.0, b_value=20.0):
+    return ClothingItem(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        category=category,
+        image_url=f"https://example.com/{category}.png",
+        dominant_l=l_value,
+        dominant_a=a_value,
+        dominant_b=b_value,
+        formality_score=0.3,
+    )
+
+
+def test_store_top_is_ranked_against_home_bottoms():
+    user = _parity_user()
+    warm_bottom = _piece(user, "Partes de baixo", 45.0, 30.0, 30.0)
+    cold_bottom = _piece(user, "Partes de baixo", 85.0, -30.0, -40.0)
+    shoes = _piece(user, "Calçados", 30.0)
+    other_top = _piece(user, "Partes de cima", 50.0)
+    store_top = ClothingItem(category="Partes de cima", dominant_l=48.0, dominant_a=30.0, dominant_b=28.0, formality_score=0.3)
+
+    parity = rank_store_parity(store_top, [warm_bottom, cold_bottom, shoes, other_top], user)
+
+    ranked_ids = [m.item.id for m in parity.matches]
+    # Outra parte de cima não combina com uma parte de cima da loja
+    assert other_top.id not in ranked_ids
+    assert set(ranked_ids) == {warm_bottom.id, cold_bottom.id, shoes.id}
+    assert ranked_ids.index(warm_bottom.id) < ranked_ids.index(cold_bottom.id)
+    # Todo look avaliado contém a peça da loja e só peças do acervo além dela
+    assert parity.looks_evaluated == 2
+    assert parity.best_look is not None and store_top in parity.best_look.items
+    scores = [m.best_look.ihe_result.ihe_score for m in parity.matches]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_store_shoes_pair_with_complete_outfits():
+    user = _parity_user()
+    top = _piece(user, "Partes de cima", 55.0)
+    bottom = _piece(user, "Partes de baixo", 40.0)
+    dress = _piece(user, "Peças únicas", 50.0)
+    store_shoes = ClothingItem(category="Calçados", dominant_l=35.0, dominant_a=15.0, dominant_b=20.0, formality_score=0.3)
+
+    parity = rank_store_parity(store_shoes, [top, bottom, dress], user)
+
+    assert parity.looks_evaluated == 2  # parte de cima + parte de baixo, e o vestido
+    assert {m.item.id for m in parity.matches} == {top.id, bottom.id, dress.id}
+
+
+def test_store_parity_without_matching_pieces_is_empty():
+    user = _parity_user()
+    store_top = ClothingItem(category="Partes de cima", dominant_l=50.0, dominant_a=0.0, dominant_b=0.0, formality_score=0.5)
+
+    parity = rank_store_parity(store_top, [_piece(user, "Partes de cima", 50.0)], user)
+
+    assert parity.best_look is None
+    assert parity.matches == []
+    assert parity.looks_evaluated == 0

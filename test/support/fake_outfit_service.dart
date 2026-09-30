@@ -1,12 +1,17 @@
 import 'package:harmonia_mvp/data/services/outfit_api_service.dart';
 import 'package:harmonia_mvp/domain/models/recommended_look.dart';
 import 'package:harmonia_mvp/mocks/mock_clothes.dart';
+import 'package:harmonia_mvp/models/clothing_item.dart';
+import 'package:harmonia_mvp/models/store_parity_result.dart';
 
 /// Motor de looks em memória para testes de widget
 class FakeOutfitService extends OutfitApiService {
   final List<RecommendedLook> looks;
   OutfitException? failure;
   final List<String> occasions = [];
+
+  /// Peças enviadas para paridade, na ordem
+  final List<ClothingItem> parityRequests = [];
 
   FakeOutfitService(this.looks, {this.failure});
 
@@ -50,5 +55,33 @@ class FakeOutfitService extends OutfitApiService {
       throw queued;
     }
     return looks;
+  }
+
+  @override
+  Future<StoreParityResult> analyzeStoreParity({required ClothingItem storeGarment, String occasion = 'CASUAL'}) async {
+    parityRequests.add(storeGarment);
+    final queued = failure;
+    if (queued != null) {
+      failure = null;
+      throw queued;
+    }
+    return StoreParityResult(
+      storeGarment: storeGarment,
+      ihePercentage: 86,
+      isStronglyRecommended: true,
+      paletteHarmony: 0.9,
+      looksEvaluated: 2,
+      strongLooks: 1,
+      matches: [
+        ParityMatchItem(
+          closetItem: mockClothes[1],
+          ihePercentage: 86,
+          chromaticScore: 0.9,
+          morphologicalScore: 0.85,
+          isStronglyRecommended: true,
+          rationale: 'Cores em harmonia com a sua cartela.',
+        ),
+      ],
+    );
   }
 }

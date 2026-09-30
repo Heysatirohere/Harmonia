@@ -19,9 +19,13 @@ from app.schemas.dtos import (
     OutfitGenerateRequest,
     RecommendedOutfitResponse,
     ClothingItemResponse,
+    ParityMatchResponse,
+    StoreParityRequest,
+    StoreParityResponse,
 )
 from app.engine.ihe_calculator import calculate_ihe, IHERequest, IHEResponse
-from app.engine.color_science import LabColor
+from app.engine.color_science import LabColor, calculate_garment_s_cor
+from app.engine.outfit_generator import rank_store_parity
 
 router = APIRouter()
 
@@ -170,3 +174,78 @@ async def generate_daily_outfits(
 
     return response_list
 
+
+
+def _parity_rationale(ihe: IHEResponse) -> str:
+    """Motivo curto da paridade, a partir dos pilares cromático e morfológico."""
+    reasons = []
+    if ihe.s_cor >= 0.80:
+        reasons.append("cores em harmonia com a sua cartela")
+    if ihe.s_bio >= 0.80:
+        reasons.append("silhueta equilibrada para o seu biótipo")
+    if not reasons:
+        return "Combinação possível, com harmonia moderada."
+    text = " e ".join(reasons)
+    return text[0].upper() + text[1:] + "."
+
+
+@router.post("/store-parity", response_model=StoreParityResponse, status_code=status.HTTP_200_OK)
+async def analyze_store_parity(
+    payload: StoreParityRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Compara uma peça vista na loja com o acervo do usuário (RF08, RF09).
+    Monta looks com a peça da loja e as peças de casa, ranqueia as peças pelo IHE do melhor
+    look que cada uma forma e não grava nada. Por decisão de produto, não gasta a cota RN02.
+    """
+    stmt_items = select(ClothingItem).where(
+        ClothingItem.user_id == user.id,
+        ClothingItem.is_archived == False
+    )
+    items = list((await db.execute(stmt_items)).scalars().all())
+
+    # Peça transitória: existe só durante o cálculo, nunca entra na sessão
+    store_item = ClothingItem(
+        category=payload.category,
+        dominant_l=payload.dominant_l,
+        dominant_a=payload.dominant_a,
+        dominant_b=payload.dominant_b,
+        formality_score=payload.formality_score,
+    )
+    parity = rank_store_parity(
+        store_item,
+        items,
+        user,
+        occasion=payload.occasion,
+        temperature_celsius=payload.temperature_celsius,
+        is_raining=payload.is_raining,
+        limit=payload.limit,
+    )
+
+    palette_harmony = None
+    if user.seasonal_palette:
+        color = LabColor(L=payload.dominant_l, a=payload.dominant_a, b=payload.dominant_b)
+        palette_harmony = round(calculate_garment_s_cor(color, user.seasonal_palette), 4)
+
+    best = parity.best_look
+    return StoreParityResponse(
+        ihe_percentage=best.ihe_result.ihe_percentage if best else 0.0,
+        is_strongly_recommended=best.ihe_result.is_strongly_recommended if best else False,
+        palette_harmony=palette_harmony,
+        styling_advice=best.styling_advice if best else None,
+        looks_evaluated=parity.looks_evaluated,
+        strong_looks=parity.strong_looks,
+        matches=[
+            ParityMatchResponse(
+                item=ClothingItemResponse.model_validate(match.item),
+                ihe_percentage=match.best_look.ihe_result.ihe_percentage,
+                s_cor=match.best_look.ihe_result.s_cor,
+                s_bio=match.best_look.ihe_result.s_bio,
+                is_strongly_recommended=match.best_look.ihe_result.is_strongly_recommended,
+                rationale=_parity_rationale(match.best_look.ihe_result),
+            )
+            for match in parity.matches
+        ],
+    )

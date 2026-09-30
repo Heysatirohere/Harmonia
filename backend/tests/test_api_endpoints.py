@@ -121,6 +121,9 @@ class MockAsyncSession:
 
             if target_user:
                 return FakeExecuteResult([target_user])
+            # Busca por id/e-mail sem correspondência não encontra ninguém (como no banco real)
+            if any(isinstance(p, uuid.UUID) or (isinstance(p, str) and "@" in p) for p in params.values()):
+                return FakeExecuteResult([])
             return FakeExecuteResult(users_list)
 
         # 3. Queries de Peças de Vestuário
@@ -805,3 +808,83 @@ async def test_generate_rejects_unknown_occasion():
         response = await _generate(client, user_id, occasion="PIQUENIQUE")
 
     assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# Paridade de Provador (RF08, RF09)
+# -----------------------------------------------------------------------------
+
+STORE_TOP = {
+    "category": "Partes de cima",
+    "dominant_l": 48.0,
+    "dominant_a": 30.0,
+    "dominant_b": 28.0,
+    "occasion": "CASUAL",
+}
+
+
+@pytest.mark.anyio
+async def test_store_parity_ranks_wardrobe_without_spending_quota():
+    """A peça da loja é comparada com o acervo; nada é gravado e a cota não muda."""
+    user_id = _seed_wardrobe_user()
+    items_before = set(store.clothing_items)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/store-parity", json=STORE_TOP, headers=auth_headers(user_id))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["looks_evaluated"] == 1  # a única parte de baixo do acervo
+    assert len(data["matches"]) == 1
+    match = data["matches"][0]
+    assert match["item"]["category"] == "bottom"
+    assert 0 < match["ihe_percentage"] <= 100
+    assert match["rationale"]
+    assert data["ihe_percentage"] == match["ihe_percentage"]
+    assert data["palette_harmony"] is not None
+    assert set(store.clothing_items) == items_before
+    assert store.users[user_id].looks_generated_today == 0
+
+
+@pytest.mark.anyio
+async def test_store_parity_works_even_at_the_daily_limit():
+    user_id = _seed_wardrobe_user(looks_today=settings.FREEMIUM_MAX_DAILY_LOOKS, counter_date=quota_today())
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/store-parity", json=STORE_TOP, headers=auth_headers(user_id))
+
+    assert response.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_store_parity_with_empty_wardrobe():
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/store-parity", json=STORE_TOP, headers=auth_headers(uuid.uuid4()))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["matches"] == []
+    assert data["ihe_percentage"] == 0.0
+    assert data["palette_harmony"] is None  # conta nova, sem cartela
+
+
+@pytest.mark.anyio
+async def test_store_parity_isolates_other_users_wardrobes():
+    """RN01: as peças de outra conta nunca entram no ranking."""
+    owner = _seed_wardrobe_user()
+    stranger = uuid.uuid4()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/store-parity", json=STORE_TOP, headers=auth_headers(stranger))
+
+    assert response.status_code == 200
+    owner_ids = {str(i.id) for i in store.clothing_items.values() if i.user_id == owner}
+    assert not owner_ids & {m["item"]["id"] for m in response.json()["matches"]}
+
+
+@pytest.mark.anyio
+async def test_store_parity_requires_bearer_token():
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/store-parity", json=STORE_TOP)
+
+    assert response.status_code == 401

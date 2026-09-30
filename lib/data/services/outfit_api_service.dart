@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../domain/models/recommended_look.dart';
+import '../../models/clothing_item.dart';
+import '../../models/store_parity_result.dart';
 
 /// Falha ao gerar looks, com mensagem pronta para o usuário
 class OutfitException implements Exception {
@@ -60,6 +62,44 @@ class OutfitApiService {
         throw const OutfitException('Sessão expirada. Entre novamente.');
       default:
         throw const OutfitException('Não foi possível compor o look agora.');
+    }
+  }
+
+  /// Compara uma peça fotografada na loja com o acervo (RF08, RF09). Não gasta a cota RN02.
+  /// [storeGarment] precisa ter as coordenadas L*a*b* extraídas do recorte.
+  Future<StoreParityResult> analyzeStoreParity({
+    required ClothingItem storeGarment,
+    String occasion = 'CASUAL',
+  }) async {
+    final (l, a, b) = storeGarment.labCoordinates;
+    final http.Response response;
+    try {
+      response = await _client.post(
+        '/outfits/store-parity',
+        body: {
+          'category': storeGarment.category,
+          'dominant_l': l,
+          'dominant_a': a,
+          'dominant_b': b,
+          'formality_score': storeGarment.formalityScore ?? 0.5,
+          'occasion': occasion,
+        },
+      );
+    } catch (e) {
+      debugPrint('[OutfitApiService] Paridade indisponível: $e');
+      throw const OutfitException('Não foi possível conectar ao ateliê. Verifique sua conexão.');
+    }
+
+    switch (response.statusCode) {
+      case 200:
+        return StoreParityResult.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+          storeGarment: storeGarment,
+        );
+      case 401:
+        throw const OutfitException('Sessão expirada. Entre novamente.');
+      default:
+        throw const OutfitException('Não foi possível comparar a peça agora.');
     }
   }
 

@@ -51,7 +51,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     'Partes de cima',
     'Partes de baixo',
     'Calçados',
-    'Ocasião',
+    'Peças únicas',
   ];
 
   double _formalityLevel = 0.65; // 65% Casual Chic

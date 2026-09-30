@@ -32,7 +32,8 @@ SHOES_CATEGORIES = {
 }
 
 ONE_PIECE_CATEGORIES = {
-    "one_piece", "vestido", "macacao", "macacão", "vestidos", "macacões"
+    "one_piece", "vestido", "macacao", "macacão", "vestidos", "macacões",
+    "peças únicas", "peça única", "pecas unicas", "peca unica"
 }
 
 

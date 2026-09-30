@@ -7,7 +7,7 @@ import '../core/color/lab_color.dart';
 class ClothingItem {
   final String id;
   final String name;
-  final String category; // 'Partes de cima', 'Partes de baixo', 'Calçados', 'Ocasião', etc.
+  final String category; // 'Partes de cima', 'Partes de baixo', 'Calçados' ou 'Peças únicas'
   final Color dominantColor;
   final String labColorSpace; // Ex: 'L* 64.2, a* 22.8, b* 18.5'
   final int usageRate; // Quantidade de vezes em que a peça foi combinada/usada

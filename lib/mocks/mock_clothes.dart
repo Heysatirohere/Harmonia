@@ -91,7 +91,7 @@ final List<ClothingItem> mockClothes = [
   const ClothingItem(
     id: 'item-7',
     name: 'Trench Coat Terracota Editorial',
-    category: 'Ocasião',
+    category: 'Partes de cima',
     dominantColor: AppColors.accentTerracotta,
     labColorSpace: 'L* 48.7, a* 32.1, b* 27.4',
     usageRate: 9,

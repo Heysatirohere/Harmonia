@@ -12,8 +12,15 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
+  /// Origem da API definida no build, ex: --dart-define=API_BASE_URL=http://192.168.0.10:8000
+  static const String _configuredOrigin = String.fromEnvironment('API_BASE_URL');
+
   /// URL Base da API FastAPI (Google Cloud Run ou Local)
   String get baseUrl {
+    if (_configuredOrigin.isNotEmpty) {
+      return '${_configuredOrigin.replaceFirst(RegExp(r'/+$'), '')}/api/v1';
+    }
+    // Sem definição: servidor local visto pelo emulador Android ou pelo próprio computador
     if (kIsWeb) {
       return 'http://127.0.0.1:8000/api/v1';
     }

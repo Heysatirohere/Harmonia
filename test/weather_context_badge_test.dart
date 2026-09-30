@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:harmonia_mvp/data/services/outfit_api_service.dart';
+import 'package:harmonia_mvp/mocks/mock_clothes.dart';
 import 'package:harmonia_mvp/mocks/mock_weather.dart';
 import 'package:harmonia_mvp/models/weather_context.dart';
 import 'package:harmonia_mvp/presentation/screens/daily_outfit_screen.dart';
 import 'package:harmonia_mvp/presentation/widgets/weather_context_badge.dart';
+
+import 'support/fake_outfit_service.dart';
 
 void main() {
   group('WeatherContext Model Tests', () {
@@ -102,49 +106,91 @@ void main() {
   });
 
   group('DailyOutfitScreen Integration Tests', () {
-    testWidgets('renders DailyOutfitScreen with top weather badge and outfit components', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: DailyOutfitScreen(),
-        ),
-      );
+    Future<FakeOutfitService> pumpDaily(WidgetTester tester, FakeOutfitService service) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(MaterialApp(home: DailyOutfitScreen(service: service)));
+      await tester.pumpAndSettle();
+      return service;
+    }
 
-      // Header e Título
+    testWidgets('mostra o look gerado com o IHE e o clima', (WidgetTester tester) async {
+      await pumpDaily(tester, FakeOutfitService.sample());
+
       expect(find.text('Look do Dia'), findsOneWidget);
       expect(find.textContaining('CURADORIA •'), findsOneWidget, reason: 'data do dia, não mais fixa');
-
-      // WeatherContextBadge no topo
       expect(find.byType(WeatherContextBadge), findsOneWidget);
 
-      // Elementos do Look
+      expect(find.text(mockClothes[0].name, skipOffstage: false), findsOneWidget);
+      expect(find.text('88%', findRichText: true, skipOffstage: false), findsOneWidget);
       expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsOneWidget);
-      expect(find.text('Sobreposição terracota em linho cru'), findsOneWidget);
-      expect(find.text('Blazer Desestruturado em Linho'), findsOneWidget);
-
-      // Botões de Ação 3 Toques
+      expect(find.text('Tons terrosos em diálogo com a sua cartela.', skipOffstage: false), findsOneWidget);
       expect(find.text('Aprovar look do dia', skipOffstage: false), findsOneWidget);
       expect(find.text('Simular no provador', skipOffstage: false), findsOneWidget);
     });
 
-    testWidgets('approving look changes state and displays feedback snackbar', (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(800, 1400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets('outra sugestão percorre os looks sem nova consulta', (WidgetTester tester) async {
+      final service = await pumpDaily(tester, FakeOutfitService.sample());
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: DailyOutfitScreen(),
-        ),
+      await tester.ensureVisible(find.text('Outra sugestão (1/2)'));
+      await tester.tap(find.text('Outra sugestão (1/2)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('64%', findRichText: true, skipOffstage: false), findsOneWidget);
+      expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsNothing);
+      expect(service.occasions, ['CASUAL']);
+    });
+
+    testWidgets('trocar a ocasião pede novos looks ao motor', (WidgetTester tester) async {
+      final service = await pumpDaily(tester, FakeOutfitService.sample());
+
+      await tester.tap(find.text('Trabalho'));
+      await tester.pumpAndSettle();
+
+      expect(service.occasions, ['CASUAL', 'TRABALHO']);
+    });
+
+    testWidgets('acervo que não forma look orienta a digitalizar peças', (WidgetTester tester) async {
+      await pumpDaily(tester, FakeOutfitService(const []));
+
+      expect(find.text('Seu acervo ainda não forma um look'), findsOneWidget);
+      expect(find.text('Aprovar look do dia', skipOffstage: false), findsNothing);
+    });
+
+    testWidgets('cota esgotada informa e não oferece nova tentativa', (WidgetTester tester) async {
+      await pumpDaily(
+        tester,
+        FakeOutfitService(const [], failure: const OutfitException('Cota esgotada hoje.', isQuotaExceeded: true)),
       );
 
-      // Clica em 'Aprovar Look do Dia'
+      expect(find.text('Cota de hoje esgotada'), findsOneWidget);
+      expect(find.byIcon(Icons.refresh), findsNothing);
+    });
+
+    testWidgets('falha de conexão permite tentar de novo', (WidgetTester tester) async {
+      await pumpDaily(
+        tester,
+        FakeOutfitService.sample()..failure = const OutfitException('Não foi possível conectar ao ateliê.'),
+      );
+
+      expect(find.text('O ateliê não respondeu'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pumpAndSettle();
+
+      expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsOneWidget);
+    });
+
+    testWidgets('aprovar o look muda o estado e confirma', (WidgetTester tester) async {
+      await pumpDaily(tester, FakeOutfitService.sample());
+
       await tester.ensureVisible(find.text('Aprovar look do dia'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Aprovar look do dia'));
       await tester.pumpAndSettle();
 
       expect(find.text('Look aprovado'), findsOneWidget);
-      expect(find.text('Look do dia registrado no seu acervo!'), findsOneWidget);
+      expect(find.text('Look do dia aprovado.'), findsOneWidget);
     });
   });
 }

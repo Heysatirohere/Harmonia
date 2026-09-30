@@ -16,13 +16,10 @@ void main() {
       await expectLater(service.getClothingItems(), throwsA(isA<WardrobeException>()));
     });
 
-    test('OutfitApiService returns valid outfits in fallback', () async {
+    test('OutfitApiService sem API informa a falha em vez de inventar looks', () async {
       final service = OutfitApiService();
-      final outfits = await service.generateDailyOutfits();
 
-      expect(outfits, isNotEmpty);
-      expect(outfits.first.topItem, isNotNull);
-      expect(outfits.first.ihe.overallScore, greaterThan(0));
+      await expectLater(service.generateDailyOutfits(), throwsA(isA<OutfitException>()));
     });
   });
 }

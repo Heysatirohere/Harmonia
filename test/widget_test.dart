@@ -12,10 +12,12 @@ void main() {
   testWidgets('HarmonIA DailyOutfitScreen smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const HarmoniaApp());
 
-    // Verifica a inicialização da tela Sugestão Diária
+    await tester.pumpAndSettle();
+
+    // Verifica a inicialização da tela Sugestão Diária (sem API, sem look inventado)
     expect(find.text('Look do Dia'), findsOneWidget);
     expect(find.byType(DailyOutfitScreen), findsOneWidget);
-    expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsWidgets);
+    expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsNothing);
   });
 
   testWidgets('HarmonIA ScanItemScreen & SegmentationPreview smoke test', (WidgetTester tester) async {

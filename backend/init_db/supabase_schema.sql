@@ -16,9 +16,15 @@ CREATE TABLE IF NOT EXISTS public.users (
     style_vector vector(512),
     is_premium BOOLEAN NOT NULL DEFAULT FALSE,
     looks_generated_today INTEGER NOT NULL DEFAULT 0,
+    looks_counter_date DATE,
+    looks_signatures_today JSONB NOT NULL DEFAULT '[]'::jsonb,
     items_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- 2.1 Cota diária que vira o dia (RN02) em bancos criados antes dessas colunas
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS looks_counter_date DATE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS looks_signatures_today JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 -- 3. Tabela de Peças do Acervo Virtual
 CREATE TABLE IF NOT EXISTS public.clothing_items (

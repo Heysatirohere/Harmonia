@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.quota import sync_daily_counter
 from app.models.entities import User
 
 ASYMMETRIC_ALGORITHMS = ["ES256", "RS256"]
@@ -128,4 +129,6 @@ async def get_current_user(
         db.add(user)
         await db.flush()
 
+    # A cota diária exibida e aplicada em qualquer rota é sempre a de hoje (RN02)
+    sync_daily_counter(user)
     return user

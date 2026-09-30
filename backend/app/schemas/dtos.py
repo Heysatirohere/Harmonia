@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator, model_validato
 
 from app.engine.color_science import LabColor, normalize_palette
 from app.engine.morphology import normalize_biotype
+from app.engine.context_rules import normalize_occasion
 from app.core.config import settings
 
 
@@ -247,6 +248,11 @@ class OutfitGenerateRequest(BaseModel):
     temperature_celsius: float = Field(default=22.0, description="Temperatura local em °C")
     is_raining: bool = Field(default=False, description="Flag de chuva")
     limit: int = Field(default=5, ge=1, le=20, description="Limite máximo de looks recomendados")
+
+    @field_validator("occasion")
+    @classmethod
+    def check_occasion(cls, v: str) -> str:
+        return normalize_occasion(v)
 
 
 class RecommendedOutfitResponse(BaseModel):

@@ -15,6 +15,7 @@ from app.main import app
 from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.quota import quota_today
 from app.models.entities import User, ClothingItem
 
 
@@ -310,6 +311,7 @@ async def test_freemium_look_daily_quota_limit_rn02():
         is_premium=False,
         items_count=5,
         looks_generated_today=5,
+        looks_counter_date=quota_today(),
         created_at=datetime.now(timezone.utc)
     )
     store.users[user_id] = user
@@ -691,3 +693,115 @@ async def test_profile_requires_bearer_token():
 
     assert read.status_code == 401
     assert update.status_code == 401
+
+
+# -----------------------------------------------------------------------------
+# Cota diária de looks: vira o dia e só cobra consultas novas (RN02)
+# -----------------------------------------------------------------------------
+
+def _seed_wardrobe_user(looks_today=0, counter_date=None, premium=False, signatures=None):
+    user_id = uuid.uuid4()
+    store.users[user_id] = User(
+        id=user_id,
+        email=f"{user_id}@harmonia.app",
+        hashed_password="managed_by_supabase_auth",
+        body_shape="AMPULHETA",
+        seasonal_palette="OUTONO_QUENTE",
+        is_premium=premium,
+        items_count=2,
+        looks_generated_today=looks_today,
+        looks_counter_date=counter_date,
+        looks_signatures_today=signatures or [],
+        created_at=datetime.now(timezone.utc),
+    )
+    for category, l_value in (("top", 60.0), ("bottom", 35.0)):
+        item = ClothingItem(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            category=category,
+            image_url=f"https://example.supabase.co/{category}.png",
+            dominant_l=l_value,
+            dominant_a=15.0,
+            dominant_b=18.0,
+            formality_score=0.4,
+            is_archived=False,
+            created_at=datetime.now(timezone.utc),
+        )
+        store.clothing_items[item.id] = item
+    return user_id
+
+
+async def _generate(client, user_id, occasion="CASUAL", temperature=22.0):
+    return await client.post(
+        "/api/v1/outfits/generate-daily",
+        json={"occasion": occasion, "temperature_celsius": temperature, "is_raining": False, "limit": 3},
+        headers=auth_headers(user_id),
+    )
+
+
+@pytest.mark.anyio
+async def test_look_counter_resets_on_a_new_day():
+    """O limite atingido ontem não bloqueia hoje."""
+    user_id = _seed_wardrobe_user(looks_today=5, counter_date=quota_today() - timedelta(days=1))
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        profile = await client.get("/api/v1/users/me", headers=auth_headers(user_id))
+        response = await _generate(client, user_id)
+
+    assert profile.json()["looks_generated_today"] == 0
+    assert response.status_code == 200
+    assert store.users[user_id].looks_generated_today == 1
+    assert store.users[user_id].looks_counter_date == quota_today()
+
+
+@pytest.mark.anyio
+async def test_repeating_the_same_query_does_not_spend_quota():
+    """Reabrir o Look do Dia com a mesma ocasião e clima devolve os looks sem cobrar de novo."""
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await _generate(client, user_id)
+        again = await _generate(client, user_id)
+        other_occasion = await _generate(client, user_id, occasion="TRABALHO")
+
+    assert first.status_code == again.status_code == other_occasion.status_code == 200
+    assert first.json() == again.json()
+    assert store.users[user_id].looks_generated_today == 2
+
+
+@pytest.mark.anyio
+async def test_quota_reached_blocks_new_queries_but_not_repeats():
+    """No limite, uma consulta já feita hoje continua disponível; uma nova é recusada."""
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await _generate(client, user_id)
+        store.users[user_id].looks_generated_today = settings.FREEMIUM_MAX_DAILY_LOOKS
+        repeat = await _generate(client, user_id)
+        new_query = await _generate(client, user_id, occasion="FESTA")
+
+    assert repeat.status_code == 200
+    assert new_query.status_code == 403
+    assert "Limite da cota Freemium de combinações diárias atingido" in new_query.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_empty_wardrobe_does_not_spend_quota():
+    user_id = uuid.uuid4()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await _generate(client, user_id)
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert store.users[user_id].looks_generated_today == 0
+
+
+@pytest.mark.anyio
+async def test_generate_rejects_unknown_occasion():
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await _generate(client, user_id, occasion="PIQUENIQUE")
+
+    assert response.status_code == 422

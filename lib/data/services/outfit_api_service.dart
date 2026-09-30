@@ -1,8 +1,21 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
-import '../../mocks/mock_outfits.dart';
-import '../../models/outfit_combination.dart';
+import '../../domain/models/recommended_look.dart';
+
+/// Falha ao gerar looks, com mensagem pronta para o usuário
+class OutfitException implements Exception {
+  final String message;
+
+  /// Cota diária do plano gratuito esgotada (RN02): tentar de novo não adianta hoje
+  final bool isQuotaExceeded;
+
+  const OutfitException(this.message, {this.isQuotaExceeded = false});
+
+  @override
+  String toString() => message;
+}
 
 /// Serviço de integração com o motor inteligente de looks e IHE da API FastAPI (RF07, RF13)
 class OutfitApiService {
@@ -10,15 +23,17 @@ class OutfitApiService {
 
   OutfitApiService({ApiClient? client}) : _client = client ?? ApiClient();
 
-  /// Solicita geração automática de looks a partir do acervo do usuário (RF07)
-  Future<List<OutfitCombination>> generateDailyOutfits({
+  /// Gera looks a partir do acervo do usuário (RF07). Lista vazia: o acervo ainda não forma um look.
+  /// Repetir a mesma consulta no mesmo dia não gasta a cota (RN02).
+  Future<List<RecommendedLook>> generateDailyOutfits({
     String occasion = 'CASUAL',
     double temperatureCelsius = 22.0,
     bool isRaining = false,
     int limit = 5,
   }) async {
+    final http.Response response;
     try {
-      final response = await _client.post(
+      response = await _client.post(
         '/outfits/generate-daily',
         body: {
           'occasion': occasion,
@@ -27,21 +42,25 @@ class OutfitApiService {
           'limit': limit,
         },
       );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(response.body);
-        if (list.isNotEmpty) {
-          return list
-              .map((item) => OutfitCombination.fromApiResponse(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
     } catch (e) {
-      debugPrint('[OutfitApiService] Falha ao comunicar com motor de looks da API ($e). Utilizando look curatorial mock.');
+      debugPrint('[OutfitApiService] Motor de looks indisponível: $e');
+      throw const OutfitException('Não foi possível conectar ao ateliê. Verifique sua conexão.');
     }
 
-    // Fallback gracioso com a curadoria de alta costura local
-    return List.from(mockOutfits);
+    switch (response.statusCode) {
+      case 200:
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return [for (final look in list) RecommendedLook.fromJson(look as Map<String, dynamic>)];
+      case 403:
+        throw const OutfitException(
+          'Você usou as combinações de hoje do plano gratuito. Novas sugestões amanhã.',
+          isQuotaExceeded: true,
+        );
+      case 401:
+        throw const OutfitException('Sessão expirada. Entre novamente.');
+      default:
+        throw const OutfitException('Não foi possível compor o look agora.');
+    }
   }
 
   /// Calcula o IHE pontual para um conjunto arbitrário de peças ou atributos

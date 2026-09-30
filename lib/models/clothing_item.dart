@@ -108,8 +108,8 @@ class ClothingItem {
       usageRate: (json['usage_rate'] as int?) ?? 0,
       imageUrl: json['image_url'] as String? ?? '',
       brandOrProvenance: json['cut_type'] != null ? 'Corte ${json['cut_type']}' : 'Acervo Pessoal',
-      isConsciousFashion: true,
-      consciousNote: 'Algodão e Linho Certificado',
+      // A API ainda não registra origem ESG; nada é presumido
+      isConsciousFashion: false,
       iheScore: (json['ihe_score'] as num?)?.toInt(),
     );
   }

@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # Limites das Cotas Freemium (RN02)
     FREEMIUM_MAX_CLOTHING_ITEMS: int = 30
     FREEMIUM_MAX_DAILY_LOOKS: int = 5
+    QUOTA_TIMEZONE: str = Field(
+        default="America/Sao_Paulo",
+        description="Fuso em que a cota diária de looks vira o dia"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

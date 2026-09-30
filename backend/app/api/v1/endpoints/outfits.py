@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.quota import charge_look, has_reached_look_limit, look_request_signature, was_charged_today
 from app.core.security import get_current_user
 from app.models.entities import User, ClothingItem
 from app.schemas.dtos import (
@@ -25,6 +26,16 @@ from app.engine.color_science import LabColor
 router = APIRouter()
 
 
+def _look_quota_exceeded() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            f"Limite da cota Freemium de combinações diárias atingido (máximo {settings.FREEMIUM_MAX_DAILY_LOOKS} por dia). "
+            "Faça upgrade para o Premium."
+        ),
+    )
+
+
 @router.post("/calculate-ihe", response_model=IHEResponse, status_code=status.HTTP_200_OK)
 async def calculate_ihe_endpoint(
     payload: OutfitCalculateRequest,
@@ -36,11 +47,8 @@ async def calculate_ihe_endpoint(
     Aplica controle de cota Freemium diária de 5 combinações por IA (RN02).
     """
     # Validação estrita da Cota Freemium Diária (RN02)
-    if not user.is_premium and user.looks_generated_today >= settings.FREEMIUM_MAX_DAILY_LOOKS:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Limite da cota Freemium de combinações diárias atingido (máximo 5 por dia). Faça upgrade para o Premium."
-        )
+    if has_reached_look_limit(user):
+        raise _look_quota_exceeded()
 
     # 1. Determinar cor representativa no espaço CIE L*a*b*
     garment_color: LabColor
@@ -83,7 +91,7 @@ async def calculate_ihe_endpoint(
     ihe_result = calculate_ihe(ihe_req)
 
     # 4. Incrementar contador diário de looks do usuário
-    user.looks_generated_today += 1
+    charge_look(user)
     await db.commit()
 
     return ihe_result
@@ -98,15 +106,9 @@ async def generate_daily_outfits(
     """
     Gera automaticamente combinações completas de looks a partir do acervo do usuário (RF07).
     Varre o inventário ativo, compõe candidatos viáveis e ranqueia pelo IHE determinístico.
-    Aplica controle de cota Freemium diária de 5 combinações por IA (RN02).
+    Aplica controle de cota Freemium diária de 5 combinações por IA (RN02): só consultas
+    novas gastam cota, e um acervo sem combinações não gasta nada.
     """
-    # Validação estrita da Cota Freemium Diária (RN02)
-    if not user.is_premium and user.looks_generated_today >= settings.FREEMIUM_MAX_DAILY_LOOKS:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Limite da cota Freemium de combinações diárias atingido (máximo 5 por dia). Faça upgrade para o Premium."
-        )
-
     # Buscar itens ativos do usuário (RN01 - isolamento estrito)
     stmt_items = select(ClothingItem).where(
         ClothingItem.user_id == user.id,
@@ -117,6 +119,20 @@ async def generate_daily_outfits(
 
     if not items:
         return []
+
+    signature = look_request_signature(
+        user,
+        [item.id for item in items],
+        payload.occasion,
+        round(payload.temperature_celsius),
+        payload.is_raining,
+        payload.limit,
+    )
+    repeated = was_charged_today(user, signature)
+
+    # Validação estrita da Cota Freemium Diária (RN02)
+    if not repeated and has_reached_look_limit(user):
+        raise _look_quota_exceeded()
 
     # Gerar recomendações ranqueadas
     from app.engine.outfit_generator import generate_outfit_recommendations
@@ -130,7 +146,8 @@ async def generate_daily_outfits(
     )
 
     # Incrementa cota Freemium diária utilizada
-    user.looks_generated_today += 1
+    if recommendations and not repeated:
+        charge_look(user, signature)
     await db.commit()
 
     # Mapear para DTOs de resposta

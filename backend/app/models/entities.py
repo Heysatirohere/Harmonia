@@ -4,11 +4,11 @@ Conforme Requisitos de Arquitetura e Persistência do HarmonIA.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Integer, Float, Boolean, Date, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
@@ -57,6 +57,17 @@ class User(Base):
     looks_generated_today: Mapped[int] = mapped_column(
         Integer,
         default=0,
+        nullable=False
+    )
+    # Dia (fuso da cota) a que o contador se refere; em outro dia ele vale zero (RN02)
+    looks_counter_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    # Assinaturas das consultas já cobradas hoje: repetir a mesma consulta não gasta cota
+    looks_signatures_today: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
         nullable=False
     )
     items_count: Mapped[int] = mapped_column(

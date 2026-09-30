@@ -53,7 +53,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late int _currentIndex = widget.initialIndex;
 
-  /// Recria o Acervo após uma captura feita fora dele
+  /// Recria o Acervo e o Look do Dia após uma captura feita fora do Acervo
   int _wardrobeRevision = 0;
 
   void _onTabSelected(int index) {
@@ -100,7 +100,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          const DailyOutfitScreen(),
+          DailyOutfitScreen(key: ValueKey(_wardrobeRevision)),
           WardrobeScreen(key: ValueKey(_wardrobeRevision)),
           const CommunityFeedScreen(),
           const ProfileScreen(),

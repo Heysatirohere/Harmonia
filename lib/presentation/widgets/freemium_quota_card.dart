@@ -34,7 +34,7 @@ class FreemiumQuotaCard extends StatelessWidget {
             children: [
               Text(
                 'SAÚDE DA ASSINATURA (RN02)',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.interTight(
                   color: AppColors.textMuted,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -55,7 +55,7 @@ class FreemiumQuotaCard extends StatelessWidget {
                 ),
                 child: Text(
                   profile.isPremium ? '✦ PLANO PREMIUM' : 'PLANO FREEMIUM',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     color: profile.isPremium ? AppColors.iheGold : AppColors.textSecondary,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
@@ -114,7 +114,7 @@ class FreemiumQuotaCard extends StatelessWidget {
                       children: [
                         Text(
                           'Limite da Cota Gratuita Atingido',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             color: AppColors.accentTerracotta,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -123,7 +123,7 @@ class FreemiumQuotaCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           'Desbloqueie peças e gerações ilimitadas com a assinatura HarmonIA Ateliê.',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             color: AppColors.textSecondary,
                             fontSize: 11,
                           ),
@@ -145,7 +145,7 @@ class FreemiumQuotaCard extends StatelessWidget {
                       ),
                       child: Text(
                         'Upgrade',
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.interTight(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -178,7 +178,7 @@ class FreemiumQuotaCard extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 color: AppColors.textPrimary,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
@@ -186,7 +186,7 @@ class FreemiumQuotaCard extends StatelessWidget {
             ),
             Text(
               '$current / $max $unit',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 color: isWarning ? AppColors.accentTerracotta : AppColors.textSecondary,
                 fontSize: 12,
                 fontWeight: isWarning ? FontWeight.w700 : FontWeight.w600,

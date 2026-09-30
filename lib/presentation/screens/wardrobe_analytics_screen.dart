@@ -155,7 +155,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               ),
               Text(
                 '${_analytics.activePercentage.toStringAsFixed(0)}% ATIVO',
-                style: GoogleFonts.playfairDisplay(
+                style: GoogleFonts.bodoniModa(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppColors.accentTerracotta,
@@ -166,7 +166,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
           const SizedBox(height: 14),
           Text(
             '${_analytics.activePiecesCount} das ${_analytics.totalPieces} peças em circulação frequente',
-            style: GoogleFonts.playfairDisplay(
+            style: GoogleFonts.bodoniModa(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -296,7 +296,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary,
@@ -305,7 +305,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   '$count peças (${pct.toStringAsFixed(0)}%)',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -372,7 +372,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                             children: [
                               Text(
                                 c.colorName,
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.interTight(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary,
@@ -380,7 +380,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                               ),
                               Text(
                                 '${c.percentage.toStringAsFixed(0)}%',
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.interTight(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
@@ -391,7 +391,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                           const SizedBox(height: 3),
                           Text(
                             c.labCoordinates,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               fontSize: 10,
                               color: AppColors.textMuted,
                             ),
@@ -452,12 +452,12 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                   children: [
                     Text(
                       'Custo Médio / Uso',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'R\$ ${_analytics.averageCostPerWear.toStringAsFixed(2).replaceAll('.', ',')}',
-                      style: GoogleFonts.playfairDisplay(
+                      style: GoogleFonts.bodoniModa(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -474,12 +474,12 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                   children: [
                     Text(
                       'Capital Ocioso Parado',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'R\$ ${_analytics.estimatedIdleCapital.toStringAsFixed(2).replaceAll('.', ',')}',
-                      style: GoogleFonts.playfairDisplay(
+                      style: GoogleFonts.bodoniModa(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: AppColors.accentTerracotta,
@@ -517,7 +517,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   'Resgate de Patrimônio Ocioso',
-                  style: GoogleFonts.playfairDisplay(
+                  style: GoogleFonts.bodoniModa(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -574,7 +574,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                       piece.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -583,7 +583,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                     const SizedBox(height: 2),
                     Text(
                       'Sem uso recente',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         fontSize: 10,
                         color: AppColors.accentTerracotta,
                         fontWeight: FontWeight.w500,
@@ -602,7 +602,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                         ),
                         child: Text(
                           'Reativar Look',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.accentTerracotta,
@@ -660,7 +660,7 @@ class _ReactivateGarmentSheet extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Coordenar "${item.name}"',
-            style: GoogleFonts.playfairDisplay(
+            style: GoogleFonts.bodoniModa(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -686,7 +686,7 @@ class _ReactivateGarmentSheet extends StatelessWidget {
                     backgroundColor: AppColors.textPrimary,
                     content: Text(
                       'Combinação de reativação gerada com sucesso!',
-                      style: GoogleFonts.plusJakartaSans(color: Colors.white),
+                      style: GoogleFonts.interTight(color: Colors.white),
                     ),
                   ),
                 );
@@ -694,7 +694,7 @@ class _ReactivateGarmentSheet extends StatelessWidget {
               icon: const Icon(Icons.auto_awesome, size: 16),
               label: Text(
                 'Gerar Look com Esta Peça',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.interTight(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),

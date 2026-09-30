@@ -99,7 +99,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.tapestryNoir,
       body: IndexedStack(
         index: _currentIndex,
         children: [

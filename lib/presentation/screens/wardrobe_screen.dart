@@ -1,23 +1,32 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/services/wardrobe_api_service.dart';
 import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/room_scene.dart';
 import '../widgets/clothing_card.dart';
 import '../widgets/filter_chips_bar.dart';
 import 'scan_item_screen.dart';
 import 'wardrobe_analytics_screen.dart';
 
 /// Tela do Guarda-Roupa / Inventário Virtual ("The Floating Canvas")
-/// Conforme AGENTS.md:
-/// - Fundo creme quente (#FBF9F5)
-/// - Cabeçalho editorial assimétrico com Playfair Display
-/// - Grid de silhuetas com respiração ampla e profundidade tátil
-/// - Filtros de categoria minimalistas e métricas do acervo
+/// Conforme AGENTS.md (Renascença do Ateliê):
+/// - Cada categoria é uma seção com sua própria Sala; o fundo se dissolve entre elas no scroll
+/// - Com um filtro ativo, a tela inteira dissolve para a Sala da categoria
+/// - Peças flutuam direto sobre a cenografia; detalhes abrem numa folha paperBone
 class WardrobeScreen extends StatefulWidget {
   const WardrobeScreen({super.key});
+
+  /// Sala de cada categoria do acervo
+  static AtelierRoom roomFor(String category) => switch (category) {
+        'Partes de cima' => AtelierRoom.silkEmerald,
+        'Partes de baixo' => AtelierRoom.velvetBordeaux,
+        'Calçados' => AtelierRoom.gildedOchre,
+        'Peças únicas' => AtelierRoom.frescoBlue,
+        _ => AtelierRoom.verdigris,
+      };
 
   @override
   State<WardrobeScreen> createState() => _WardrobeScreenState();
@@ -32,7 +41,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     'Partes de cima',
     'Partes de baixo',
     'Calçados',
-    'Ocasião',
+    'Peças únicas',
   ];
 
   @override
@@ -50,52 +59,74 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     }
   }
 
-  List<ClothingItem> get _filteredItems {
-    if (_selectedFilterIndex == 0) return _items;
-    final categoryName = _categories[_selectedFilterIndex];
-    return _items.where((item) => item.category == categoryName).toList();
+  String? get _selectedCategory => _selectedFilterIndex == 0 ? null : _categories[_selectedFilterIndex];
+
+  /// Peças agrupadas por categoria, na ordem dos filtros e depois as demais
+  List<(String, List<ClothingItem>)> get _sections {
+    final selected = _selectedCategory;
+    final groups = <String, List<ClothingItem>>{};
+    for (final item in _items) {
+      if (selected != null && item.category != selected) continue;
+      groups.putIfAbsent(item.category, () => []).add(item);
+    }
+    int order(String category) {
+      final index = _categories.indexOf(category);
+      return index < 0 ? _categories.length : index;
+    }
+
+    final keys = groups.keys.toList()..sort((a, b) => order(a).compareTo(order(b)));
+    return [for (final key in keys) (key, groups[key]!)];
   }
 
   void _onItemTap(ClothingItem item) {
     HapticFeedback.selectionClick();
-    _showGarmentDetailsSheet(context, item);
-  }
-
-  void _showGarmentDetailsSheet(BuildContext context, ClothingItem item) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
       isScrollControlled: true,
-      builder: (ctx) => _GarmentDetailModal(item: item),
+      builder: (ctx) => _GarmentDetailSheet(item: item),
     );
+  }
+
+  Future<void> _openScanner() async {
+    HapticFeedback.mediumImpact();
+    final newItem = await Navigator.push<ClothingItem>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScanItemScreen(
+          onItemCataloged: (item) {
+            _wardrobeService.createClothingItem(item);
+            setState(() {
+              _items.insert(0, item);
+              mockClothes.insert(0, item);
+            });
+          },
+        ),
+      ),
+    );
+    if (newItem != null && mounted) {
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredItems;
+    final sections = _sections;
+    final selected = _selectedCategory;
+    final headerRoom = selected != null ? WardrobeScreen.roomFor(selected) : AtelierRoom.silkEmerald;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      body: SafeArea(
-        top: false,
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: headerRoom,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // Cabeçalho Editorial Assimétrico
-            SliverToBoxAdapter(
-              child: _buildEditorialHeader(context),
-            ),
-
-            // Métricas Curatoriais do Acervo
-            SliverToBoxAdapter(
-              child: _buildAcervoMetrics(context),
-            ),
-
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 20),
-            ),
-
-            // Barra de Filtros Minimalista
+            RoomMarker(room: headerRoom),
+            SliverToBoxAdapter(child: _buildEditorialHeader(context, headerRoom)),
+            SliverToBoxAdapter(child: _buildAcervoMetrics(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
             SliverToBoxAdapter(
               child: FilterChipsBar(
                 categories: _categories,
@@ -105,123 +136,91 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                 },
               ),
             ),
-
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 24),
-            ),
-
-            // Grid de Peças Recortadas ("Floating Canvas")
-            if (filtered.isEmpty)
+            if (sections.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _buildEmptyState(),
               )
             else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: AppSpacing.elementGap,
-                    crossAxisSpacing: AppSpacing.elementGap,
-                    childAspectRatio: 0.70, // Proporção editorial harmônica
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = filtered[index];
-                      return ClothingCard(
-                        item: item,
-                        onTap: () => _onItemTap(item),
-                      );
-                    },
-                    childCount: filtered.length,
+              for (final (category, items) in sections) ...[
+                RoomMarker(room: WardrobeScreen.roomFor(category)),
+                SliverToBoxAdapter(child: _SectionHeader(category: category, count: items.length)),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 28,
+                      crossAxisSpacing: AppSpacing.elementGap,
+                      childAspectRatio: 0.66,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = items[index];
+                        return ClothingCard(item: item, onTap: () => _onItemTap(item));
+                      },
+                      childCount: items.length,
+                    ),
                   ),
                 ),
-              ),
-
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 48),
-            ),
+              ],
+            // Respiro final: deixa o início da última seção subir até o topo e completar a troca
+            SliverToBoxAdapter(child: SizedBox(height: MediaQuery.sizeOf(context).height * 0.5)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEditorialHeader(BuildContext context) {
+  Widget _buildEditorialHeader(BuildContext context, AtelierRoom room) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.pageMargin,
-        MediaQuery.of(context).padding.top + 20,
+        MediaQuery.paddingOf(context).top + 28,
         AppSpacing.pageMargin,
-        12,
+        20,
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'HarmonIA',
-                style: AppTypography.displayEditorial().copyWith(
-                  fontSize: 34,
-                  letterSpacing: -0.8,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ACERVO',
+                  style: AppTypography.atelierMeta(
+                    color: room.allowsSmallGoldText ? AppColors.gildedLeaf : AppColors.ivoryText,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'GUARDA-ROUPA • THE FLOATING CANVAS',
-                style: AppTypography.metadataBadge(
-                  color: AppColors.accentTerracotta,
-                ).copyWith(fontSize: 10, letterSpacing: 1.4),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text('Guarda-roupa', style: AppTypography.heroDisplay()),
+                const SizedBox(height: 4),
+                Text(
+                  'The Floating Canvas',
+                  style: AppTypography.subtitleCuratorial(color: AppColors.ivoryMuted),
+                ),
+              ],
+            ),
           ),
-
-          // Botão Autoral Curatorial (Digitalizar Peça em 1 toque)
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () async {
-                HapticFeedback.mediumImpact();
-                final newItem = await Navigator.push<ClothingItem>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ScanItemScreen(
-                      onItemCataloged: (item) {
-                        _wardrobeService.createClothingItem(item);
-                        setState(() {
-                          _items.insert(0, item);
-                          mockClothes.insert(0, item);
-                        });
-                      },
-                    ),
-                  ),
-                );
-                if (newItem != null && mounted) {
-                  setState(() {});
-                }
-              },
-              borderRadius: BorderRadius.circular(24),
-              splashColor: AppColors.accentTerracotta.withValues(alpha: 0.1),
+          // Digitalizar peça em 1 toque
+          Semantics(
+            label: 'Digitalizar nova peça',
+            button: true,
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: _openScanner,
+              behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.all(10),
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
+                  color: AppColors.accentCinnabar,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.borderSubtle,
-                    width: 0.8,
-                  ),
-                  boxShadow: AppColors.editorialShadow,
+                  // Contorno capilar: o cinábrio sozinho fica abaixo de 3:1 sobre o bordô
+                  border: Border.all(color: AppColors.ivoryText.withValues(alpha: 0.6), width: 1.0),
                 ),
-                child: const Icon(
-                  Icons.add_a_photo_outlined,
-                  color: AppColors.textPrimary,
-                  size: 20,
-                ),
+                child: const Icon(Icons.add_a_photo_outlined, color: AppColors.ivoryText, size: 21),
               ),
             ),
           ),
@@ -233,79 +232,63 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   Widget _buildAcervoMetrics(BuildContext context) {
     final totalItems = _items.length;
     final esgCount = _items.where((i) => i.isConsciousFashion).length;
+    final scored = _items.map((i) => i.iheScore).whereType<int>().toList();
+    final averageIhe = scored.isEmpty ? null : (scored.reduce((a, b) => a + b) / scored.length).round();
+
+    Widget divider() => Container(
+          width: 0.8,
+          height: 34,
+          color: AppColors.hairlineIvory,
+          margin: const EdgeInsets.symmetric(horizontal: 14),
+        );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => WardrobeAnalyticsScreen(items: _items),
-              ),
-            );
-          },
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceRaised.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-              border: Border.all(
-                color: AppColors.borderSubtle,
-                width: 0.6,
-              ),
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => WardrobeAnalyticsScreen(items: _items)),
+          );
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppColors.hairlineIvory, width: 0.8),
+              bottom: BorderSide(color: AppColors.hairlineIvory, width: 0.8),
             ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _MetricItem(
-                      label: 'ACERVO TOTAL',
-                      value: '$totalItems peças',
-                    ),
-                    Container(
-                      width: 0.8,
-                      height: 24,
-                      color: AppColors.borderSubtle,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    _MetricItem(
-                      label: 'HARMONIA MÉDIA',
-                      value: '89% IHE',
-                      highlightColor: AppColors.iheGold,
-                    ),
-                    Container(
-                      width: 0.8,
-                      height: 24,
-                      color: AppColors.borderSubtle,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    _MetricItem(
-                      label: 'MODA CIRCULAR',
-                      value: '$esgCount sustentáveis',
-                      highlightColor: AppColors.accentOlive,
-                    ),
-                  ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  _MetricItem(label: 'PEÇAS', value: '$totalItems'),
+                  divider(),
+                  _MetricItem(
+                    label: 'IHE MÉDIO',
+                    value: averageIhe == null ? '—' : '$averageIhe%',
+                    valueColor: AppColors.gildedLeaf,
+                  ),
+                  divider(),
+                  _MetricItem(
+                    label: 'CIRCULARES',
+                    value: '$esgCount',
+                    valueColor: AppColors.verdigrisLight,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'SAÚDE & ROTAÇÃO DO ACERVO  →',
+                  style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 9.5),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      'VER SAÚDE & ROTAÇÃO ESG ➔',
-                      style: AppTypography.metadataBadge(color: AppColors.accentOlive).copyWith(
-                        fontSize: 9.0,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -319,20 +302,16 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.dry_cleaning_outlined,
-              size: 48,
-              color: AppColors.textMuted,
-            ),
+            const Icon(Icons.dry_cleaning_outlined, size: 44, color: AppColors.ivoryMuted),
             const SizedBox(height: 16),
             Text(
               'Nenhuma peça nesta categoria',
-              style: AppTypography.subtitleCuratorial(),
+              style: AppTypography.subtitleCuratorial(color: AppColors.ivoryText),
             ),
             const SizedBox(height: 8),
             Text(
               'Digitalize novas peças em 1 toque para expandir sua arara virtual.',
-              style: AppTypography.bodySmall(),
+              style: AppTypography.bodySmall(color: AppColors.ivoryMuted),
               textAlign: TextAlign.center,
             ),
           ],
@@ -342,15 +321,43 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 }
 
+/// Abertura de cada Sala: nome da categoria em itálico de revista
+class _SectionHeader extends StatelessWidget {
+  final String category;
+  final int count;
+
+  const _SectionHeader({required this.category, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.pageMargin,
+        AppSpacing.sectionGap,
+        AppSpacing.pageMargin,
+        20,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(child: Text(category, style: AppTypography.sectionDisplay())),
+          Text(count == 1 ? '1 PEÇA' : '$count PEÇAS', style: AppTypography.atelierMeta()),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricItem extends StatelessWidget {
   final String label;
   final String value;
-  final Color? highlightColor;
+  final Color? valueColor;
 
   const _MetricItem({
     required this.label,
     required this.value,
-    this.highlightColor,
+    this.valueColor,
   });
 
   @override
@@ -361,19 +368,16 @@ class _MetricItem extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            label,
-            style: AppTypography.metadataBadge(
-              color: AppColors.textSecondary,
-            ).copyWith(fontSize: 8.5, letterSpacing: 0.6),
+            value,
+            style: AppTypography.displayEditorial(color: valueColor ?? AppColors.ivoryText)
+                .copyWith(fontSize: 24, height: 1.0),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
-            value,
-            style: AppTypography.uiHeadline(
-              color: highlightColor ?? AppColors.textPrimary,
-            ).copyWith(fontSize: 12.5, fontWeight: FontWeight.w700),
+            label,
+            style: AppTypography.atelierMeta().copyWith(fontSize: 9),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -383,70 +387,58 @@ class _MetricItem extends StatelessWidget {
   }
 }
 
-/// Modal de Detalhes da Peça com Curadoria Morfocromática (CIE L*a*b*)
-class _GarmentDetailModal extends StatelessWidget {
+/// Folha de leitura (paperBone) com os detalhes morfocromáticos da peça (AGENTS.md 7.5)
+class _GarmentDetailSheet extends StatelessWidget {
   final ClothingItem item;
 
-  const _GarmentDetailModal({required this.item});
+  const _GarmentDetailSheet({required this.item});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 0.8),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x24000000),
-            blurRadius: 32,
-            offset: Offset(0, -8),
-          ),
-        ],
+        color: AppColors.paperBone,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLarge)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + MediaQuery.paddingOf(context).bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Puxador sutil
           Center(
             child: Container(
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.accentSand,
+                color: AppColors.hairlineInk,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(height: 20),
 
-          // Peça em Destaque no Modal (PNG Alfa sem sombra de caixa)
-          Center(
-            child: Container(
-              height: 180,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-                border: Border.all(color: AppColors.borderSubtle, width: 0.8),
-              ),
-              child: Image.network(
-                item.imageUrl,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.medium,
-              ),
+          // Peça em destaque (PNG alfa sem sombra de caixa)
+          Container(
+            height: 190,
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.paperBoneRaised,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            ),
+            child: Image.network(
+              item.imageUrl,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.checkroom_outlined, color: AppColors.inkSecondary, size: 36),
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // Nome & Categoria
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
                 child: Column(
@@ -454,38 +446,32 @@ class _GarmentDetailModal extends StatelessWidget {
                   children: [
                     Text(
                       item.category.toUpperCase(),
-                      style: AppTypography.metadataBadge(
-                        color: AppColors.accentTerracotta,
-                      ),
+                      style: AppTypography.atelierMeta(color: AppColors.accentCinnabar),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       item.name,
-                      style: AppTypography.displayEditorial().copyWith(fontSize: 22),
+                      style: AppTypography.displayEditorial(color: AppColors.inkText).copyWith(fontSize: 26),
                     ),
                   ],
                 ),
               ),
+              // Ouro só sobre fundo escuro: joia noir dentro da folha clara
               if (item.iheScore != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.iheGoldLight,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderGold, width: 0.8),
+                    color: AppColors.tapestryNoir,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
                   ),
                   child: Column(
                     children: [
                       Text(
                         '${item.iheScore}%',
-                        style: AppTypography.displayEditorial(color: AppColors.iheGold)
-                            .copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                        style: AppTypography.displayEditorial(color: AppColors.gildedLeaf)
+                            .copyWith(fontSize: 20, fontWeight: FontWeight.w700),
                       ),
-                      Text(
-                        'IHE SCORE',
-                        style: AppTypography.metadataBadge(color: AppColors.iheGold)
-                            .copyWith(fontSize: 8),
-                      ),
+                      Text('IHE', style: AppTypography.atelierMeta(color: AppColors.gildedLeaf).copyWith(fontSize: 8)),
                     ],
                   ),
                 ),
@@ -493,43 +479,31 @@ class _GarmentDetailModal extends StatelessWidget {
           ),
 
           const SizedBox(height: 16),
-          const Divider(color: AppColors.borderSubtle, height: 1),
+          const Divider(color: AppColors.hairlineInk, height: 1),
           const SizedBox(height: 16),
 
-          // Detalhes Técnicos & Morfocromáticos (CIE L*a*b*)
           _DetailRow(
-            label: 'Morfocromia (CIE L*a*b*)',
+            label: 'MORFOCROMIA (CIE L*a*b*)',
             value: item.labColorSpace,
             leadingDotColor: item.dominantColor,
           ),
-          _DetailRow(
-            label: 'Proveniência',
-            value: item.brandOrProvenance,
-          ),
-          _DetailRow(
-            label: 'Frequência de Uso',
-            value: '${item.usageRate} combinações no acervo',
-          ),
+          _DetailRow(label: 'PROVENIÊNCIA', value: item.brandOrProvenance),
+          _DetailRow(label: 'FREQUÊNCIA DE USO', value: '${item.usageRate} combinações no acervo'),
           if (item.isConsciousFashion && item.consciousNote != null)
-            _DetailRow(
-              label: 'Sustentabilidade ESG',
-              value: item.consciousNote!,
-              highlightColor: AppColors.accentOlive,
-            ),
+            _DetailRow(label: 'SUSTENTABILIDADE ESG', value: item.consciousNote!),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Ação Primária em Estilo Terracota
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 52,
             child: ElevatedButton(
               onPressed: () {
                 HapticFeedback.mediumImpact();
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentTerracotta,
+                backgroundColor: AppColors.accentCinnabar,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
@@ -537,10 +511,7 @@ class _GarmentDetailModal extends StatelessWidget {
               ),
               child: Text(
                 'Combinar no Provador Virtual',
-                style: AppTypography.uiHeadline(color: AppColors.surfaceCanvas).copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 14.5),
               ),
             ),
           ),
@@ -554,13 +525,11 @@ class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
   final Color? leadingDotColor;
-  final Color? highlightColor;
 
   const _DetailRow({
     required this.label,
     required this.value,
     this.leadingDotColor,
-    this.highlightColor,
   });
 
   @override
@@ -571,30 +540,25 @@ class _DetailRow extends StatelessWidget {
         children: [
           if (leadingDotColor != null) ...[
             Container(
-              width: 10,
-              height: 10,
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: leadingDotColor,
-                border: Border.all(color: AppColors.borderSubtle, width: 0.6),
+                border: Border.all(color: AppColors.hairlineInk, width: 0.6),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
           ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: AppTypography.metadataBadge(color: AppColors.textSecondary)
-                      .copyWith(fontSize: 9.5),
-                ),
+                Text(label, style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+                const SizedBox(height: 2),
                 Text(
                   value,
-                  style: AppTypography.bodyReading(
-                    color: highlightColor ?? AppColors.textPrimary,
-                  ).copyWith(fontSize: 12.5, fontWeight: FontWeight.w500),
+                  style: AppTypography.bodyReading(color: AppColors.inkText).copyWith(fontSize: 13.5),
                 ),
               ],
             ),

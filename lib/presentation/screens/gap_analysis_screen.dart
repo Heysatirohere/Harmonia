@@ -22,7 +22,7 @@ class GapAnalysisScreen extends StatelessWidget {
           children: [
             Text(
               'Otimização de Acervo',
-              style: GoogleFonts.playfairDisplay(
+              style: GoogleFonts.bodoniModa(
                 color: AppColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -30,7 +30,7 @@ class GapAnalysisScreen extends StatelessWidget {
             ),
             Text(
               'ANÁLISE DE LACUNAS & AFILIAÇÃO (RF11/RF12)',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 color: AppColors.textMuted,
                 fontSize: 9.5,
                 fontWeight: FontWeight.w600,

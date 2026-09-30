@@ -94,7 +94,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           children: [
             Text(
               'Editorial Gallery',
-              style: GoogleFonts.playfairDisplay(
+              style: GoogleFonts.bodoniModa(
                 color: AppColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -102,7 +102,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             ),
             Text(
               'INSPIRAÇÕES DA COMUNIDADE (RF14/RF15)',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 color: AppColors.textMuted,
                 fontSize: 9.5,
                 fontWeight: FontWeight.w600,
@@ -135,7 +135,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                     onSelected: (_) => _onFilterSelected(chip),
                     selectedColor: AppColors.surfaceRaised,
                     backgroundColor: AppColors.surfaceCanvas,
-                    labelStyle: GoogleFonts.plusJakartaSans(
+                    labelStyle: GoogleFonts.interTight(
                       color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,

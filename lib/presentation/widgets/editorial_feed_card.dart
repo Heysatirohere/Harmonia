@@ -48,7 +48,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                   backgroundColor: AppColors.surfaceRaised,
                   child: Text(
                     post.authorName[0],
-                    style: GoogleFonts.playfairDisplay(
+                    style: GoogleFonts.bodoniModa(
                       color: AppColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -62,7 +62,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                     children: [
                       Text(
                         post.authorName,
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.interTight(
                           color: AppColors.textPrimary,
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
@@ -88,7 +88,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                   ),
                   child: Text(
                     '✦ ${post.iheScore.toStringAsFixed(1)}%',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       color: AppColors.iheGold,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -189,7 +189,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                                 children: [
                                   Text(
                                     _selectedHotspot!.name,
-                                    style: GoogleFonts.plusJakartaSans(
+                                    style: GoogleFonts.interTight(
                                       color: AppColors.textPrimary,
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
@@ -197,7 +197,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                                   ),
                                   Text(
                                     '${_selectedHotspot!.brand} • ${_selectedHotspot!.fabric}',
-                                    style: GoogleFonts.plusJakartaSans(
+                                    style: GoogleFonts.interTight(
                                       color: AppColors.textSecondary,
                                       fontSize: 11,
                                     ),
@@ -241,7 +241,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                           const SizedBox(width: 6),
                           Text(
                             '${post.likeCount}',
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               color: AppColors.textPrimary,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -265,7 +265,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                     const Spacer(),
                     Text(
                       post.isPublic ? 'PÚBLICO' : 'PRIVADO',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         color: AppColors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -277,7 +277,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                 const SizedBox(height: 10),
                 Text(
                   post.outfitTitle,
-                  style: GoogleFonts.playfairDisplay(
+                  style: GoogleFonts.bodoniModa(
                     color: AppColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -288,7 +288,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
                   spacing: 6,
                   children: post.tags.map((t) => Text(
                     '#$t',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       color: AppColors.textSecondary,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -312,7 +312,7 @@ class _EditorialFeedCardState extends State<EditorialFeedCard> {
       ),
       child: Text(
         label.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
+        style: GoogleFonts.interTight(
           color: AppColors.textSecondary,
           fontSize: 9.5,
           fontWeight: FontWeight.w600,

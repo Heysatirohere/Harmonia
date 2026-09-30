@@ -62,7 +62,7 @@ class WeatherContextBadge extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Linha Superior: Cidade / Status (Plus Jakarta Sans uppercase) + Temperatura (Playfair Display)
+                // Linha Superior: Cidade / Status (Inter Tight uppercase) + Temperatura (Bodoni Moda)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -74,7 +74,7 @@ class WeatherContextBadge extends StatelessWidget {
                           // Cidade em caixa alta com kerning +0.8
                           Text(
                             weatherContext.city.toUpperCase(),
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.8,
@@ -85,7 +85,7 @@ class WeatherContextBadge extends StatelessWidget {
                           // Status meteorológico em caixa alta com kerning +0.8
                           Text(
                             weatherContext.conditionLabel.toUpperCase(),
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.8,
@@ -112,7 +112,7 @@ class WeatherContextBadge extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           weatherContext.formattedTemperature,
-                          style: GoogleFonts.playfairDisplay(
+                          style: GoogleFonts.bodoniModa(
                             fontSize: 26,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
@@ -163,7 +163,7 @@ class WeatherContextBadge extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 weatherContext.recommendationBadge,
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.interTight(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.2,
@@ -251,7 +251,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                       children: [
                         Text(
                           'CONTEXTO METEOROLÓGICO',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
@@ -261,7 +261,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           'Variáveis do S_ocasion',
-                          style: GoogleFonts.playfairDisplay(
+                          style: GoogleFonts.bodoniModa(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
@@ -290,7 +290,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                       children: [
                         Text(
                           'S_ocasion ',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -298,7 +298,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                         ),
                         Text(
                           weatherContext.formattedScore,
-                          style: GoogleFonts.playfairDisplay(
+                          style: GoogleFonts.bodoniModa(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: AppColors.iheGold,
@@ -374,7 +374,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           'RECOMENDAÇÃO EDITORIAL DE CAMADAS',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
@@ -386,7 +386,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       weatherContext.sOcasionRationale,
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w400,
                         height: 1.5,
@@ -415,7 +415,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                   ),
                   child: Text(
                     'Entendido',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -468,7 +468,7 @@ class _WeatherMetricTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
@@ -480,7 +480,7 @@ class _WeatherMetricTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: GoogleFonts.playfairDisplay(
+            style: GoogleFonts.bodoniModa(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -491,7 +491,7 @@ class _WeatherMetricTile extends StatelessWidget {
           const SizedBox(height: 1),
           Text(
             subtext,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               fontSize: 10,
               fontWeight: FontWeight.w400,
               color: AppColors.textSecondary,

@@ -106,7 +106,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
                           const SizedBox(width: 6),
                           Text(
                             'MIRROR MODE • PROVADOR',
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               color: Colors.white,
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
@@ -163,7 +163,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
                   const SizedBox(height: 12),
                   Text(
                     'Toque para analisar paridade com seu acervo',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -202,7 +202,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
         ),
         child: Text(
           storeName,
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.interTight(
             color: isSelected ? AppColors.textPrimary : Colors.white,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,

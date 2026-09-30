@@ -13,8 +13,9 @@ void main() async {
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: AppColors.surfaceCanvas,
-      systemNavigationBarIconBrightness: Brightness.dark,
+      // Barra do sistema contínua com a EditorialNavBar (tapeçaria noir)
+      systemNavigationBarColor: AppColors.tapestryNoir,
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
 

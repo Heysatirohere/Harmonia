@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: AppColors.textPrimary,
         content: Text(
           'Biótipo atualizado para: $newBiotype',
-          style: GoogleFonts.plusJakartaSans(color: Colors.white),
+          style: GoogleFonts.interTight(color: Colors.white),
         ),
       ),
     );
@@ -65,7 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         title: Text(
           'Ateliê & Perfil',
-          style: GoogleFonts.playfairDisplay(
+          style: GoogleFonts.bodoniModa(
             color: AppColors.textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.w600,
@@ -90,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   backgroundColor: AppColors.surfaceRaised,
                   child: Text(
                     account?.monogram ?? _profile.name[0],
-                    style: GoogleFonts.playfairDisplay(
+                    style: GoogleFonts.bodoniModa(
                       color: AppColors.iheGold,
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
@@ -104,7 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         displayName,
-                        style: GoogleFonts.playfairDisplay(
+                        style: GoogleFonts.bodoniModa(
                           color: AppColors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -113,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 2),
                       Text(
                         displayEmail,
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.interTight(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                         ),
@@ -146,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   backgroundColor: AppColors.textPrimary,
                   content: Text(
                     'Parabéns! Assinatura HarmonIA Ateliê ativada!',
-                    style: GoogleFonts.plusJakartaSans(color: Colors.white),
+                    style: GoogleFonts.interTight(color: Colors.white),
                   ),
                 ),
               );
@@ -157,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Style Recalibration Options (RF18)
           Text(
             'RECALIBRAÇÃO & CONFIGURAÇÕES (RF18)',
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               color: AppColors.textMuted,
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
@@ -227,7 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.plusJakartaSans(
+        style: GoogleFonts.interTight(
           color: AppColors.textPrimary,
           fontSize: 10.5,
           fontWeight: FontWeight.w600,
@@ -263,7 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               color: AppColors.textPrimary,
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
@@ -294,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           leading: Icon(icon, color: AppColors.iheGold, size: 22),
           title: Text(
             title,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               color: AppColors.textPrimary,
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
@@ -302,7 +302,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           subtitle: Text(
             subtitle,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               color: AppColors.textSecondary,
               fontSize: 11.5,
             ),

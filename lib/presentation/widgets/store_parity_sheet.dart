@@ -120,7 +120,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                             children: [
                               Text(
                                 storeGarment.storeName.toUpperCase(),
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.interTight(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.8,
@@ -130,7 +130,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                               const SizedBox(height: 2),
                               Text(
                                 storeGarment.title,
-                                style: GoogleFonts.playfairDisplay(
+                                style: GoogleFonts.bodoniModa(
                                   fontSize: 19,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
@@ -140,7 +140,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                                 const SizedBox(height: 2),
                                 Text(
                                   storeGarment.formattedPrice,
-                                  style: GoogleFonts.plusJakartaSans(
+                                  style: GoogleFonts.interTight(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.accentTerracotta,
@@ -155,7 +155,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                           children: [
                             Text(
                               result.formattedOverallScore,
-                              style: GoogleFonts.playfairDisplay(
+                              style: GoogleFonts.bodoniModa(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.iheGold,
@@ -163,7 +163,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                             ),
                             Text(
                               'Compatibilidade',
-                              style: GoogleFonts.plusJakartaSans(
+                              style: GoogleFonts.interTight(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.textSecondary,
@@ -196,7 +196,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                             Expanded(
                               child: Text(
                                 'PARIDADE CONFIRMADA • PEÇA RECOMENDADA PARA SEU ACERVO',
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.interTight(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
@@ -210,7 +210,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                     const SizedBox(height: 14),
                     Text(
                       result.editorialSummary,
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         fontSize: 12.5,
                         height: 1.45,
                         color: AppColors.textSecondary,
@@ -225,7 +225,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                         Flexible(
                           child: Text(
                             'Harmonia com seu Acervo',
-                            style: GoogleFonts.playfairDisplay(
+                            style: GoogleFonts.bodoniModa(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                               fontStyle: FontStyle.italic,
@@ -236,7 +236,7 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                         const SizedBox(width: 12),
                         Text(
                           '${result.compatibleMatches.length} peças alinhadas',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.interTight(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: AppColors.textSecondary,
@@ -326,7 +326,7 @@ class _ParityMatchCard extends StatelessWidget {
                         children: [
                           Text(
                             closetItem.category,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.6,
@@ -336,7 +336,7 @@ class _ParityMatchCard extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             closetItem.title,
-                            style: GoogleFonts.playfairDisplay(
+                            style: GoogleFonts.bodoniModa(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
@@ -345,7 +345,7 @@ class _ParityMatchCard extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             closetItem.provenance,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.interTight(
                               fontSize: 10.5,
                               color: AppColors.textSecondary,
                             ),
@@ -368,7 +368,7 @@ class _ParityMatchCard extends StatelessWidget {
                       ),
                       child: Text(
                         match.formattedPercentage,
-                        style: GoogleFonts.playfairDisplay(
+                        style: GoogleFonts.bodoniModa(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: AppColors.iheGold,
@@ -380,7 +380,7 @@ class _ParityMatchCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   match.matchReason,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     fontSize: 11.5,
                     color: AppColors.textPrimary.withValues(alpha: 0.85),
                     height: 1.35,
@@ -442,7 +442,7 @@ class _MatchDetailStat extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.interTight(
             fontSize: 8.5,
             fontWeight: FontWeight.w600,
             color: AppColors.textSecondary,
@@ -451,7 +451,7 @@ class _MatchDetailStat extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: GoogleFonts.playfairDisplay(
+          style: GoogleFonts.bodoniModa(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: AppColors.accentTerracotta,

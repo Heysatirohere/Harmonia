@@ -65,7 +65,7 @@ class GapAnalysisSheet extends StatelessWidget {
             backgroundColor: AppColors.textPrimary,
             content: Text(
               'Redirecionando para ${product.storeDisplayName}...',
-              style: GoogleFonts.plusJakartaSans(color: Colors.white),
+              style: GoogleFonts.interTight(color: Colors.white),
             ),
           ),
         );
@@ -109,7 +109,7 @@ class GapAnalysisSheet extends StatelessWidget {
                 children: [
                   Text(
                     gap.missingCategory,
-                    style: GoogleFonts.playfairDisplay(
+                    style: GoogleFonts.bodoniModa(
                       color: AppColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -125,7 +125,7 @@ class GapAnalysisSheet extends StatelessWidget {
                     ),
                     child: Text(
                       '✦ +${gap.deltaIhe.toStringAsFixed(1)}% NO ÍNDICE DE HARMONIA',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         color: AppColors.iheGold,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -142,7 +142,7 @@ class GapAnalysisSheet extends StatelessWidget {
 
         Text(
           gap.stylisticRationale,
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.interTight(
             color: AppColors.textSecondary,
             fontSize: 13,
             height: 1.4,
@@ -152,7 +152,7 @@ class GapAnalysisSheet extends StatelessWidget {
 
         Text(
           'PEÇAS SUGERIDAS DOS PARCEIROS (RN03)',
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.interTight(
             color: AppColors.textMuted,
             fontSize: 10.5,
             fontWeight: FontWeight.w700,
@@ -166,7 +166,7 @@ class GapAnalysisSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Text(
               'Nenhum item com estoque disponível no momento.',
-              style: GoogleFonts.plusJakartaSans(color: AppColors.textMuted, fontSize: 12),
+              style: GoogleFonts.interTight(color: AppColors.textMuted, fontSize: 12),
             ),
           )
         else
@@ -216,7 +216,7 @@ class GapAnalysisSheet extends StatelessWidget {
                           children: [
                             Text(
                               product.storeDisplayName,
-                              style: GoogleFonts.plusJakartaSans(
+                              style: GoogleFonts.interTight(
                                 color: AppColors.textMuted,
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w700,
@@ -227,7 +227,7 @@ class GapAnalysisSheet extends StatelessWidget {
                               product.name,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
+                              style: GoogleFonts.interTight(
                                 color: AppColors.textPrimary,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
@@ -236,7 +236,7 @@ class GapAnalysisSheet extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               product.formattedPrice,
-                              style: GoogleFonts.plusJakartaSans(
+                              style: GoogleFonts.interTight(
                                 color: AppColors.accentTerracotta,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -258,7 +258,7 @@ class GapAnalysisSheet extends StatelessWidget {
                                 ),
                                 child: Text(
                                   'Ver na Loja',
-                                  style: GoogleFonts.plusJakartaSans(
+                                  style: GoogleFonts.interTight(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                   ),

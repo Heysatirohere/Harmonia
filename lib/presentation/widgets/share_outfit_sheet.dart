@@ -51,7 +51,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           _isPublic
               ? 'Inspiração publicada na comunidade HarmonIA!'
               : 'Look salvo privadamente em seus rascunhos.',
-          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13),
+          style: GoogleFonts.interTight(color: Colors.white, fontSize: 13),
         ),
       ),
     );
@@ -83,7 +83,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           const SizedBox(height: 18),
           Text(
             'Compartilhar Inspiração',
-            style: GoogleFonts.playfairDisplay(
+            style: GoogleFonts.bodoniModa(
               color: AppColors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -92,7 +92,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           const SizedBox(height: 6),
           Text(
             'Insira uma nota editorial sobre a combinação para a comunidade.',
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.interTight(
               color: AppColors.textSecondary,
               fontSize: 12.5,
             ),
@@ -103,10 +103,10 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
           TextField(
             controller: _captionController,
             maxLines: 3,
-            style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontSize: 13.5),
+            style: GoogleFonts.interTight(color: AppColors.textPrimary, fontSize: 13.5),
             decoration: InputDecoration(
               hintText: 'Ex: "Combinação leve de alfaiataria em linho para tardes quentes..."',
-              hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.textMuted, fontSize: 12.5),
+              hintStyle: GoogleFonts.interTight(color: AppColors.textMuted, fontSize: 12.5),
               filled: true,
               fillColor: AppColors.surfaceRaised,
               border: OutlineInputBorder(
@@ -129,7 +129,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
                 children: [
                   Text(
                     'Privacidade da Publicação (RN05)',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       color: AppColors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -139,7 +139,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
                     _isPublic
                         ? 'Visível para toda a comunidade'
                         : 'Privado (apenas no seu acervo)',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       color: AppColors.textSecondary,
                       fontSize: 11.5,
                     ),
@@ -174,7 +174,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
               ),
               child: Text(
                 'Publicar Inspiração',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.interTight(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),

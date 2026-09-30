@@ -8,7 +8,7 @@ import '../../theme/app_theme.dart';
 /// Medidor Visual do IHE (Índice de Harmonia Estética)
 /// Conforme AGENTS.md Seção 6.2:
 /// - Medidor minimalista circular vetorial via CustomPainter com gradiente metálico joalheiro
-/// - Pontuação central em Playfair Display
+/// - Pontuação central em Bodoni Moda
 /// - Selo "✦ LOOK FORTEMENTE RECOMENDADO" para pontuações >= 75% em caixa alta (+0.8 kerning)
 /// - Decomposição visual dos 4 pilares (S_cor, S_bio, S_ocasion, S_cos) em microchips refinados
 class IheScoreGauge extends StatelessWidget {

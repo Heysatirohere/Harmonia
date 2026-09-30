@@ -58,7 +58,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
               _isApproved
                   ? 'Look do dia registrado no seu acervo!'
                   : 'Aprovação desfeita.',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 color: AppColors.surfaceCanvas,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
@@ -99,7 +99,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
             const SizedBox(height: 10),
             Text(
               'Mirror Mode • Provador AR',
-              style: GoogleFonts.playfairDisplay(
+              style: GoogleFonts.bodoniModa(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -109,7 +109,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
             Text(
               'HUD minimalista ativado para paridade física com as peças do seu guarda-roupa.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
@@ -137,7 +137,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                 ),
                 child: Text(
                   'Iniciar Câmera de Paridade',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -163,7 +163,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
           children: [
             Text(
               'CURADORIA HARMONIA • 27 SETEMBRO',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -173,7 +173,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
             const SizedBox(height: 2),
             Text(
               'Sugestão Diária',
-              style: GoogleFonts.playfairDisplay(
+              style: GoogleFonts.bodoniModa(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -253,7 +253,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                                       color: AppColors.iheGold, fontSize: 10)),
                               Text(
                                 'LOOK FORTEMENTE RECOMENDADO',
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.interTight(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.6,
@@ -266,7 +266,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                         // Score IHE 89%
                         Text(
                           '89%',
-                          style: GoogleFonts.playfairDisplay(
+                          style: GoogleFonts.bodoniModa(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
                             color: AppColors.iheGold,
@@ -279,7 +279,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
                     Text(
                       'Sobreposição Terracota em Linho Cru',
-                      style: GoogleFonts.playfairDisplay(
+                      style: GoogleFonts.bodoniModa(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -290,7 +290,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
                     Text(
                       'Composição pensada para o clima de ${_weather.city} (${_weather.formattedTemperature}), garantindo transição perfeita entre ambientes.',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.interTight(
                         fontSize: 12.5,
                         color: AppColors.textSecondary,
                         height: 1.45,
@@ -305,7 +305,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
               // 3. "THE FLOATING CANVAS" (ARARA VIRTUAL)
               Text(
                 'COMPOSIÇÃO DO ACERVO',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.interTight(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
@@ -353,7 +353,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                   ),
                   label: Text(
                     _isApproved ? 'Look Aprovado' : 'Aprovar Look do Dia',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
@@ -382,7 +382,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                   icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
                   label: Text(
                     'Simular no Provador (Mirror Mode)',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -460,7 +460,7 @@ class _GarmentItemCard extends StatelessWidget {
               children: [
                 Text(
                   category,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
@@ -470,7 +470,7 @@ class _GarmentItemCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   title,
-                  style: GoogleFonts.playfairDisplay(
+                  style: GoogleFonts.bodoniModa(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -479,7 +479,7 @@ class _GarmentItemCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   provenance,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.interTight(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -499,7 +499,7 @@ class _GarmentItemCard extends StatelessWidget {
             ),
             child: Text(
               tag,
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.accentOlive,

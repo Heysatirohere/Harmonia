@@ -17,7 +17,7 @@ class StyleRecalibrationDialogs {
         ),
         title: Text(
           'Recalibrar Colorimetria',
-          style: GoogleFonts.playfairDisplay(
+          style: GoogleFonts.bodoniModa(
             color: AppColors.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -25,7 +25,7 @@ class StyleRecalibrationDialogs {
         ),
         content: Text(
           'Deseja reabrir o teste de iluminação assistida via câmera selfie para reavaliar sua cartela cromática pessoal no espaço CIE Lab*?',
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.interTight(
             color: AppColors.textSecondary,
             fontSize: 13,
           ),
@@ -35,7 +35,7 @@ class StyleRecalibrationDialogs {
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'Cancelar',
-              style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary),
+              style: GoogleFonts.interTight(color: AppColors.textSecondary),
             ),
           ),
           ElevatedButton(
@@ -46,7 +46,7 @@ class StyleRecalibrationDialogs {
                   backgroundColor: AppColors.textPrimary,
                   content: Text(
                     'Teste de colorimetria via selfie iniciado...',
-                    style: GoogleFonts.plusJakartaSans(color: Colors.white),
+                    style: GoogleFonts.interTight(color: Colors.white),
                   ),
                 ),
               );
@@ -56,7 +56,7 @@ class StyleRecalibrationDialogs {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text('Iniciar Selfie Test', style: GoogleFonts.plusJakartaSans()),
+            child: Text('Iniciar Selfie Test', style: GoogleFonts.interTight()),
           ),
         ],
       ),
@@ -100,7 +100,7 @@ class StyleRecalibrationDialogs {
             const SizedBox(height: 18),
             Text(
               'Ajustar Biótipo Corporal',
-              style: GoogleFonts.playfairDisplay(
+              style: GoogleFonts.bodoniModa(
                 color: AppColors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -109,7 +109,7 @@ class StyleRecalibrationDialogs {
             const SizedBox(height: 6),
             Text(
               'Selecione a silhueta que melhor representa suas proporções atuais.',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.interTight(
                 color: AppColors.textSecondary,
                 fontSize: 12.5,
               ),
@@ -120,7 +120,7 @@ class StyleRecalibrationDialogs {
                   leading: const Icon(Icons.accessibility_new, color: AppColors.iheGold),
                   title: Text(
                     s,
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.interTight(
                       color: AppColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,

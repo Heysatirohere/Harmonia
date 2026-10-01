@@ -3,7 +3,10 @@ Endpoint de Orquestração do Cálculo do Índice de Harmonia Estética (IHE)
 Integração com o motor determinístico (Etapa 1) e controle da Cota Freemium (RN02, RF07, RF13)
 """
 
-from typing import List
+import uuid
+from datetime import datetime, timezone
+from typing import FrozenSet, List, Set
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,12 +16,14 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.quota import charge_look, has_reached_look_limit, look_request_signature, was_charged_today
 from app.core.security import get_current_user
-from app.models.entities import User, ClothingItem
+from app.models.entities import User, ClothingItem, LookFeedback
 from app.schemas.dtos import (
     OutfitCalculateRequest,
     OutfitGenerateRequest,
     RecommendedOutfitResponse,
     ClothingItemResponse,
+    LookFeedbackCreate,
+    LookFeedbackResponse,
     ParityMatchResponse,
     StoreParityRequest,
     StoreParityResponse,
@@ -124,9 +129,13 @@ async def generate_daily_outfits(
     if not items:
         return []
 
+    discarded = await _discarded_looks(db, user)
+
     signature = look_request_signature(
         user,
         [item.id for item in items],
+        # Descartes mudam o resultado: gerar de novo depois deles é uma consulta nova
+        ";".join(sorted(",".join(sorted(look)) for look in discarded)),
         payload.occasion,
         # Clima real varia ao longo do dia; só a faixa muda o resultado
         temperature_band(payload.temperature_celsius),
@@ -148,6 +157,7 @@ async def generate_daily_outfits(
         temperature_celsius=payload.temperature_celsius,
         is_raining=payload.is_raining,
         limit=payload.limit,
+        excluded_looks=discarded,
     )
 
     # Incrementa cota Freemium diária utilizada
@@ -250,3 +260,65 @@ async def analyze_store_parity(
             for match in parity.matches
         ],
     )
+
+
+# -----------------------------------------------------------------------------
+# Feedback de Recomendações (RF13)
+# -----------------------------------------------------------------------------
+
+async def _discarded_looks(db: AsyncSession, user: User) -> Set[FrozenSet[str]]:
+    """Conjuntos de peças que o usuário descartou: nunca voltam como sugestão."""
+    stmt = select(LookFeedback).where(
+        LookFeedback.user_id == user.id,
+        LookFeedback.action == "DISCARDED",
+    )
+    feedback = (await db.execute(stmt)).scalars().all()
+    return {frozenset(str(i) for i in entry.item_ids) for entry in feedback}
+
+
+@router.post("/feedback", response_model=LookFeedbackResponse, status_code=status.HTTP_201_CREATED)
+async def create_look_feedback(
+    payload: LookFeedbackCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Registra a aprovação ou o descarte de um look sugerido (RF13).
+    Todas as peças precisam ser do usuário autenticado (RN01).
+    """
+    stmt = select(ClothingItem).where(
+        ClothingItem.user_id == user.id,
+        ClothingItem.id.in_(payload.item_ids),
+    )
+    owned = {item.id for item in (await db.execute(stmt)).scalars().all()}
+    if owned != set(payload.item_ids):
+        # 404 e não 403: não revela se a peça existe em outra conta
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Peça do look não encontrada no seu acervo.")
+
+    feedback = LookFeedback(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        item_ids=[str(i) for i in payload.item_ids],
+        action=payload.action,
+        occasion=payload.occasion,
+        ihe_percentage=payload.ihe_percentage,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(feedback)
+    await db.commit()
+    return LookFeedbackResponse.model_validate(feedback)
+
+
+@router.delete("/feedback/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_look_feedback(
+    feedback_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Desfaz uma aprovação ou um descarte; o look volta a poder ser sugerido."""
+    stmt = select(LookFeedback).where(LookFeedback.id == feedback_id, LookFeedback.user_id == user.id)
+    feedback = (await db.execute(stmt)).scalars().first()
+    if feedback is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback não encontrado.")
+    await db.delete(feedback)
+    await db.commit()

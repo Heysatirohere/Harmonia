@@ -52,9 +52,22 @@ CREATE INDEX IF NOT EXISTS idx_clothing_items_style_embedding
 ON public.clothing_items 
 USING hnsw (style_embedding vector_cosine_ops);
 
+-- 4.1 Feedback de recomendações (RF13): aprovações e descartes de looks sugeridos
+CREATE TABLE IF NOT EXISTS public.look_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    item_ids JSONB NOT NULL,
+    action VARCHAR(20) NOT NULL CHECK (action IN ('APPROVED', 'DISCARDED')),
+    occasion VARCHAR(50) NOT NULL,
+    ihe_percentage DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_look_feedback_user_id ON public.look_feedback(user_id);
+
 -- 5. Row Level Security (RLS) para Blindagem Multi-Tenant no Supabase
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clothing_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.look_feedback ENABLE ROW LEVEL SECURITY;
 
 -- Política de RLS: O usuário só acessa seus próprios dados
 DROP POLICY IF EXISTS "Usuários podem gerenciar suas próprias contas" ON public.users;
@@ -66,6 +79,12 @@ USING (auth.uid() = id);
 DROP POLICY IF EXISTS "Usuários podem gerenciar apenas suas próprias roupas" ON public.clothing_items;
 CREATE POLICY "Usuários podem gerenciar apenas suas próprias roupas"
 ON public.clothing_items
+FOR ALL
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Usuários gerenciam apenas o próprio feedback de looks" ON public.look_feedback;
+CREATE POLICY "Usuários gerenciam apenas o próprio feedback de looks"
+ON public.look_feedback
 FOR ALL
 USING (auth.uid() = user_id);
 

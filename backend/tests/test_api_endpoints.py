@@ -16,7 +16,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.quota import quota_today
-from app.models.entities import User, ClothingItem
+from app.models.entities import User, ClothingItem, LookFeedback
 
 
 TEST_SUPABASE_URL = "https://harmonia-test.supabase.co"
@@ -51,10 +51,12 @@ class InMemoryStore:
     def __init__(self):
         self.users = {}
         self.clothing_items = {}
+        self.look_feedback = {}
 
     def clear(self):
         self.users.clear()
         self.clothing_items.clear()
+        self.look_feedback.clear()
 
 
 store = InMemoryStore()
@@ -126,6 +128,17 @@ class MockAsyncSession:
                 return FakeExecuteResult([])
             return FakeExecuteResult(users_list)
 
+        # 2.1 Feedback de looks (RF13)
+        if "from look_feedback" in sql_text:
+            params = statement.compile().params
+            entries = list(self.store.look_feedback.values())
+            for p_val in params.values():
+                if isinstance(p_val, uuid.UUID):
+                    entries = [e for e in entries if p_val in (e.id, e.user_id)]
+                elif isinstance(p_val, str):
+                    entries = [e for e in entries if e.action == p_val]
+            return FakeExecuteResult(entries)
+
         # 3. Queries de Peças de Vestuário
         if "from clothing_items" in sql_text or "clothing_items." in sql_text:
             items_list = list(self.store.clothing_items.values())
@@ -146,6 +159,10 @@ class MockAsyncSession:
                     category_param = p_val
 
             filtered = items_list
+            # Filtro IN (lista de ids)
+            for p_val in params.values():
+                if isinstance(p_val, (list, tuple)) and p_val and isinstance(p_val[0], uuid.UUID):
+                    filtered = [i for i in filtered if i.id in p_val]
             if item_id_param:
                 filtered = [i for i in filtered if i.id == item_id_param]
             elif user_id_param:
@@ -169,10 +186,14 @@ class MockAsyncSession:
             if instance.is_archived is None:
                 instance.is_archived = False
             self.store.clothing_items[instance.id] = instance
+        elif isinstance(instance, LookFeedback):
+            self.store.look_feedback[instance.id] = instance
 
     async def delete(self, instance):
         if isinstance(instance, ClothingItem) and instance.id in self.store.clothing_items:
             del self.store.clothing_items[instance.id]
+        elif isinstance(instance, LookFeedback):
+            self.store.look_feedback.pop(instance.id, None)
         elif isinstance(instance, User) and instance.id in self.store.users:
             del self.store.users[instance.id]
 
@@ -903,3 +924,111 @@ async def test_temperature_change_within_band_does_not_spend_quota():
     assert morning.json() == afternoon.json()
     assert hot.status_code == 200
     assert store.users[user_id].looks_generated_today == 2
+
+
+
+# -----------------------------------------------------------------------------
+# Feedback de Recomendações (RF13)
+# -----------------------------------------------------------------------------
+
+def _wardrobe_ids(user_id):
+    return [str(i.id) for i in store.clothing_items.values() if i.user_id == user_id]
+
+
+def _feedback(item_ids, action="APPROVED", ihe=82.0):
+    return {"item_ids": item_ids, "action": action, "occasion": "casual", "ihe_percentage": ihe}
+
+
+@pytest.mark.anyio
+async def test_approving_a_look_records_feedback():
+    user_id = _seed_wardrobe_user()
+    look = _wardrobe_ids(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/feedback", json=_feedback(look), headers=auth_headers(user_id))
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["action"] == "APPROVED"
+    assert data["occasion"] == "CASUAL"
+    assert sorted(data["item_ids"]) == sorted(look)
+    entry = store.look_feedback[uuid.UUID(data["id"])]
+    assert entry.user_id == user_id
+
+
+@pytest.mark.anyio
+async def test_discarded_look_is_not_suggested_again():
+    """Retroalimentação: o look descartado some das próximas gerações."""
+    user_id = _seed_wardrobe_user()
+    # Segunda parte de baixo: dois looks possíveis
+    second_bottom = ClothingItem(
+        id=uuid.uuid4(), user_id=user_id, category="bottom", image_url="https://example.supabase.co/bottom2.png",
+        dominant_l=70.0, dominant_a=-10.0, dominant_b=5.0, formality_score=0.4, is_archived=False,
+        created_at=datetime.now(timezone.utc),
+    )
+    store.clothing_items[second_bottom.id] = second_bottom
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        before = (await _generate(client, user_id)).json()
+        best = sorted(item["id"] for item in before[0]["items"])
+        await client.post("/api/v1/outfits/feedback", json=_feedback(best, "DISCARDED"), headers=headers)
+        after = (await _generate(client, user_id)).json()
+
+    assert best not in [sorted(item["id"] for item in look["items"]) for look in after]
+    assert len(before) == 2
+    assert len(after) == 1
+    # Gerar de novo depois do descarte é uma consulta nova
+    assert store.users[user_id].looks_generated_today == 2
+
+
+@pytest.mark.anyio
+async def test_undoing_a_discard_brings_the_look_back():
+    user_id = _seed_wardrobe_user()
+    look = _wardrobe_ids(user_id)
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await client.post("/api/v1/outfits/feedback", json=_feedback(look, "DISCARDED"), headers=headers)
+        assert (await _generate(client, user_id)).json() == []
+        undo = await client.delete(f"/api/v1/outfits/feedback/{created.json()['id']}", headers=headers)
+        again = await _generate(client, user_id)
+
+    assert undo.status_code == 204
+    assert len(again.json()) == 1
+
+
+@pytest.mark.anyio
+async def test_feedback_rejects_pieces_from_another_wardrobe():
+    """RN01: não se registra feedback com peças de outra conta, nem se apaga o feedback alheio."""
+    owner = _seed_wardrobe_user()
+    stranger = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        foreign = await client.post(
+            "/api/v1/outfits/feedback",
+            json=_feedback(_wardrobe_ids(owner)[:1] + _wardrobe_ids(stranger)[:1]),
+            headers=auth_headers(stranger),
+        )
+        own = await client.post("/api/v1/outfits/feedback", json=_feedback(_wardrobe_ids(owner)), headers=auth_headers(owner))
+        steal = await client.delete(f"/api/v1/outfits/feedback/{own.json()['id']}", headers=auth_headers(stranger))
+
+    assert foreign.status_code == 404
+    assert steal.status_code == 404
+    assert uuid.UUID(own.json()["id"]) in store.look_feedback
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"item_ids": [], "action": "APPROVED", "ihe_percentage": 80},
+        {"item_ids": [str(uuid.uuid4())], "action": "LIKED", "ihe_percentage": 80},
+        {"item_ids": [str(uuid.uuid4())] * 2, "action": "APPROVED", "ihe_percentage": 80},
+    ],
+)
+async def test_feedback_validates_payload(payload):
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/feedback", json=payload, headers=auth_headers(uuid.uuid4()))
+
+    assert response.status_code == 422

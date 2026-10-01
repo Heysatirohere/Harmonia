@@ -45,7 +45,12 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   /// Sem clima, o motor recebe o mesmo padrão neutro da API
   static const _neutralTemperature = 22.0;
   late final OutfitApiService _service = widget.service ?? OutfitApiService();
-  bool _isApproved = false;
+  /// Aprovações registradas (RF13), por look exibido: id do registro para desfazer
+  final Map<RecommendedLook, String> _approvals = {};
+  bool _sendingFeedback = false;
+
+  /// Todas as sugestões desta consulta foram descartadas
+  bool _discardedAll = false;
 
   /// Ocasiões oferecidas e a chave correspondente no motor do IHE
   static const _occasions = [
@@ -104,7 +109,8 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     setState(() {
       _loading = true;
       _error = null;
-      _isApproved = false;
+      _discardedAll = false;
+      _approvals.clear();
     });
     try {
       final looks = await _service.generateDailyOutfits(
@@ -139,7 +145,6 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     HapticFeedback.selectionClick();
     setState(() {
       _lookIndex = (_lookIndex + 1) % _looks.length;
-      _isApproved = false;
     });
   }
 
@@ -148,32 +153,102 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     return '${now.day} de ${_months[now.month - 1]}';
   }
 
-  void _handleApproveLook() {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _isApproved = !_isApproved;
-    });
+  /// Aprovar registra o look do dia (RF13); tocar de novo desfaz
+  Future<void> _toggleApproval(RecommendedLook look) async {
+    if (_sendingFeedback) return;
+    final approvalId = _approvals[look];
+    setState(() => _sendingFeedback = true);
+    try {
+      if (approvalId == null) {
+        final id = await _service.sendLookFeedback(look, LookFeedbackAction.approved);
+        HapticFeedback.mediumImpact();
+        if (mounted) setState(() => _approvals[look] = id);
+        _showMessage('Look do dia aprovado.', icon: Icons.check_circle_outline);
+      } else {
+        await _service.undoLookFeedback(approvalId);
+        HapticFeedback.selectionClick();
+        if (mounted) setState(() => _approvals.remove(look));
+        _showMessage('Aprovação desfeita.');
+      }
+    } on OutfitException catch (e) {
+      _showMessage(e.message);
+    } finally {
+      if (mounted) setState(() => _sendingFeedback = false);
+    }
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.tapestryNoir,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-          side: const BorderSide(color: AppColors.hairlineGold, width: 0.8),
-        ),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: AppColors.gildedLeaf, size: 18),
-            const SizedBox(width: 10),
-            Text(
-              _isApproved ? 'Look do dia aprovado.' : 'Aprovação desfeita.',
-              style: AppTypography.bodyReading(color: AppColors.ivoryText),
-            ),
-          ],
-        ),
+  /// Descartar tira o look desta lista e das próximas sugestões (RF13)
+  Future<void> _discard(RecommendedLook look) async {
+    if (_sendingFeedback) return;
+    setState(() => _sendingFeedback = true);
+    final String feedbackId;
+    try {
+      feedbackId = await _service.sendLookFeedback(look, LookFeedbackAction.discarded);
+    } on OutfitException catch (e) {
+      _showMessage(e.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _sendingFeedback = false);
+    }
+    if (!mounted) return;
+
+    HapticFeedback.selectionClick();
+    final position = _looks.indexOf(look);
+    setState(() {
+      _looks = [..._looks]..removeAt(position);
+      _approvals.remove(look);
+      _discardedAll = _looks.isEmpty;
+      if (_lookIndex >= _looks.length) _lookIndex = 0;
+    });
+    _showMessage(
+      'Sugestão descartada. Ela não volta a aparecer.',
+      action: SnackBarAction(
+        label: 'Desfazer',
+        textColor: AppColors.gildedLeaf,
+        onPressed: () => _undoDiscard(look, feedbackId, position),
       ),
     );
+  }
+
+  Future<void> _undoDiscard(RecommendedLook look, String feedbackId, int position) async {
+    try {
+      await _service.undoLookFeedback(feedbackId);
+    } on OutfitException catch (e) {
+      _showMessage(e.message);
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _looks = [..._looks]..insert(position.clamp(0, _looks.length), look);
+      _lookIndex = _looks.indexOf(look);
+      _discardedAll = false;
+    });
+  }
+
+  void _showMessage(String message, {IconData? icon, SnackBarAction? action}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.tapestryNoir,
+          behavior: SnackBarBehavior.floating,
+          action: action,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+            side: const BorderSide(color: AppColors.hairlineGold, width: 0.8),
+          ),
+          content: Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: AppColors.gildedLeaf, size: 18),
+                const SizedBox(width: 10),
+              ],
+              Expanded(child: Text(message, style: AppTypography.bodyReading(color: AppColors.ivoryText))),
+            ],
+          ),
+        ),
+      );
   }
 
   void _openMirrorMode() {
@@ -300,6 +375,11 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
       (true, _) => ('Compondo o seu look…', 'O motor de harmonia está cruzando o seu acervo com o dia.', false),
       (false, OutfitException(isQuotaExceeded: true)) => ('Cota de hoje esgotada', error!.message, false),
       (false, final OutfitException error) => ('O ateliê não respondeu', error.message, true),
+      (false, null) when _discardedAll => (
+          'Você descartou as sugestões desta ocasião',
+          'Gerar novas sugestões usa 1 combinação do dia.',
+          true,
+        ),
       (false, null) => (
           'Seu acervo ainda não forma um look',
           'Digitalize ao menos uma parte de cima e uma de baixo, ou uma peça única.',
@@ -321,7 +401,11 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
             Text(message, style: AppTypography.bodyReading(color: AppColors.ivoryMuted)),
             if (canRetry) ...[
               const SizedBox(height: 20),
-              RoomIconButton(icon: Icons.refresh, label: 'Tentar de novo', onTap: _loadLooks),
+              RoomIconButton(
+                icon: Icons.refresh,
+                label: _discardedAll ? 'Gerar novas sugestões' : 'Tentar de novo',
+                onTap: _loadLooks,
+              ),
             ],
           ],
         ),
@@ -399,9 +483,10 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
               // 4. Ações de 3 toques (RNF06)
               CinnabarButton(
-                label: _isApproved ? 'Look aprovado' : 'Aprovar look do dia',
-                icon: _isApproved ? Icons.check_circle : Icons.favorite_border,
-                onPressed: _handleApproveLook,
+                label: _approvals.containsKey(look) ? 'Look aprovado' : 'Aprovar look do dia',
+                icon: _approvals.containsKey(look) ? Icons.check_circle : Icons.favorite_border,
+                onPressed: () => _toggleApproval(look),
+                busy: _sendingFeedback,
               ),
               const SizedBox(height: 12),
               if (_looks.length > 1) ...[
@@ -416,6 +501,12 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                 icon: Icons.remove_red_eye_outlined,
                 label: 'Simular no provador',
                 onPressed: _handleOpenMirrorSheet,
+              ),
+              const SizedBox(height: 12),
+              _OutlineAction(
+                icon: Icons.close,
+                label: 'Descartar sugestão',
+                onPressed: _sendingFeedback ? null : () => _discard(look),
               ),
             ],
           ),
@@ -485,7 +576,7 @@ class _WeatherUnavailable extends StatelessWidget {
 class _OutlineAction extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const _OutlineAction({required this.icon, required this.label, required this.onPressed});
 

@@ -313,3 +313,38 @@ class StoreParityResponse(BaseModel):
     looks_evaluated: int
     strong_looks: int = Field(..., description="Looks com IHE >= 75% que a peça destravaria")
     matches: List[ParityMatchResponse]
+
+
+# -----------------------------------------------------------------------------
+# Feedback de Recomendações (RF13)
+# -----------------------------------------------------------------------------
+
+class LookFeedbackCreate(BaseModel):
+    """Aprovação ou descarte de um look sugerido."""
+    item_ids: List[UUID] = Field(..., min_length=1, max_length=6, description="Peças do look sugerido")
+    action: Literal["APPROVED", "DISCARDED"]
+    occasion: str = Field(default="CASUAL")
+    ihe_percentage: float = Field(..., ge=0.0, le=100.0, description="IHE exibido quando o usuário decidiu")
+
+    @field_validator("occasion")
+    @classmethod
+    def check_occasion(cls, v: str) -> str:
+        return normalize_occasion(v)
+
+    @field_validator("item_ids")
+    @classmethod
+    def check_unique(cls, v: List[UUID]) -> List[UUID]:
+        if len(set(v)) != len(v):
+            raise ValueError("Um look não pode repetir a mesma peça.")
+        return v
+
+
+class LookFeedbackResponse(BaseModel):
+    id: UUID
+    item_ids: List[UUID]
+    action: str
+    occasion: str
+    ihe_percentage: float
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

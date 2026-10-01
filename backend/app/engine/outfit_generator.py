@@ -7,7 +7,7 @@ Varre o acervo de peças ativas do usuário, compõe combinações candidatas
 em tempo real pela fórmula determinística multivariada do IHE.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, FrozenSet, Optional, Set
 import itertools
 from dataclasses import dataclass
 
@@ -175,10 +175,12 @@ def generate_outfit_recommendations(
     temperature_celsius: float = 22.0,
     is_raining: bool = False,
     limit: int = 5,
+    excluded_looks: Optional[Set[FrozenSet[str]]] = None,
 ) -> List[CandidateOutfit]:
     """
     Gera as melhores combinações de looks a partir do acervo do usuário,
     ranqueando as opções pela pontuação do IHE.
+    Looks em `excluded_looks` (conjuntos de IDs descartados pelo usuário, RF13) nunca voltam.
     """
     if not items:
         return []
@@ -229,6 +231,13 @@ def generate_outfit_recommendations(
             candidates_raw.append(list(pair))
     elif not candidates_raw and len(items) == 1:
         candidates_raw.append([items[0]])
+
+    # Retroalimentação (RF13): combinações descartadas saem antes do ranking
+    if excluded_looks:
+        candidates_raw = [
+            combo for combo in candidates_raw
+            if frozenset(str(i.id) for i in combo) not in excluded_looks
+        ]
 
     # 4. Avaliar cada combinação candidata pelo IHE
     scored_candidates = [

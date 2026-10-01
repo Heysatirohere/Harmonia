@@ -232,8 +232,8 @@ void main() {
       expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsOneWidget);
     });
 
-    testWidgets('aprovar o look muda o estado e confirma', (WidgetTester tester) async {
-      await pumpDaily(tester, FakeOutfitService.sample());
+    testWidgets('aprovar registra o look e tocar de novo desfaz', (WidgetTester tester) async {
+      final service = await pumpDaily(tester, FakeOutfitService.sample());
 
       await tester.ensureVisible(find.text('Aprovar look do dia'));
       await tester.pumpAndSettle();
@@ -242,6 +242,68 @@ void main() {
 
       expect(find.text('Look aprovado'), findsOneWidget);
       expect(find.text('Look do dia aprovado.'), findsOneWidget);
+      final (look, action) = service.feedback.values.single;
+      expect(action, LookFeedbackAction.approved);
+      expect(look.ihePercentage, 88);
+
+      await tester.tap(find.text('Look aprovado'));
+      await tester.pumpAndSettle();
+
+      expect(service.feedback, isEmpty);
+      expect(find.text('Aprovar look do dia'), findsOneWidget);
+    });
+
+    testWidgets('falha ao aprovar mantém o look sem aprovação', (WidgetTester tester) async {
+      final service = FakeOutfitService.sample()
+        ..feedbackFailure = const OutfitException('Não foi possível registrar agora.');
+      await pumpDaily(tester, service);
+
+      await tester.ensureVisible(find.text('Aprovar look do dia'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aprovar look do dia'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Não foi possível registrar agora.'), findsOneWidget);
+      expect(find.text('Aprovar look do dia'), findsOneWidget);
+    });
+
+    testWidgets('descartar tira o look da lista e pode ser desfeito', (WidgetTester tester) async {
+      final service = await pumpDaily(tester, FakeOutfitService.sample());
+
+      await tester.ensureVisible(find.text('Descartar sugestão'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Descartar sugestão'));
+      await tester.pumpAndSettle();
+
+      expect(service.feedback.values.single.$2, LookFeedbackAction.discarded);
+      expect(find.text('64%', findRichText: true, skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('Outra sugestão', skipOffstage: false), findsNothing);
+
+      await tester.tap(find.text('Desfazer'));
+      await tester.pumpAndSettle();
+
+      expect(service.feedback, isEmpty);
+      expect(find.text('88%', findRichText: true, skipOffstage: false), findsOneWidget);
+      expect(find.text('Outra sugestão (1/2)', skipOffstage: false), findsOneWidget);
+    });
+
+    testWidgets('descartar todas oferece gerar novas, avisando o custo', (WidgetTester tester) async {
+      final service = await pumpDaily(tester, FakeOutfitService.sample());
+
+      for (var i = 0; i < 2; i++) {
+        await tester.ensureVisible(find.text('Descartar sugestão'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Descartar sugestão'));
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.text('Você descartou as sugestões desta ocasião'), findsOneWidget);
+      expect(find.text('Gerar novas sugestões usa 1 combinação do dia.'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pumpAndSettle();
+
+      expect(service.occasions, ['CASUAL', 'CASUAL']);
     });
 
     testWidgets('o clima local vai para o motor de looks', (WidgetTester tester) async {

@@ -13,6 +13,11 @@ class FakeOutfitService extends OutfitApiService {
   /// Clima enviado em cada geração, na ordem
   final List<({double temperature, bool isRaining})> climates = [];
 
+  /// Feedback registrado (RF13): id → (look, ação); [feedbackFailure] simula falha ao registrar
+  final Map<String, (RecommendedLook, LookFeedbackAction)> feedback = {};
+  OutfitException? feedbackFailure;
+  int _feedbackSeq = 0;
+
   /// Peças enviadas para paridade, na ordem
   final List<ClothingItem> parityRequests = [];
 
@@ -87,5 +92,22 @@ class FakeOutfitService extends OutfitApiService {
         ),
       ],
     );
+  }
+
+  @override
+  Future<String> sendLookFeedback(RecommendedLook look, LookFeedbackAction action) async {
+    final queued = feedbackFailure;
+    if (queued != null) {
+      feedbackFailure = null;
+      throw queued;
+    }
+    final id = 'fb-${++_feedbackSeq}';
+    feedback[id] = (look, action);
+    return id;
+  }
+
+  @override
+  Future<void> undoLookFeedback(String feedbackId) async {
+    feedback.remove(feedbackId);
   }
 }

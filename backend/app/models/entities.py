@@ -161,3 +161,45 @@ class ClothingItem(Base):
         "User",
         back_populates="clothing_items"
     )
+
+
+class LookFeedback(Base):
+    """
+    Retorno do usuário sobre um look sugerido (RF13).
+    Aprovações registram o uso do look no dia; descartes tiram a combinação das próximas sugestões.
+    """
+    __tablename__ = "look_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True  # Isolamento Multi-Tenant (RN01)
+    )
+    # IDs das peças do look (texto), na ordem em que foi sugerido
+    item_ids: Mapped[List[str]] = mapped_column(
+        JSONB,
+        nullable=False
+    )
+    action: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False
+    )
+    occasion: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+    ihe_percentage: Mapped[float] = mapped_column(
+        Float,
+        nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )

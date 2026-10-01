@@ -19,6 +19,15 @@ class OutfitException implements Exception {
   String toString() => message;
 }
 
+/// Retorno do usuário sobre um look sugerido (RF13)
+enum LookFeedbackAction {
+  approved('APPROVED'),
+  discarded('DISCARDED');
+
+  const LookFeedbackAction(this.apiValue);
+  final String apiValue;
+}
+
 /// Serviço de integração com o motor inteligente de looks e IHE da API FastAPI (RF07, RF13)
 class OutfitApiService {
   final ApiClient _client;
@@ -62,6 +71,44 @@ class OutfitApiService {
         throw const OutfitException('Sessão expirada. Entre novamente.');
       default:
         throw const OutfitException('Não foi possível compor o look agora.');
+    }
+  }
+
+  /// Registra a aprovação ou o descarte de um look (RF13). Retorna o id do registro, para desfazer.
+  /// Um look descartado não volta a ser sugerido.
+  Future<String> sendLookFeedback(RecommendedLook look, LookFeedbackAction action) async {
+    final http.Response response;
+    try {
+      response = await _client.post(
+        '/outfits/feedback',
+        body: {
+          'item_ids': [for (final item in look.items) item.id],
+          'action': action.apiValue,
+          'occasion': look.occasion,
+          'ihe_percentage': look.ihePercentage,
+        },
+      );
+    } catch (e) {
+      debugPrint('[OutfitApiService] Feedback não enviado: $e');
+      throw const OutfitException('Não foi possível registrar agora. Verifique sua conexão.');
+    }
+    if (response.statusCode != 201) {
+      throw const OutfitException('Não foi possível registrar agora.');
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
+  }
+
+  /// Desfaz uma aprovação ou um descarte
+  Future<void> undoLookFeedback(String feedbackId) async {
+    final http.Response response;
+    try {
+      response = await _client.delete('/outfits/feedback/$feedbackId');
+    } catch (e) {
+      debugPrint('[OutfitApiService] Desfazer feedback falhou: $e');
+      throw const OutfitException('Não foi possível desfazer agora. Verifique sua conexão.');
+    }
+    if (response.statusCode != 204) {
+      throw const OutfitException('Não foi possível desfazer agora.');
     }
   }
 

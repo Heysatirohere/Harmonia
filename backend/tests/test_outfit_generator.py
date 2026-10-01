@@ -198,3 +198,11 @@ def test_store_parity_without_matching_pieces_is_empty():
     assert parity.best_look is None
     assert parity.matches == []
     assert parity.looks_evaluated == 0
+
+
+def test_temperature_band_matches_engine_thresholds():
+    from app.engine.outfit_generator import temperature_band
+
+    assert [temperature_band(t) for t in (14.9, 15.0, 15.9, 16.0, 25.0, 25.1)] == [
+        "FRIO", "FRESCO", "FRESCO", "AMENO", "AMENO", "QUENTE",
+    ]

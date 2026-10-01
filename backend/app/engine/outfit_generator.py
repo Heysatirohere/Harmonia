@@ -95,6 +95,21 @@ def _generate_styling_advice(ihe: IHEResponse, occasion: str) -> str:
     return base + "Composição versátil e confortável para o clima do dia."
 
 
+def temperature_band(temperature_celsius: float) -> str:
+    """
+    Faixa de temperatura que o motor distingue: o IHE só muda ao cruzar 15°C
+    (context_rules), 16°C ou 25°C (categoria térmica abaixo). Temperaturas na
+    mesma faixa geram exatamente os mesmos looks.
+    """
+    if temperature_celsius < 15:
+        return "FRIO"
+    if temperature_celsius < 16:
+        return "FRESCO"
+    if temperature_celsius <= 25:
+        return "AMENO"
+    return "QUENTE"
+
+
 def _score_combo(
     combo: List[ClothingItem],
     user: User,

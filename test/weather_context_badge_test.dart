@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:harmonia_mvp/data/services/outfit_api_service.dart';
+import 'package:harmonia_mvp/domain/repositories/weather_repository.dart';
 import 'package:harmonia_mvp/mocks/mock_clothes.dart';
-import 'package:harmonia_mvp/mocks/mock_weather.dart';
 import 'package:harmonia_mvp/models/weather_context.dart';
 import 'package:harmonia_mvp/presentation/screens/daily_outfit_screen.dart';
 import 'package:harmonia_mvp/presentation/widgets/weather_context_badge.dart';
 
 import 'support/fake_outfit_service.dart';
+import 'support/fake_weather_repository.dart';
+import 'support/sample_weather.dart';
 
 void main() {
   group('WeatherContext Model Tests', () {
@@ -23,7 +25,6 @@ void main() {
         humidityPercentage: 70,
         thermalAmplitudeLabel: 'Baixa (8°C)',
         recommendationBadge: 'Tecidos leves em algodão e linho',
-        sOcasionScore: 0.95,
         sOcasionRationale: 'Clima quente exige fibras naturais de alta respirabilidade.',
       );
 
@@ -31,16 +32,63 @@ void main() {
       expect(weather.formattedMinMax, '22° — 30°C');
       expect(weather.formattedWind, '18 km/h');
       expect(weather.formattedHumidity, '70%');
-      expect(weather.formattedScore, '95%');
       expect(weather.iconData, Icons.wb_sunny_outlined);
     });
 
-    test('MockWeather provides valid current telemetry', () {
-      final mock = MockWeather.current;
-      expect(mock.city, 'SÃO PAULO, SP');
-      expect(mock.formattedTemperature, '23°C');
-      expect(mock.conditionLabel, 'PARCIALMENTE ENSOLARADO');
-      expect(mock.sOcasionScore, 0.88);
+    test('lê a resposta do Open-Meteo e deriva os rótulos só dos números', () {
+      final weather = WeatherContext.fromOpenMeteo({
+        'current': {'temperature_2m': 23.4, 'relative_humidity_2m': 64, 'weather_code': 2, 'wind_speed_10m': 13.8},
+        'daily': {
+          'temperature_2m_max': [26.1],
+          'temperature_2m_min': [15.2],
+          'precipitation_probability_max': [20],
+        },
+      }, city: 'São Paulo, SP');
+
+      expect(weather.formattedTemperature, '23°C');
+      expect(weather.formattedMinMax, '15° — 26°C');
+      expect(weather.conditionType, WeatherConditionType.partlyCloudy);
+      expect(weather.conditionLabel, 'Parcialmente nublado');
+      expect(weather.isRainExpected, isFalse);
+      expect(weather.thermalAmplitudeLabel, 'Alta (11°C)');
+      expect(weather.recommendationBadge, 'Amplitude alta: vista-se em camadas');
+      expect(weather.windLabel, 'Moderado');
+      expect(weather.humidityLabel, 'Confortável');
+      expect(weather.sOcasionRationale, contains('20% de chance de chuva'));
+    });
+
+    test('previsão de chuva do dia conta como chuva para o motor', () {
+      final weather = WeatherContext.fromOpenMeteo({
+        'current': {'temperature_2m': 19.0, 'relative_humidity_2m': 80, 'weather_code': 3, 'wind_speed_10m': 8.0},
+        'daily': {
+          'temperature_2m_max': [21.0],
+          'temperature_2m_min': [17.0],
+          'precipitation_probability_max': [70],
+        },
+      }, city: 'Curitiba, PR');
+
+      expect(weather.conditionType, WeatherConditionType.cloudy);
+      expect(weather.isRainExpected, isTrue);
+      expect(weather.recommendationBadge, startsWith('Chuva prevista'));
+    });
+
+    test('vento forte sem chuva vira condição de vento; chuva forte continua chuva', () {
+      Map<String, dynamic> response(int code, double wind) => {
+            'current': {'temperature_2m': 20.0, 'relative_humidity_2m': 50, 'weather_code': code, 'wind_speed_10m': wind},
+            'daily': {
+              'temperature_2m_max': [22.0],
+              'temperature_2m_min': [18.0],
+              'precipitation_probability_max': [null],
+            },
+          };
+
+      final windy = WeatherContext.fromOpenMeteo(response(0, 35), city: 'X');
+      final storm = WeatherContext.fromOpenMeteo(response(65, 35), city: 'X');
+
+      expect(windy.conditionType, WeatherConditionType.breezy);
+      expect(windy.rainProbability, isNull);
+      expect(storm.conditionType, WeatherConditionType.rainy);
+      expect(storm.isRainExpected, isTrue);
     });
   });
 
@@ -51,7 +99,7 @@ void main() {
           home: Scaffold(
             body: Padding(
               padding: const EdgeInsets.all(16),
-              child: WeatherContextBadge(weatherContext: MockWeather.current),
+              child: const WeatherContextBadge(weatherContext: sampleWeather),
             ),
           ),
         ),
@@ -59,11 +107,11 @@ void main() {
 
       // Verifica exibição de Cidade, Condição e Temperatura
       expect(find.text('SÃO PAULO, SP'), findsOneWidget);
-      expect(find.text('PARCIALMENTE ENSOLARADO'), findsOneWidget);
+      expect(find.text('PARCIALMENTE NUBLADO'), findsOneWidget);
       expect(find.text('23°C'), findsOneWidget);
 
       // Verifica o badge de recomendação contextual
-      expect(find.text('Adequado para amplitude térmica moderada'), findsOneWidget);
+      expect(find.text('Clima ameno: peças de meia-estação'), findsOneWidget);
     });
 
     testWidgets('tap triggers selection haptic and opens S_ocasion details sheet', (WidgetTester tester) async {
@@ -75,7 +123,8 @@ void main() {
             body: Padding(
               padding: const EdgeInsets.all(16),
               child: WeatherContextBadge(
-                weatherContext: MockWeather.current,
+                weatherContext: sampleWeather,
+                sOcasionScore: 0.88,
                 onTap: () {
                   tapped = true;
                 },
@@ -106,11 +155,13 @@ void main() {
   });
 
   group('DailyOutfitScreen Integration Tests', () {
-    Future<FakeOutfitService> pumpDaily(WidgetTester tester, FakeOutfitService service) async {
+    Future<FakeOutfitService> pumpDaily(WidgetTester tester, FakeOutfitService service, {FakeWeatherRepository? weather}) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
-      await tester.pumpWidget(MaterialApp(home: DailyOutfitScreen(service: service)));
+      await tester.pumpWidget(MaterialApp(
+        home: DailyOutfitScreen(service: service, weatherRepository: weather ?? FakeWeatherRepository()),
+      ));
       await tester.pumpAndSettle();
       return service;
     }
@@ -191,6 +242,46 @@ void main() {
 
       expect(find.text('Look aprovado'), findsOneWidget);
       expect(find.text('Look do dia aprovado.'), findsOneWidget);
+    });
+
+    testWidgets('o clima local vai para o motor de looks', (WidgetTester tester) async {
+      final rainy = WeatherContext.fromOpenMeteo({
+        'current': {'temperature_2m': 13.6, 'relative_humidity_2m': 88, 'weather_code': 61, 'wind_speed_10m': 9.0},
+        'daily': {
+          'temperature_2m_max': [16.0],
+          'temperature_2m_min': [11.0],
+          'precipitation_probability_max': [90],
+        },
+      }, city: 'Porto Alegre, RS');
+      final service = await pumpDaily(
+        tester,
+        FakeOutfitService.sample(),
+        weather: FakeWeatherRepository(weather: rainy),
+      );
+
+      expect(service.climates.single, (temperature: 13.6, isRaining: true));
+      expect(find.text('PORTO ALEGRE, RS'), findsOneWidget);
+    });
+
+    testWidgets('sem localização os looks usam clima neutro e a tela explica', (WidgetTester tester) async {
+      final weather = FakeWeatherRepository(
+        failure: const WeatherFailure(
+          WeatherFailureKind.permissionDenied,
+          'Sem permissão de localização, os looks não consideram o clima.',
+        ),
+      );
+      final service = await pumpDaily(tester, FakeOutfitService.sample(), weather: weather);
+
+      expect(service.climates.single, (temperature: 22.0, isRaining: false));
+      expect(find.text('Sem permissão de localização, os looks não consideram o clima.'), findsOneWidget);
+      expect(find.byType(WeatherContextBadge), findsNothing);
+
+      await tester.tap(find.text('Permitir localização'));
+      await tester.pumpAndSettle();
+
+      expect(weather.resolved, [WeatherFailureKind.permissionDenied]);
+      expect(find.byType(WeatherContextBadge), findsOneWidget);
+      expect(service.climates.last, (temperature: 23.0, isRaining: false));
     });
   });
 }

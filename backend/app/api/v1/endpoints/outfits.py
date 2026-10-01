@@ -25,7 +25,7 @@ from app.schemas.dtos import (
 )
 from app.engine.ihe_calculator import calculate_ihe, IHERequest, IHEResponse
 from app.engine.color_science import LabColor, calculate_garment_s_cor
-from app.engine.outfit_generator import rank_store_parity
+from app.engine.outfit_generator import rank_store_parity, temperature_band
 
 router = APIRouter()
 
@@ -128,7 +128,8 @@ async def generate_daily_outfits(
         user,
         [item.id for item in items],
         payload.occasion,
-        round(payload.temperature_celsius),
+        # Clima real varia ao longo do dia; só a faixa muda o resultado
+        temperature_band(payload.temperature_celsius),
         payload.is_raining,
         payload.limit,
     )

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/services/open_meteo_weather_service.dart';
 import '../../data/services/outfit_api_service.dart';
 import '../../domain/models/recommended_look.dart';
-import '../../mocks/mock_weather.dart';
+import '../../domain/repositories/weather_repository.dart';
 import '../../models/weather_context.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
@@ -20,12 +21,12 @@ import 'store_mirror_screen.dart';
 /// - Peças listadas direto sobre a Sala, sem cartões
 /// - Pontuação IHE em Bodoni de joalheria e ações em até 3 toques
 class DailyOutfitScreen extends StatefulWidget {
-  final WeatherContext? weatherContext;
+  final WeatherRepository? weatherRepository;
   final OutfitApiService? service;
 
   const DailyOutfitScreen({
     super.key,
-    this.weatherContext,
+    this.weatherRepository,
     this.service,
   });
 
@@ -34,7 +35,15 @@ class DailyOutfitScreen extends StatefulWidget {
 }
 
 class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
-  late final WeatherContext _weather;
+  late final WeatherRepository _weatherRepository = widget.weatherRepository ?? OpenMeteoWeatherService();
+
+  /// Clima local (RF16); nulo enquanto carrega ou quando indisponível
+  WeatherContext? _weather;
+  WeatherFailure? _weatherFailure;
+  bool _weatherLoading = true;
+
+  /// Sem clima, o motor recebe o mesmo padrão neutro da API
+  static const _neutralTemperature = 22.0;
   late final OutfitApiService _service = widget.service ?? OutfitApiService();
   bool _isApproved = false;
 
@@ -63,8 +72,31 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   @override
   void initState() {
     super.initState();
-    _weather = widget.weatherContext ?? MockWeather.current;
-    _loadLooks();
+    _loadWeatherThenLooks();
+  }
+
+  /// O clima vem antes dos looks: gerar com o padrão e depois com o clima real
+  /// seriam duas consultas diferentes, e duas cobranças da cota
+  Future<void> _loadWeatherThenLooks() async {
+    setState(() {
+      _weatherLoading = true;
+      _weatherFailure = null;
+    });
+    try {
+      final weather = await _weatherRepository.current();
+      if (mounted) setState(() => _weather = weather);
+    } on WeatherFailure catch (failure) {
+      if (mounted) setState(() => _weatherFailure = failure);
+    } finally {
+      if (mounted) setState(() => _weatherLoading = false);
+    }
+    if (mounted) await _loadLooks();
+  }
+
+  Future<void> _resolveWeather(WeatherFailureKind kind) async {
+    HapticFeedback.selectionClick();
+    await _weatherRepository.resolve(kind);
+    if (mounted) await _loadWeatherThenLooks();
   }
 
   Future<void> _loadLooks() async {
@@ -77,9 +109,8 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     try {
       final looks = await _service.generateDailyOutfits(
         occasion: _occasions[_occasionIndex].$2,
-        temperatureCelsius: _weather.temperature,
-        isRaining: _weather.conditionType == WeatherConditionType.rainy ||
-            _weather.conditionType == WeatherConditionType.lightRain,
+        temperatureCelsius: _weather?.temperature ?? _neutralTemperature,
+        isRaining: _weather?.isRainExpected ?? false,
       );
       if (!mounted || requestId != _requestId) return;
       setState(() {
@@ -237,7 +268,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
             // 1. Clima local (RF16)
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-              sliver: SliverToBoxAdapter(child: WeatherContextBadge(weatherContext: _weather)),
+              sliver: SliverToBoxAdapter(child: _buildWeather(look)),
             ),
 
             if (look != null)
@@ -249,6 +280,17 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildWeather(RecommendedLook? look) {
+    final weather = _weather;
+    if (weather != null) {
+      return WeatherContextBadge(weatherContext: weather, sOcasionScore: look?.sOcasion);
+    }
+    if (_weatherLoading) {
+      return Text('Lendo o clima local…', style: AppTypography.bodySmall(color: AppColors.ivoryMuted));
+    }
+    return _WeatherUnavailable(failure: _weatherFailure!, onResolve: _resolveWeather);
   }
 
   /// Carregando, erro, cota esgotada ou acervo que ainda não forma um look
@@ -380,6 +422,62 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
         ),
       ),
     ];
+  }
+}
+
+/// Clima indisponível: explica o efeito nos looks e oferece a ação que resolve
+class _WeatherUnavailable extends StatelessWidget {
+  final WeatherFailure failure;
+  final ValueChanged<WeatherFailureKind> onResolve;
+
+  const _WeatherUnavailable({required this.failure, required this.onResolve});
+
+  @override
+  Widget build(BuildContext context) {
+    final action = switch (failure.kind) {
+      WeatherFailureKind.permissionDenied => 'Permitir localização',
+      WeatherFailureKind.permissionDeniedForever => 'Abrir configurações',
+      WeatherFailureKind.serviceDisabled => 'Ativar localização',
+      WeatherFailureKind.unavailable => 'Tentar de novo',
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.location_off_outlined, size: 18, color: AppColors.ivoryMuted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(failure.message, style: AppTypography.bodySmall(color: AppColors.ivoryText)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(
+              'Looks calculados para clima ameno, sem chuva.',
+              style: AppTypography.bodySmall(color: AppColors.ivoryMuted),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: TextButton(
+              onPressed: () => onResolve(failure.kind),
+              child: Text(action, style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 13.5)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -888,3 +888,18 @@ async def test_store_parity_requires_bearer_token():
         response = await client.post("/api/v1/outfits/store-parity", json=STORE_TOP)
 
     assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_temperature_change_within_band_does_not_spend_quota():
+    """Com clima real a temperatura oscila; na mesma faixa do motor os looks são os mesmos e não há nova cobrança."""
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        morning = await _generate(client, user_id, temperature=18.2)
+        afternoon = await _generate(client, user_id, temperature=23.9)
+        hot = await _generate(client, user_id, temperature=29.0)
+
+    assert morning.json() == afternoon.json()
+    assert hot.status_code == 200
+    assert store.users[user_id].looks_generated_today == 2

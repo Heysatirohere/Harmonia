@@ -10,6 +10,9 @@ class FakeOutfitService extends OutfitApiService {
   OutfitException? failure;
   final List<String> occasions = [];
 
+  /// Clima enviado em cada geração, na ordem
+  final List<({double temperature, bool isRaining})> climates = [];
+
   /// Peças enviadas para paridade, na ordem
   final List<ClothingItem> parityRequests = [];
 
@@ -49,6 +52,7 @@ class FakeOutfitService extends OutfitApiService {
     int limit = 5,
   }) async {
     occasions.add(occasion);
+    climates.add((temperature: temperatureCelsius, isRaining: isRaining));
     final queued = failure;
     if (queued != null) {
       failure = null;

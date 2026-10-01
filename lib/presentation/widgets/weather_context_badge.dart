@@ -13,11 +13,15 @@ import '../../models/weather_context.dart';
 /// e abre a BottomSheet com as variáveis que afetam o S_ocasion do IHE.
 class WeatherContextBadge extends StatelessWidget {
   final WeatherContext weatherContext;
+
+  /// S_ocasion do look exibido, quando houver um
+  final double? sOcasionScore;
   final VoidCallback? onTap;
 
   const WeatherContextBadge({
     super.key,
     required this.weatherContext,
+    this.sOcasionScore,
     this.onTap,
   });
 
@@ -32,7 +36,7 @@ class WeatherContextBadge extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => _WeatherDetailsSheet(weatherContext: weatherContext),
+      builder: (ctx) => _WeatherDetailsSheet(weatherContext: weatherContext, sOcasionScore: sOcasionScore),
     );
   }
 
@@ -111,9 +115,11 @@ class WeatherContextBadge extends StatelessWidget {
 /// Modal Bottom Sheet sutil com os detalhes das variáveis de clima (S_ocasion do IHE)
 class _WeatherDetailsSheet extends StatelessWidget {
   final WeatherContext weatherContext;
+  final double? sOcasionScore;
 
   const _WeatherDetailsSheet({
     required this.weatherContext,
+    this.sOcasionScore,
   });
 
   @override
@@ -186,41 +192,43 @@ class _WeatherDetailsSheet extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Chancery Badge para S_ocasion
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.gildedWash,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.hairlineInk,
-                        width: 0.8,
+                  if (sOcasionScore case final double score) ...[
+                    const SizedBox(width: 8),
+                    // Chancery Badge para o S_ocasion do look exibido
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.gildedWash,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.hairlineInk,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'S_ocasion ',
+                            style: GoogleFonts.interTight(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.inkText,
+                            ),
+                          ),
+                          Text(
+                            '${(score * 100).round()}%',
+                            style: GoogleFonts.bodoniModa(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.gildedInk,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'S_ocasion ',
-                          style: GoogleFonts.interTight(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.inkText,
-                          ),
-                        ),
-                        Text(
-                          weatherContext.formattedScore,
-                          style: GoogleFonts.bodoniModa(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.gildedInk,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
 
@@ -245,7 +253,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                     child: _WeatherMetricTile(
                       label: 'VENTO',
                       value: weatherContext.formattedWind,
-                      subtext: 'Brando',
+                      subtext: weatherContext.windLabel,
                       icon: Icons.air_outlined,
                     ),
                   ),
@@ -254,7 +262,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                     child: _WeatherMetricTile(
                       label: 'UMIDADE',
                       value: weatherContext.formattedHumidity,
-                      subtext: 'Ideal',
+                      subtext: weatherContext.humidityLabel,
                       icon: Icons.water_drop_outlined,
                     ),
                   ),

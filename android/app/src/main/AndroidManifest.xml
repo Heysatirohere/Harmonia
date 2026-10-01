@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Necessária no build de release para Supabase (Auth/Storage) e API -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Clima local do Look do Dia (RF16): localização aproximada basta para a previsão -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
         android:label="harmonia_mvp"

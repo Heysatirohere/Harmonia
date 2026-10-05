@@ -95,7 +95,25 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
       backgroundColor: Colors.transparent,
       barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
       isScrollControlled: true,
-      builder: (ctx) => _GarmentDetailSheet(item: item),
+      builder: (ctx) => _GarmentDetailSheet(
+        item: item,
+        service: _wardrobeService,
+        onItemUpdated: (updated) {
+          setState(() {
+            final idx = _items.indexWhere((i) => i.id == updated.id);
+            if (idx != -1) {
+              final copy = List<ClothingItem>.from(_items);
+              copy[idx] = updated;
+              _items = copy;
+            }
+          });
+        },
+        onItemDeleted: (deleted) {
+          setState(() {
+            _items = _items.where((i) => i.id != deleted.id).toList();
+          });
+        },
+      ),
     );
   }
 
@@ -407,14 +425,109 @@ class _MetricItem extends StatelessWidget {
   }
 }
 
-/// Folha de leitura (paperBone) com os detalhes morfocromáticos da peça (AGENTS.md 7.5)
-class _GarmentDetailSheet extends StatelessWidget {
+/// Folha de leitura (paperBone) com os detalhes morfocromáticos da peça (AGENTS.md 7.5, RF05, 3.2.3)
+class _GarmentDetailSheet extends StatefulWidget {
   final ClothingItem item;
+  final WardrobeApiService service;
+  final ValueChanged<ClothingItem>? onItemUpdated;
+  final ValueChanged<ClothingItem>? onItemDeleted;
 
-  const _GarmentDetailSheet({required this.item});
+  const _GarmentDetailSheet({
+    required this.item,
+    required this.service,
+    this.onItemUpdated,
+    this.onItemDeleted,
+  });
+
+  @override
+  State<_GarmentDetailSheet> createState() => _GarmentDetailSheetState();
+}
+
+class _GarmentDetailSheetState extends State<_GarmentDetailSheet> {
+  late ClothingItem _item = widget.item;
+
+  Future<void> _openEditSheet() async {
+    HapticFeedback.selectionClick();
+    final updated = await showModalBottomSheet<ClothingItem>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _EditGarmentSheet(item: _item, service: widget.service),
+    );
+    if (updated != null && mounted) {
+      setState(() => _item = updated);
+      widget.onItemUpdated?.call(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.tapestryNoir,
+          behavior: SnackBarBehavior.floating,
+          content: Text('Atributos da peça atualizados.', style: AppTypography.bodySmall(color: AppColors.ivoryText)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    HapticFeedback.selectionClick();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.6),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.paperBone,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLarge)),
+        title: Text('Excluir Peça', style: AppTypography.displayEditorial().copyWith(fontSize: 22)),
+        content: Text(
+          'Deseja remover "${_item.name}" do seu acervo? A foto será apagada do armazenamento e a peça não aparecerá mais nas combinações (RN04).',
+          style: AppTypography.bodyReading(color: AppColors.inkText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancelar', style: AppTypography.uiHeadline(color: AppColors.inkSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accentCinnabar,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSmall)),
+            ),
+            child: Text('Excluir', style: AppTypography.uiHeadline(color: AppColors.ivoryText)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      HapticFeedback.heavyImpact();
+      final success = await widget.service.deleteClothingItem(_item.id);
+      if (!mounted) return;
+      if (success) {
+        widget.onItemDeleted?.call(_item);
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.tapestryNoir,
+            behavior: SnackBarBehavior.floating,
+            content: Text('Peça removida do acervo.', style: AppTypography.bodySmall(color: AppColors.ivoryText)),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.tapestryNoir,
+            behavior: SnackBarBehavior.floating,
+            content: Text('Não foi possível excluir a peça agora.', style: AppTypography.bodySmall(color: AppColors.ivoryText)),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final item = _item;
+
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.paperBone,
@@ -512,7 +625,39 @@ class _GarmentDetailSheet extends StatelessWidget {
           if (item.isConsciousFashion && item.consciousNote != null)
             _DetailRow(label: 'SUSTENTABILIDADE ESG', value: item.consciousNote!),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Botões de Ação: Editar Atributos e Excluir
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openEditSheet,
+                  icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.inkText),
+                  label: Text('Editar Atributos', style: AppTypography.uiHeadline(color: AppColors.inkText).copyWith(fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.hairlineInk, width: 1.0),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: _confirmDelete,
+                icon: const Icon(Icons.delete_outline, color: AppColors.accentCinnabar, size: 22),
+                tooltip: 'Excluir peça',
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    side: const BorderSide(color: AppColors.hairlineInk, width: 1.0),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
           SizedBox(
             width: double.infinity,
@@ -538,6 +683,247 @@ class _GarmentDetailSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Folha de edição de metadados da peça (Seção 3.2.3 da Documentação)
+class _EditGarmentSheet extends StatefulWidget {
+  final ClothingItem item;
+  final WardrobeApiService service;
+
+  const _EditGarmentSheet({required this.item, required this.service});
+
+  @override
+  State<_EditGarmentSheet> createState() => _EditGarmentSheetState();
+}
+
+class _EditGarmentSheetState extends State<_EditGarmentSheet> {
+  late final TextEditingController _nameController;
+  late String _selectedCategory;
+  late double _formality;
+  bool _saving = false;
+
+  static const _availableCategories = [
+    'Partes de cima',
+    'Partes de baixo',
+    'Calçados',
+    'Peças únicas',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.item.name);
+    _selectedCategory = widget.item.category;
+    if (!_availableCategories.contains(_selectedCategory)) {
+      _selectedCategory = _availableCategories.first;
+    }
+    _formality = widget.item.formalityScore ?? 0.5;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() => _saving = true);
+    HapticFeedback.mediumImpact();
+
+    final updated = widget.item.copyWith(
+      name: name,
+      category: _selectedCategory,
+      formalityScore: _formality,
+    );
+
+    final saved = await widget.service.updateClothingItem(updated);
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    // Falhou: a folha continua aberta com o que foi digitado, para tentar de novo
+    if (saved == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.tapestryNoir,
+          behavior: SnackBarBehavior.floating,
+          content: Text('Não foi possível salvar a peça agora.', style: AppTypography.bodySmall(color: AppColors.ivoryText)),
+        ),
+      );
+      return;
+    }
+    Navigator.pop(context, saved);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.paperBone,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLarge)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.hairlineInk,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'EDITAR ATRIBUTOS',
+                style: AppTypography.atelierMeta(color: AppColors.accentCinnabar),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Ajuste Fino de Metadados',
+                style: AppTypography.displayEditorial(color: AppColors.inkText).copyWith(fontSize: 24),
+              ),
+              const SizedBox(height: 20),
+
+              // Nome da Peça
+              Text('NOME DA PEÇA', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameController,
+                style: AppTypography.bodyReading(color: AppColors.inkText),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.paperBoneRaised,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderSide: const BorderSide(color: AppColors.hairlineInk),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderSide: const BorderSide(color: AppColors.hairlineInk),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderSide: const BorderSide(color: AppColors.gildedLeaf, width: 1.4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Categoria
+              Text('CATEGORIA', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _availableCategories.map((cat) {
+                  final isSelected = cat == _selectedCategory;
+                  return ChoiceChip(
+                    label: Text(
+                      cat,
+                      style: AppTypography.atelierMeta(
+                        color: isSelected ? AppColors.ivoryText : AppColors.inkText,
+                      ).copyWith(fontSize: 10),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.accentCinnabar,
+                    backgroundColor: AppColors.paperBoneRaised,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                      side: BorderSide(
+                        color: isSelected ? AppColors.accentCinnabar : AppColors.hairlineInk,
+                        width: 0.8,
+                      ),
+                    ),
+                    onSelected: (selected) {
+                      if (selected) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedCategory = cat);
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+
+              // Nível de Formalidade
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('NÍVEL DE FORMALIDADE', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+                  Text(
+                    '${(_formality * 100).round()}% • ${_formalityLabel(_formality)}',
+                    style: AppTypography.atelierMeta(color: AppColors.gildedInk).copyWith(fontSize: 10),
+                  ),
+                ],
+              ),
+              Slider(
+                value: _formality,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                activeColor: AppColors.accentCinnabar,
+                inactiveColor: AppColors.hairlineInk,
+                onChanged: (val) {
+                  setState(() => _formality = val);
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Botões
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.hairlineInk),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+                      ),
+                      child: Text('Cancelar', style: AppTypography.uiHeadline(color: AppColors.inkSecondary)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _saving ? null : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accentCinnabar,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+                      ),
+                      child: _saving
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ivoryText))
+                          : Text('Salvar', style: AppTypography.uiHeadline(color: AppColors.ivoryText)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _formalityLabel(double value) {
+    if (value <= 0.25) return 'Muito Casual';
+    if (value <= 0.50) return 'Casual Chic';
+    if (value <= 0.75) return 'Trabalho / Semi-formal';
+    return 'Gala / Alta Formalidade';
   }
 }
 

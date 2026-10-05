@@ -41,4 +41,13 @@ class FakeWardrobeService extends WardrobeApiService {
     return true;
   }
 
+  @override
+  Future<ClothingItem?> updateClothingItem(ClothingItem item) async {
+    final index = items.indexWhere((i) => i.id == item.id);
+    if (index != -1) {
+      items[index] = item;
+    }
+    return item;
+  }
 }
+

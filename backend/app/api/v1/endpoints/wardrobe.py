@@ -21,6 +21,7 @@ from app.models.entities import User, ClothingItem
 from app.schemas.dtos import (
     ClothingItemCreate,
     ClothingItemResponse,
+    ClothingItemUpdate,
     ExtractedColorResponse,
     SegmentationResponse,
 )
@@ -213,4 +214,41 @@ async def delete_clothing_item(
     await db.delete(item)
     await db.commit()
     return None
+
+
+@router.patch("/items/{item_id}", response_model=ClothingItemResponse, status_code=status.HTTP_200_OK)
+async def update_clothing_item(
+    item_id: UUID,
+    item_update: ClothingItemUpdate,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Atualiza atributos taxonômicos da peça (RF05, Seção 3.2.3 da documentação).
+    Garante validação de posse e isolamento Multi-Tenant estrito (RN01).
+    """
+    stmt = select(ClothingItem).where(ClothingItem.id == item_id)
+    result = await db.execute(stmt)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Peça de vestuário não encontrada."
+        )
+
+    # Validação de posse para isolamento Multi-Tenant (RN01)
+    if item.user_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado. Esta peça não pertence ao usuário autenticado."
+        )
+
+    changes = item_update.model_dump(exclude_unset=True, exclude_none=True)
+    for field, value in changes.items():
+        setattr(item, field, value)
+
+    await db.commit()
+    await db.refresh(item)
+    return ClothingItemResponse.model_validate(item)
 

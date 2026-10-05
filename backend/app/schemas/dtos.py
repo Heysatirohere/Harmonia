@@ -203,6 +203,14 @@ class ClothingItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ClothingItemUpdate(BaseModel):
+    """Schema para atualização parcial de atributos da peça de vestuário (RF05, Seção 3.2.3)."""
+    category: Optional[str] = Field(default=None, description="Categoria principal (top, bottom, shoes, one_piece, outerwear)")
+    subcategory: Optional[str] = Field(default=None, description="Subcategoria descritiva ou nome")
+    formality_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Grau de formalidade (0.0 a 1.0)")
+    cut_type: Optional[str] = Field(default=None, description="Corte/modelagem")
+
+
 class ClothingItemFilter(BaseModel):
     """Filtros multicritérios para busca de peças no guarda-roupa virtual."""
     category: Optional[str] = None

@@ -1203,3 +1203,61 @@ async def test_account_deletion_without_admin_key_is_unavailable(monkeypatch):
 
     assert response.status_code == 503
     assert user_id in store.users
+
+
+@pytest.mark.anyio
+async def test_update_clothing_item_attributes_and_multi_tenant():
+    """
+    Testa o endpoint PATCH /v1/wardrobe/items/{item_id} (RF05, 3.2.3).
+    Valida atualização de atributos e isolamento Multi-Tenant estrito (RN01).
+    """
+    user_a_id = uuid.uuid4()
+    user_b_id = uuid.uuid4()
+    store.users[user_a_id] = User(id=user_a_id, email="a@harmonia.app", hashed_password="pw", is_premium=True, created_at=datetime.now(timezone.utc))
+    store.users[user_b_id] = User(id=user_b_id, email="b@harmonia.app", hashed_password="pw", is_premium=True, created_at=datetime.now(timezone.utc))
+
+    item_id = uuid.uuid4()
+    item = ClothingItem(
+        id=item_id,
+        user_id=user_a_id,
+        category="top",
+        subcategory="Camisa Linho",
+        image_url="https://example.com/camisa.png",
+        dominant_l=80.0,
+        dominant_a=-5.0,
+        dominant_b=15.0,
+        formality_score=0.5,
+        is_archived=False,
+        created_at=datetime.now(timezone.utc),
+    )
+    store.clothing_items[item_id] = item
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Usuário B tenta atualizar peça do Usuário A -> 403 Forbidden (RN01)
+        res_forbidden = await client.patch(
+            f"/api/v1/wardrobe/items/{item_id}",
+            json={"formality_score": 0.9, "subcategory": "Hackeada"},
+            headers=auth_headers(user_b_id),
+        )
+        assert res_forbidden.status_code == 403
+        assert "Acesso negado" in res_forbidden.json()["detail"]
+
+        # 2. Usuário A atualiza com sucesso sua peça -> 200 OK
+        res_update = await client.patch(
+            f"/api/v1/wardrobe/items/{item_id}",
+            json={"formality_score": 0.85, "subcategory": "Camisa Linho Fino", "cut_type": "Alfaiataria"},
+            headers=auth_headers(user_a_id),
+        )
+        assert res_update.status_code == 200
+        data = res_update.json()
+        assert data["formality_score"] == 0.85
+        assert data["subcategory"] == "Camisa Linho Fino"
+        assert data["cut_type"] == "Alfaiataria"
+
+        # 3. Tentativa de atualizar peça inexistente -> 404 Not Found
+        res_404 = await client.patch(
+            f"/api/v1/wardrobe/items/{uuid.uuid4()}",
+            json={"subcategory": "Inexistente"},
+            headers=auth_headers(user_a_id),
+        )
+        assert res_404.status_code == 404

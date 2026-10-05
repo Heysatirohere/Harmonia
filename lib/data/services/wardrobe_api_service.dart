@@ -194,4 +194,39 @@ class WardrobeApiService {
     }
   }
 
+  /// Atualiza atributos taxonômicos da peça (categoria, nome, formalidade) no backend (RF05, 3.2.3)
+  Future<ClothingItem?> updateClothingItem(ClothingItem item) async {
+    try {
+      final response = await _client.patch(
+        '/wardrobe/items/${item.id}',
+        body: {
+          'category': item.category,
+          'subcategory': item.name,
+          if (item.formalityScore != null) 'formality_score': item.formalityScore,
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        return ClothingItem.fromJson(data);
+      }
+    } catch (e) {
+      debugPrint('[WardrobeApiService] Falha ao atualizar peça via API: $e');
+    }
+
+    // Fallback Supabase
+    try {
+      final supabase = SupabaseConfig.client;
+      if (supabase != null) {
+        final res = await supabase.from('clothing_items').update({
+          'category': item.category,
+          'subcategory': item.name,
+          if (item.formalityScore != null) 'formality_score': item.formalityScore,
+        }).eq('id', item.id).select().single();
+        return ClothingItem.fromJson(res);
+      }
+    } catch (e) {
+      debugPrint('[WardrobeApiService] Falha ao atualizar no Supabase: $e');
+    }
+    return null;
+  }
 }

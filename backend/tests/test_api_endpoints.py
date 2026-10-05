@@ -1299,3 +1299,114 @@ async def test_update_user_privacy_mode_rn05():
         assert res_public.status_code == 200
         assert res_public.json()["is_public"] is True
 
+
+
+# -----------------------------------------------------------------------------
+# Saúde do Acervo (Seção 3.2.2)
+# -----------------------------------------------------------------------------
+
+def _age_items(user_id, days):
+    """Cadastra as peças do usuário `days` dias atrás."""
+    for item in store.clothing_items.values():
+        if item.user_id == user_id:
+            item.created_at = datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def _approve(user_id, item_ids, days_ago, action="APPROVED"):
+    entry = LookFeedback(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        item_ids=[str(i) for i in item_ids],
+        action=action,
+        occasion="CASUAL",
+        ihe_percentage=80.0,
+        created_at=datetime.now(timezone.utc) - timedelta(days=days_ago),
+    )
+    store.look_feedback[entry.id] = entry
+    return entry
+
+
+@pytest.mark.anyio
+async def test_analytics_derives_rotation_from_approved_looks():
+    user_id = _seed_wardrobe_user()
+    _age_items(user_id, 120)
+    top, bottom = sorted(
+        (i for i in store.clothing_items.values() if i.user_id == user_id), key=lambda i: i.category, reverse=True
+    )
+    _approve(user_id, [top.id, bottom.id], days_ago=100)
+    _approve(user_id, [top.id], days_ago=5)
+    # Descartes não são uso
+    _approve(user_id, [bottom.id], days_ago=1, action="DISCARDED")
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/analytics", headers=auth_headers(user_id))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_pieces"] == 2
+    assert (data["active_count"], data["idle_30_count"], data["idle_60_count"], data["dormant_count"]) == (1, 0, 0, 1)
+    assert data["total_wears"] == 3
+    assert data["never_worn_count"] == 0
+    [dormant] = data["dormant_items"]
+    assert dormant["item"]["id"] == str(bottom.id)
+    assert dormant["wear_count"] == 1
+    assert dormant["days_idle"] == 100
+    assert sum(c["percentage"] for c in data["color_distribution"]) == pytest.approx(100.0)
+
+
+@pytest.mark.anyio
+async def test_analytics_ignores_other_users_pieces_and_looks():
+    """RN01: peças e aprovações de outra conta não entram na conta de ninguém."""
+    user_id = _seed_wardrobe_user()
+    other_id = _seed_wardrobe_user()
+    _age_items(user_id, 200)
+    _approve(other_id, _wardrobe_ids(user_id), days_ago=1)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/analytics", headers=auth_headers(user_id))
+
+    data = response.json()
+    assert data["total_pieces"] == 2
+    assert data["dormant_count"] == 2
+    assert data["total_wears"] == 0
+    assert data["never_worn_count"] == 2
+    assert {d["item"]["user_id"] for d in data["dormant_items"]} == {str(user_id)}
+
+
+@pytest.mark.anyio
+async def test_undoing_an_approval_removes_the_wear():
+    user_id = _seed_wardrobe_user()
+    _age_items(user_id, 120)
+    look = _wardrobe_ids(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        approval = await client.post("/api/v1/outfits/feedback", json=_feedback(look), headers=auth_headers(user_id))
+        worn = (await client.get("/api/v1/wardrobe/analytics", headers=auth_headers(user_id))).json()
+        await client.delete(f"/api/v1/outfits/feedback/{approval.json()['id']}", headers=auth_headers(user_id))
+        undone = (await client.get("/api/v1/wardrobe/analytics", headers=auth_headers(user_id))).json()
+
+    assert (worn["active_count"], worn["total_wears"]) == (2, 2)
+    assert (undone["active_count"], undone["dormant_count"], undone["total_wears"]) == (0, 2, 0)
+
+
+@pytest.mark.anyio
+async def test_analytics_of_an_empty_wardrobe():
+    user_id = _seed_wardrobe_user()
+    for key in [k for k, v in store.clothing_items.items() if v.user_id == user_id]:
+        del store.clothing_items[key]
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/analytics", headers=auth_headers(user_id))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_pieces"] == 0
+    assert data["color_distribution"] == []
+    assert data["dormant_items"] == []
+
+
+@pytest.mark.anyio
+async def test_analytics_requires_authentication():
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/analytics")
+    assert response.status_code == 401

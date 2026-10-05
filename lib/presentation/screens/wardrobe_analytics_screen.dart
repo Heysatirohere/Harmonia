@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../mocks/mock_clothes.dart';
-import '../../models/clothing_item.dart';
+import '../../data/services/wardrobe_api_service.dart';
 import '../../models/wardrobe_analytics.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
@@ -13,11 +11,12 @@ import '../atelier/room_scene.dart';
 /// Tela do Dashboard Analítico de Rotação de Acervo & ESG (Seção 3.2.2 da Doc)
 ///
 /// Monitora a saúde do guarda-roupa pessoal, taxa de ociosidade (30, 60 e 90 dias),
-/// proporção cromática dominante e rotinas de reativação de peças esquecidas.
+/// proporção cromática dominante e as peças adormecidas. O uso de cada peça vem dos
+/// looks aprovados no Look do Dia (RF13), calculado pela API.
 class WardrobeAnalyticsScreen extends StatefulWidget {
-  final List<ClothingItem>? items;
+  final WardrobeApiService? service;
 
-  const WardrobeAnalyticsScreen({super.key, this.items});
+  const WardrobeAnalyticsScreen({super.key, this.service});
 
   @override
   State<WardrobeAnalyticsScreen> createState() => _WardrobeAnalyticsScreenState();
@@ -27,23 +26,33 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
   /// Cor de dado (não é token de interface): areia escurecida, visível sobre o papel
   static const _idle30Color = Color(0xFFA89170);
 
-  late final WardrobeAnalytics _analytics;
+  late final WardrobeApiService _service = widget.service ?? WardrobeApiService();
+  WardrobeAnalytics? _data;
+  String? _error;
+  bool _loading = true;
+
+  /// Só chamado depois do carregamento: as seções leem daqui
+  WardrobeAnalytics get _analytics => _data!;
 
   @override
   void initState() {
     super.initState();
-    final sourceItems = widget.items ?? mockClothes;
-    _analytics = WardrobeAnalytics.fromItems(sourceItems);
+    _load();
   }
 
-  void _handleReactivatePiece(ClothingItem item) {
-    HapticFeedback.mediumImpact();
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _ReactivateGarmentSheet(item: item),
-    );
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await _service.getAnalytics();
+      if (mounted) setState(() => _data = data);
+    } on WardrobeException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -53,7 +62,8 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
       sliver: SliverToBoxAdapter(child: sheet ? AtelierSheet(child: child) : child),
     );
 
-    // Ocre dourado no diagnóstico e nas métricas; verdete na reativação das peças adormecidas
+    final data = _data;
+    // Ocre dourado no diagnóstico e nas métricas; verdete nas peças adormecidas
     return Scaffold(
       backgroundColor: AppColors.tapestryNoir,
       body: RoomScene(
@@ -66,26 +76,63 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               child: RoomHeader(
                 eyebrow: 'Inteligência patrimonial & ESG',
                 title: 'Saúde do Acervo',
-                subtitle: 'Rotação, ociosidade e custo por uso',
+                subtitle: 'Rotação, ociosidade e cores',
                 room: AtelierRoom.gildedOchre,
                 onBack: () => Navigator.of(context).pop(),
               ),
             ),
-            // 1. Diagnóstico ESG & rotação (já é uma folha)
-            section(_buildEsgHealthSummaryCard(), sheet: false),
-            // 2. Ociosidade (30, 60, 90 dias)
-            section(_buildRotationTimelineSection()),
-            // 3. Proporção cromática dominante (CIE L*a*b*)
-            section(_buildChromaticDistributionSection()),
-            // 4. Custo por uso & capital ocioso (já é uma folha)
-            section(_buildFinancialMetricsSection(), sheet: false),
-            // 5. Reativação de peças adormecidas (>90 dias)
-            const RoomMarker(room: AtelierRoom.verdigris),
-            const SliverToBoxAdapter(
-              child: RoomSectionTitle(title: 'Peças adormecidas', meta: '> 90 dias'),
-            ),
-            section(_buildDormantPiecesSection()),
+            if (data == null || data.totalPieces == 0)
+              SliverToBoxAdapter(child: _buildPlaceholder())
+            else ...[
+              // 1. Diagnóstico ESG & rotação (já é uma folha)
+              section(_buildEsgHealthSummaryCard(), sheet: false),
+              // 2. Ociosidade (30, 60, 90 dias)
+              section(_buildRotationTimelineSection()),
+              // 3. Proporção cromática dominante (CIE L*a*b*)
+              section(_buildChromaticDistributionSection()),
+              // 4. Peças adormecidas (>90 dias)
+              const RoomMarker(room: AtelierRoom.verdigris),
+              const SliverToBoxAdapter(
+                child: RoomSectionTitle(title: 'Peças adormecidas', meta: '> 90 dias'),
+              ),
+              section(_buildDormantPiecesSection()),
+            ],
             SliverToBoxAdapter(child: SizedBox(height: MediaQuery.sizeOf(context).height * 0.4)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Carregando, erro ou acervo vazio
+  Widget _buildPlaceholder() {
+    final error = _error;
+    final (String title, String message, bool canRetry) = switch ((_loading, error)) {
+      (true, _) => ('Lendo o seu acervo…', 'Cruzando as suas peças com os looks que você aprovou.', false),
+      (false, final String message) => ('O ateliê não respondeu', message, true),
+      (false, null) => (
+          'Seu acervo ainda está vazio',
+          'Digitalize as suas peças para acompanhar a rotação e as cores do armário.',
+          false,
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, AppSpacing.sectionGap, AppSpacing.pageMargin, 0),
+      child: AnimatedOpacity(
+        opacity: _loading ? 0.7 : 1.0,
+        duration: AppMotion.medium,
+        curve: AppMotion.editorialDecel,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: AppTypography.subtitleCuratorial(color: AppColors.ivoryText)),
+            const SizedBox(height: AppSpacing.tightGap),
+            Text(message, style: AppTypography.bodyReading(color: AppColors.ivoryMuted)),
+            if (canRetry) ...[
+              const SizedBox(height: 20),
+              RoomIconButton(icon: Icons.refresh, label: 'Tentar de novo', onTap: _load),
+            ],
           ],
         ),
       ),
@@ -152,7 +199,9 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'A indústria têxtil aponta que a maioria das pessoas usa menos de 1/3 do armário. O HarmonIA propõe novas coordenações para elevar a sua rotação para mais de 75%.',
+            'A indústria têxtil aponta que a maioria das pessoas usa menos de 1/3 do armário. '
+            'Cada look que você aprova no Look do Dia conta como uso das peças dele; '
+            'peças novas contam a partir do cadastro.',
             style: AppTypography.bodyReading().copyWith(color: AppColors.inkSecondary, fontSize: 12.0, height: 1.45),
           ),
         ],
@@ -190,7 +239,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
           children: [
             Expanded(
               child: _buildTimeWindowCard(
-                title: 'Ativas (<30d)',
+                title: 'Em uso (<30d)',
                 count: _analytics.activePiecesCount,
                 color: AppColors.verdigrisInk,
               ),
@@ -296,9 +345,9 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                 color: AppColors.inkSecondary,
               ).copyWith(fontSize: 10, letterSpacing: 1.0),
             ),
-            const Text(
-              '✦ Cartela Outono',
-              style: TextStyle(fontSize: 11, color: AppColors.gildedInk, fontWeight: FontWeight.w600),
+            Text(
+              '${_analytics.totalWears} ${_analytics.totalWears == 1 ? 'uso registrado' : 'usos registrados'}',
+              style: AppTypography.bodySmall(color: AppColors.inkSecondary),
             ),
           ],
         ),
@@ -379,117 +428,40 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
     );
   }
 
-  Widget _buildFinancialMetricsSection() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.paperBone,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-        border: Border.all(color: AppColors.hairlineInk, width: 0.8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppColors.gildedInk),
-              const SizedBox(width: 8),
-              Text(
-                'MÉTRICA PATRIMONIAL & CUSTO POR USO',
-                style: AppTypography.metadataBadge(
-                  color: AppColors.gildedInk,
-                ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Custo Médio / Uso',
-                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.inkSecondary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'R\$ ${_analytics.averageCostPerWear.toStringAsFixed(2).replaceAll('.', ',')}',
-                      style: GoogleFonts.bodoniModa(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.inkText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(width: 1, height: 40, color: AppColors.hairlineInk),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Capital Ocioso Parado',
-                      style: GoogleFonts.interTight(fontSize: 11, color: AppColors.inkSecondary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'R\$ ${_analytics.estimatedIdleCapital.toStringAsFixed(2).replaceAll('.', ',')}',
-                      style: GoogleFonts.bodoniModa(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.accentCinnabar,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildDormantPiecesSection() {
-    if (_analytics.dormantItems.isEmpty) return const SizedBox();
+    final dormant = _analytics.dormantItems;
+    if (dormant.isEmpty) {
+      return Text(
+        'Nenhuma peça está há mais de 90 dias sem uso. O armário inteiro está em rotação.',
+        style: AppTypography.bodyReading().copyWith(color: AppColors.inkSecondary),
+      );
+    }
 
+    final cacheWidth = (150 * MediaQuery.devicePixelRatioOf(context)).round();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'REATIVAR PEÇAS ADORMECIDAS (>90D)',
-                  style: AppTypography.metadataBadge(
-                    color: AppColors.accentCinnabar,
-                  ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Resgate de Patrimônio Ocioso',
-                  style: GoogleFonts.bodoniModa(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.inkText),
-                ),
-              ],
-            ),
-          ],
+        Text(
+          'RESGATE DE PATRIMÔNIO OCIOSO',
+          style: AppTypography.metadataBadge(
+            color: AppColors.accentCinnabar,
+          ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${dormant.length} ${dormant.length == 1 ? 'peça esquecida' : 'peças esquecidas'} no armário',
+          style: GoogleFonts.bodoniModa(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.inkText),
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 200,
+          height: 190,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            itemCount: _analytics.dormantItems.length,
+            itemCount: dormant.length,
             itemBuilder: (context, index) {
-              final piece = _analytics.dormantItems[index];
+              final garment = dormant[index];
+              final piece = garment.item;
               return Container(
                 width: 150,
                 margin: const EdgeInsets.only(right: 12),
@@ -503,21 +475,17 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          color: AppColors.paperBone,
-                          child: Center(
-                            child: piece.imageUrl.isNotEmpty
-                                ? Image.network(
-                                    piece.imageUrl,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) =>
-                                        const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
-                                  )
-                                : const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
-                          ),
-                        ),
+                      child: Center(
+                        child: piece.imageUrl.isNotEmpty
+                            ? Image.network(
+                                piece.imageUrl,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.medium,
+                                cacheWidth: cacheWidth,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
+                              )
+                            : const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -533,32 +501,12 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Sem uso recente',
+                      garment.idleLabel,
+                      maxLines: 2,
                       style: GoogleFonts.interTight(
-                        fontSize: 10,
+                        fontSize: 10.5,
                         color: AppColors.accentCinnabar,
                         fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 28,
-                      child: OutlinedButton(
-                        onPressed: () => _handleReactivatePiece(piece),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          side: const BorderSide(color: AppColors.accentCinnabar, width: 0.8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
-                        child: Text(
-                          'Reativar Look',
-                          style: GoogleFonts.interTight(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accentCinnabar,
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -568,85 +516,6 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Modal Curatorial para reativação de peça esquecida
-class _ReactivateGarmentSheet extends StatelessWidget {
-  final ClothingItem item;
-
-  const _ReactivateGarmentSheet({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: AppColors.paperBone,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(color: AppColors.hairlineInk, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'REATIVAÇÃO DE PATRIMÔNIO (ESG)',
-            style: AppTypography.metadataBadge(
-              color: AppColors.verdigrisInk,
-            ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Coordenar "${item.name}"',
-            style: GoogleFonts.bodoniModa(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.inkText),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Esta peça está classificada como adormecida no seu acervo (>90 dias). O motor do IHE sugere combiná-la com tons neutros em linho ou areia suave para reinseri-la na sua rotina matinal.',
-            style: AppTypography.bodyReading().copyWith(color: AppColors.inkSecondary, fontSize: 12.5),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: AppColors.tapestryNoir,
-                    content: Text(
-                      'Combinação de reativação gerada com sucesso!',
-                      style: GoogleFonts.interTight(color: AppColors.ivoryText),
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.auto_awesome, size: 16),
-              label: Text(
-                'Gerar Look com Esta Peça',
-                style: GoogleFonts.interTight(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentCinnabar,
-                foregroundColor: AppColors.ivoryText,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ),
     );
   }
 }

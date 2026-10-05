@@ -250,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _ActionItem(
                       icon: Icons.eco_outlined,
                       title: 'Saúde do Acervo & Rotação ESG (3.2.2)',
-                      subtitle: 'Ociosidade (30/60/90d), custo por uso e cores',
+                      subtitle: 'Ociosidade (30/60/90d) e cores do armário',
                       onTap: () => _open(const WardrobeAnalyticsScreen()),
                     ),
                     _ActionItem(

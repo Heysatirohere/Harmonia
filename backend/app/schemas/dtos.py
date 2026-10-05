@@ -210,6 +210,37 @@ class ClothingItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class GarmentUsageResponse(BaseModel):
+    """Peça com o uso registrado pelas aprovações de looks (RF13, Seção 3.2.2)."""
+    item: ClothingItemResponse
+    wear_count: int = Field(..., ge=0, description="Looks aprovados com esta peça")
+    last_worn_at: Optional[datetime] = Field(default=None, description="Data da aprovação mais recente; nula se nunca usada")
+    days_idle: int = Field(..., ge=0, description="Dias desde o último uso (ou desde o cadastro, se nunca usada)")
+
+
+class ColorShareResponse(BaseModel):
+    """Família cromática do acervo e a sua cor média em CIE L*a*b*."""
+    family: str
+    count: int
+    percentage: float = Field(..., ge=0.0, le=100.0)
+    L: float
+    a: float
+    b: float
+
+
+class WardrobeAnalyticsResponse(BaseModel):
+    """Saúde do acervo: rotação em janelas de 30/60/90 dias e proporção cromática (Seção 3.2.2)."""
+    total_pieces: int
+    active_count: int = Field(..., description="Usadas (ou cadastradas) há menos de 30 dias")
+    idle_30_count: int = Field(..., description="Sem uso de 30 a 60 dias")
+    idle_60_count: int = Field(..., description="Sem uso de 60 a 90 dias")
+    dormant_count: int = Field(..., description="Sem uso há 90 dias ou mais")
+    never_worn_count: int
+    total_wears: int
+    color_distribution: List[ColorShareResponse]
+    dormant_items: List[GarmentUsageResponse] = Field(..., description="Peças adormecidas, da mais esquecida para a menos")
+
+
 class ClothingItemUpdate(BaseModel):
     """Schema para atualização parcial de atributos da peça de vestuário (RF05, Seção 3.2.3)."""
     category: Optional[str] = Field(default=None, description="Categoria principal (top, bottom, shoes, one_piece, outerwear)")

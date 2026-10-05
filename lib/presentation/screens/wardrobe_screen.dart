@@ -274,7 +274,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           HapticFeedback.selectionClick();
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => WardrobeAnalyticsScreen(items: _items)),
+            MaterialPageRoute(builder: (context) => WardrobeAnalyticsScreen(service: _wardrobeService)),
           );
         },
         behavior: HitTestBehavior.opaque,

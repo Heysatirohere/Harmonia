@@ -6,6 +6,7 @@ import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
+import '../../models/wardrobe_analytics.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_storage_service.dart';
 
@@ -71,6 +72,21 @@ class WardrobeApiService {
     }
 
     throw const WardrobeException('Não foi possível carregar o seu acervo. Verifique sua conexão.');
+  }
+
+  /// Saúde do acervo (Seção 3.2.2), calculada pela API a partir das peças e dos looks aprovados.
+  /// Sem segunda via no Supabase: o cálculo de uso só existe no backend.
+  Future<WardrobeAnalytics> getAnalytics() async {
+    try {
+      final response = await _client.get('/wardrobe/analytics');
+      if (response.statusCode == 200) {
+        return WardrobeAnalytics.fromJson(jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>);
+      }
+      debugPrint('[WardrobeApiService] Saúde do acervo recusada: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[WardrobeApiService] Falha ao carregar a saúde do acervo: $e');
+    }
+    throw const WardrobeException('Não foi possível ler a saúde do seu acervo agora. Verifique sua conexão.');
   }
 
   /// Cadastra nova peça de vestuário no backend. Retorna null se nada foi salvo.

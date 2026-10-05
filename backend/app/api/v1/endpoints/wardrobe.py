@@ -17,15 +17,19 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import get_current_user, get_current_user_id
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
-from app.models.entities import User, ClothingItem
+from app.models.entities import User, ClothingItem, LookFeedback
 from app.schemas.dtos import (
     ClothingItemCreate,
     ClothingItemResponse,
     ClothingItemUpdate,
+    ColorShareResponse,
     ExtractedColorResponse,
+    GarmentUsageResponse,
     SegmentationResponse,
+    WardrobeAnalyticsResponse,
 )
 from app import vision
+from app.engine.wardrobe_analytics import color_distribution, garment_usage, rotation_bucket
 
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
@@ -252,3 +256,63 @@ async def update_clothing_item(
     await db.refresh(item)
     return ClothingItemResponse.model_validate(item)
 
+
+@router.get("/analytics", response_model=WardrobeAnalyticsResponse, status_code=status.HTTP_200_OK)
+async def wardrobe_analytics(
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Saúde do acervo (Seção 3.2.2): rotação em janelas de 30, 60 e 90 dias e proporção
+    cromática dominante. O uso de cada peça vem dos looks aprovados (RF13), então desfazer
+    uma aprovação também desfaz o uso. Só peças e looks do próprio usuário (RN01).
+    """
+    items = (await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == current_user_id, ClothingItem.is_archived == False)
+    )).scalars().all()
+    approved = (await db.execute(
+        select(LookFeedback).where(LookFeedback.user_id == current_user_id, LookFeedback.action == "APPROVED")
+    )).scalars().all()
+
+    worn_on: dict[str, list[datetime]] = {}
+    for look in approved:
+        for item_id in look.item_ids:
+            worn_on.setdefault(str(item_id), []).append(look.created_at)
+
+    now = datetime.now(timezone.utc)
+    usages = [(item, garment_usage(item.created_at, worn_on.get(str(item.id), []), now)) for item in items]
+    buckets = {"active": 0, "idle_30": 0, "idle_60": 0, "dormant": 0}
+    for _, usage in usages:
+        buckets[rotation_bucket(usage.days_idle)] += 1
+
+    dormant = sorted(
+        (pair for pair in usages if rotation_bucket(pair[1].days_idle) == "dormant"),
+        key=lambda pair: (-pair[1].days_idle, pair[1].wear_count),
+    )
+    colors = color_distribution([(i.dominant_l, i.dominant_a, i.dominant_b) for i in items])
+
+    return WardrobeAnalyticsResponse(
+        total_pieces=len(items),
+        active_count=buckets["active"],
+        idle_30_count=buckets["idle_30"],
+        idle_60_count=buckets["idle_60"],
+        dormant_count=buckets["dormant"],
+        never_worn_count=sum(1 for _, usage in usages if usage.wear_count == 0),
+        total_wears=sum(usage.wear_count for _, usage in usages),
+        color_distribution=[
+            ColorShareResponse(
+                family=c.family, count=c.count, percentage=c.percentage,
+                L=c.mean_lab[0], a=c.mean_lab[1], b=c.mean_lab[2],
+            )
+            for c in colors
+        ],
+        dormant_items=[
+            GarmentUsageResponse(
+                item=ClothingItemResponse.model_validate(item),
+                wear_count=usage.wear_count,
+                last_worn_at=usage.last_worn_at,
+                days_idle=usage.days_idle,
+            )
+            for item, usage in dormant
+        ],
+    )

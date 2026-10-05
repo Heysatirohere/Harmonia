@@ -1261,3 +1261,41 @@ async def test_update_clothing_item_attributes_and_multi_tenant():
             headers=auth_headers(user_a_id),
         )
         assert res_404.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_update_user_privacy_mode_rn05():
+    """
+    Testa a alternância do Modo de Privacidade: Público vs Privado (RN05).
+    """
+    user_id = uuid.uuid4()
+    store.users[user_id] = User(
+        id=user_id,
+        email="privacy@harmonia.app",
+        hashed_password="pw",
+        is_premium=False,
+        is_public=True,
+        items_count=0,
+        looks_generated_today=0,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Altera visibilidade para Privado
+        res_private = await client.patch(
+            "/api/v1/users/me",
+            json={"is_public": False},
+            headers=auth_headers(user_id),
+        )
+        assert res_private.status_code == 200
+        assert res_private.json()["is_public"] is False
+
+        # 2. Altera de volta para Público
+        res_public = await client.patch(
+            "/api/v1/users/me",
+            json={"is_public": True},
+            headers=auth_headers(user_id),
+        )
+        assert res_public.status_code == 200
+        assert res_public.json()["is_public"] is True
+

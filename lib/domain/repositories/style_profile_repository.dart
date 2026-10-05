@@ -15,9 +15,10 @@ class StyleProfileFailure implements Exception {
 abstract class StyleProfileRepository {
   Future<StyleProfile> fetch();
 
-  /// Atualização parcial: campos nulos permanecem como estão
+  /// Atualização parcial: campos nulos permanecem como estão (RF02, RF18, RN05)
   Future<StyleProfile> update({
     BodySilhouetteType? silhouette,
     SeasonalPaletteType? palette,
+    bool? isPublic,
   });
 }

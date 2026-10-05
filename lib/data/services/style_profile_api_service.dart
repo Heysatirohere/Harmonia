@@ -20,10 +20,12 @@ class StyleProfileApiService implements StyleProfileRepository {
   Future<StyleProfile> update({
     BodySilhouetteType? silhouette,
     SeasonalPaletteType? palette,
+    bool? isPublic,
   }) {
     return _send(() => _client.patch('/users/me', body: {
           if (silhouette != null) 'body_shape': silhouette.apiKey,
           if (palette != null) 'seasonal_palette': palette.apiKey,
+          if (isPublic != null) 'is_public': isPublic,
         }));
   }
 

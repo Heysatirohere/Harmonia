@@ -63,11 +63,12 @@ class UserResponse(BaseModel):
 
 class StyleProfileUpdate(BaseModel):
     """
-    Atualização parcial do perfil morfocromático (RF02, RF18).
+    Atualização parcial do perfil morfocromático (RF02, RF18, RN05).
     Os valores são normalizados para as chaves do motor do IHE (ex: 'Triângulo Invertido' -> 'TRIANGULO_INVERTIDO').
     """
     body_shape: Optional[str] = Field(default=None, description="Biótipo corporal (ex: AMPULHETA)")
     seasonal_palette: Optional[str] = Field(default=None, description="Cartela sazonal (ex: OUTONO_QUENTE)")
+    is_public: Optional[bool] = Field(default=None, description="Visibilidade do perfil e publicações no feed (RN05)")
 
     @field_validator("body_shape")
     @classmethod
@@ -81,18 +82,24 @@ class StyleProfileUpdate(BaseModel):
 
 
 class StyleProfileResponse(BaseModel):
-    """Perfil de estilo do usuário autenticado com o uso da cota Freemium (RF02, RF18, RN02)."""
+    """Perfil de estilo do usuário autenticado com o uso da cota Freemium (RF02, RF18, RN02, RN05)."""
     id: UUID
     email: str
     body_shape: Optional[str] = None
     seasonal_palette: Optional[str] = None
     is_premium: bool = False
+    is_public: bool = True
     items_count: int = 0
     looks_generated_today: int = 0
     max_items_allowed: int = settings.FREEMIUM_MAX_CLOTHING_ITEMS
     max_daily_looks_allowed: int = settings.FREEMIUM_MAX_DAILY_LOOKS
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("is_public", mode="before")
+    @classmethod
+    def default_is_public(cls, v: Optional[bool]) -> bool:
+        return True if v is None else bool(v)
 
     @computed_field
     @property

@@ -54,6 +54,11 @@ class User(Base):
         default=False,
         nullable=False
     )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
     looks_generated_today: Mapped[int] = mapped_column(
         Integer,
         default=0,

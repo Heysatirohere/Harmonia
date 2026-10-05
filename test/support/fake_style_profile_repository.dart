@@ -36,10 +36,14 @@ class FakeStyleProfileRepository implements StyleProfileRepository {
   }
 
   @override
-  Future<StyleProfile> update({BodySilhouetteType? silhouette, SeasonalPaletteType? palette}) async {
+  Future<StyleProfile> update({
+    BodySilhouetteType? silhouette,
+    SeasonalPaletteType? palette,
+    bool? isPublic,
+  }) async {
     calls.add('update');
     _throwIfQueued();
-    profile = profile.copyWith(silhouette: silhouette, palette: palette);
+    profile = profile.copyWith(silhouette: silhouette, palette: palette, isPublic: isPublic);
     return profile;
   }
 }

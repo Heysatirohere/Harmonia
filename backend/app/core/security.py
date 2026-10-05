@@ -122,6 +122,7 @@ async def get_current_user(
             email=email,
             hashed_password="managed_by_supabase_auth",
             is_premium=False,
+            is_public=True,
             items_count=0,
             looks_generated_today=0,
             created_at=datetime.now(timezone.utc),

@@ -405,3 +405,90 @@ class LookFeedbackResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# -----------------------------------------------------------------------------
+# Feed Comunitário (RF14, RF15, RN05)
+# -----------------------------------------------------------------------------
+
+MAX_STYLE_TAGS = 5
+MAX_STYLE_TAG_LENGTH = 24
+
+
+class CommunityPostCreate(BaseModel):
+    """
+    Nova publicação: foto já enviada à pasta do usuário no Storage, legenda e tags.
+    Com `feedback_id`, as peças, a ocasião e o IHE vêm do look aprovado (RF13), não do app.
+    """
+    image_url: str = Field(..., max_length=500, description="URL pública da foto na pasta do usuário")
+    caption: str = Field(..., min_length=1, max_length=500)
+    occasion: str = Field(default="CASUAL")
+    style_tags: List[str] = Field(default_factory=list, max_length=MAX_STYLE_TAGS)
+    feedback_id: Optional[UUID] = Field(default=None, description="Look aprovado que originou o post")
+    is_public: Optional[bool] = Field(default=None, description="Nulo segue a visibilidade do perfil (RN05)")
+
+    @field_validator("caption")
+    @classmethod
+    def strip_caption(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Escreva uma legenda para o look.")
+        return v
+
+    @field_validator("occasion")
+    @classmethod
+    def check_occasion(cls, v: str) -> str:
+        return normalize_occasion(v)
+
+    @field_validator("style_tags")
+    @classmethod
+    def clean_tags(cls, v: List[str]) -> List[str]:
+        tags: List[str] = []
+        for raw in v:
+            tag = raw.strip().lstrip("#").strip()
+            if not tag:
+                continue
+            if len(tag) > MAX_STYLE_TAG_LENGTH:
+                raise ValueError(f"Cada tag pode ter até {MAX_STYLE_TAG_LENGTH} caracteres.")
+            if tag.lower() not in {t.lower() for t in tags}:
+                tags.append(tag)
+        return tags
+
+
+class PostPieceResponse(BaseModel):
+    """Peça do look publicado, para a ficha em papel do post (AGENTS.md 7.4)."""
+    id: UUID
+    category: str
+    subcategory: Optional[str] = None
+    image_url: str
+    dominant_l: float
+    dominant_a: float
+    dominant_b: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CommunityPostResponse(BaseModel):
+    id: UUID
+    author_name: str
+    author_body_shape: Optional[str] = None
+    author_palette: Optional[str] = None
+    image_url: str
+    caption: str
+    occasion: str
+    style_tags: List[str]
+    ihe_percentage: Optional[float] = None
+    pieces: List[PostPieceResponse]
+    like_count: int
+    liked_by_me: bool
+    saved_by_me: bool
+    is_public: bool
+    is_mine: bool
+    created_at: datetime
+
+
+class CommunityFeedResponse(BaseModel):
+    posts: List[CommunityPostResponse]
+    next_before: Optional[datetime] = Field(
+        default=None, description="Passe como `before` para a próxima página; nulo quando acabou"
+    )

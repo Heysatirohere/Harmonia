@@ -17,7 +17,9 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.quota import quota_today
 from app.core.supabase_admin import SupabaseAdminError, get_supabase_admin
-from app.models.entities import User, ClothingItem, LookFeedback
+from app.models.entities import User, ClothingItem, LookFeedback, CommunityPost, PostReaction, SavedPost
+from sqlalchemy.sql.selectable import Select
+from tests.sql_eval import Evaluator
 
 
 TEST_SUPABASE_URL = "https://harmonia-test.supabase.co"
@@ -86,11 +88,34 @@ class InMemoryStore:
         self.users = {}
         self.clothing_items = {}
         self.look_feedback = {}
+        # Feed comunitário: avaliado pelo tests.sql_eval, que interpreta o WHERE de verdade
+        self.community_posts = {}
+        self.post_reactions = []
+        self.saved_posts = []
 
     def clear(self):
         self.users.clear()
         self.clothing_items.clear()
         self.look_feedback.clear()
+        self.community_posts.clear()
+        self.post_reactions.clear()
+        self.saved_posts.clear()
+
+    def rows(self, table):
+        return {
+            "users": lambda: list(self.users.values()),
+            "clothing_items": lambda: list(self.clothing_items.values()),
+            "look_feedback": lambda: list(self.look_feedback.values()),
+            "community_posts": lambda: list(self.community_posts.values()),
+            "post_reactions": lambda: list(self.post_reactions),
+            "saved_posts": lambda: list(self.saved_posts),
+        }[table]()
+
+    def drop_post(self, post_id):
+        """Apaga o post e, como o ON DELETE CASCADE do banco, as curtidas e os salvos dele."""
+        self.community_posts.pop(post_id, None)
+        self.post_reactions[:] = [r for r in self.post_reactions if r.post_id != post_id]
+        self.saved_posts[:] = [r for r in self.saved_posts if r.post_id != post_id]
 
 
 store = InMemoryStore()
@@ -124,6 +149,12 @@ class FakeExecuteResult:
     def scalars(self):
         return FakeScalarResult(self._data)
 
+    def all(self):
+        return list(self._data) if isinstance(self._data, list) else [self._data]
+
+
+COMMUNITY_TABLES = {"community_posts", "post_reactions", "saved_posts"}
+
 
 class MockAsyncSession:
     """Mock de AsyncSession do SQLAlchemy para testes isolados sem dependência de BD externo."""
@@ -132,9 +163,22 @@ class MockAsyncSession:
         self.store = store
         # DELETEs em massa só valem no commit, como numa transação
         self.pending_deletes = []
+        self.pending_community_deletes = []
+        self.evaluator = Evaluator(self.store.rows)
 
     async def execute(self, statement):
         sql_text = str(statement).lower()
+
+        # Feed comunitário: consulta e DELETE avaliados pela semântica real do SQL
+        table = statement.table.name if sql_text.startswith("delete from") else (
+            statement.get_final_froms()[0].name if isinstance(statement, Select) else None
+        )
+        if table in COMMUNITY_TABLES:
+            if sql_text.startswith("delete from"):
+                rows = self.evaluator.matching_rows(table, statement.whereclause)
+                self.pending_community_deletes.append((table, rows))
+                return FakeExecuteResult([])
+            return FakeExecuteResult(self.evaluator.select(statement))
 
         # 0. DELETE em massa por usuário (exclusão de conta, RN04)
         if sql_text.startswith("delete from"):
@@ -235,6 +279,12 @@ class MockAsyncSession:
             self.store.clothing_items[instance.id] = instance
         elif isinstance(instance, LookFeedback):
             self.store.look_feedback[instance.id] = instance
+        elif isinstance(instance, CommunityPost):
+            self.store.community_posts[instance.id] = instance
+        elif isinstance(instance, PostReaction):
+            self.store.post_reactions.append(instance)
+        elif isinstance(instance, SavedPost):
+            self.store.saved_posts.append(instance)
 
     async def delete(self, instance):
         if isinstance(instance, ClothingItem) and instance.id in self.store.clothing_items:
@@ -243,6 +293,8 @@ class MockAsyncSession:
             self.store.look_feedback.pop(instance.id, None)
         elif isinstance(instance, User) and instance.id in self.store.users:
             del self.store.users[instance.id]
+        elif isinstance(instance, CommunityPost):
+            self.store.drop_post(instance.id)
 
     async def commit(self):
         for table, target in self.pending_deletes:
@@ -255,6 +307,13 @@ class MockAsyncSession:
                 for key in [k for k, v in self.store.look_feedback.items() if v.user_id == target]:
                     del self.store.look_feedback[key]
         self.pending_deletes.clear()
+        for table, rows in self.pending_community_deletes:
+            if table == "community_posts":
+                for post in rows:
+                    self.store.drop_post(post.id)
+            else:
+                getattr(self.store, table)[:] = [r for r in getattr(self.store, table) if r not in rows]
+        self.pending_community_deletes.clear()
 
     async def flush(self):
         pass
@@ -264,6 +323,7 @@ class MockAsyncSession:
 
     async def rollback(self):
         self.pending_deletes.clear()
+        self.pending_community_deletes.clear()
 
     async def close(self):
         pass

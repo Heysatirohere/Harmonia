@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS public.users (
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS looks_counter_date DATE;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS looks_signatures_today JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT TRUE;
+-- Nome exibido no feed (RF14), espelhado pela API a partir do user_metadata.full_name
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100);
 
 -- 3. Tabela de Peças do Acervo Virtual
 CREATE TABLE IF NOT EXISTS public.clothing_items (
@@ -66,10 +68,48 @@ CREATE TABLE IF NOT EXISTS public.look_feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_look_feedback_user_id ON public.look_feedback(user_id);
 
+-- 4.1 Feed comunitário (RF14, RF15, RN05)
+-- Posts só aparecem para outros se o post e o perfil do autor forem públicos; a regra
+-- fica na API, que é o único caminho de leitura do feed.
+CREATE TABLE IF NOT EXISTS public.community_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    image_url VARCHAR(500) NOT NULL,
+    caption TEXT NOT NULL,
+    occasion VARCHAR(50) NOT NULL,
+    style_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    item_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ihe_percentage DOUBLE PRECISION,
+    is_public BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_community_posts_user_id ON public.community_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_community_posts_created_at ON public.community_posts(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.post_reactions (
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_reactions_user_id ON public.post_reactions(user_id);
+
+CREATE TABLE IF NOT EXISTS public.saved_posts (
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_saved_posts_user_id ON public.saved_posts(user_id);
+
 -- 5. Row Level Security (RLS) para Blindagem Multi-Tenant no Supabase
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clothing_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.look_feedback ENABLE ROW LEVEL SECURITY;
+-- Feed: o app não lê essas tabelas direto; cada um só enxerga as próprias linhas por fora da API
+ALTER TABLE public.community_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.post_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_posts ENABLE ROW LEVEL SECURITY;
 
 -- Política de RLS: O usuário só acessa seus próprios dados
 DROP POLICY IF EXISTS "Usuários podem gerenciar suas próprias contas" ON public.users;
@@ -87,6 +127,24 @@ USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Usuários gerenciam apenas o próprio feedback de looks" ON public.look_feedback;
 CREATE POLICY "Usuários gerenciam apenas o próprio feedback de looks"
 ON public.look_feedback
+FOR ALL
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Usuários gerenciam apenas os próprios posts" ON public.community_posts;
+CREATE POLICY "Usuários gerenciam apenas os próprios posts"
+ON public.community_posts
+FOR ALL
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Usuários gerenciam apenas as próprias curtidas" ON public.post_reactions;
+CREATE POLICY "Usuários gerenciam apenas as próprias curtidas"
+ON public.post_reactions
+FOR ALL
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Usuários gerenciam apenas os próprios salvos" ON public.saved_posts;
+CREATE POLICY "Usuários gerenciam apenas os próprios salvos"
+ON public.saved_posts
 FOR ALL
 USING (auth.uid() = user_id);
 

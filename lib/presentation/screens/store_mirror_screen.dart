@@ -11,13 +11,8 @@ import '../../models/garment_segmentation.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
+import '../widgets/photo_capture.dart';
 import '../widgets/store_parity_sheet.dart';
-
-/// Foto capturada: bytes e nome do arquivo
-typedef CapturedPhoto = ({Uint8List bytes, String name});
-
-/// Abre a câmera ou a galeria; nos testes, substitui o seletor do sistema
-typedef PhotoCapture = Future<CapturedPhoto?> Function(ImageSource source);
 
 /// Modo Provador: paridade de uma peça da loja com o acervo (RF08, RF09)
 ///
@@ -46,19 +41,13 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
   Uint8List? _photo;
   bool _analyzing = false;
 
-  Future<CapturedPhoto?> _pickWithSystem(ImageSource source) async {
-    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85, maxWidth: 1400);
-    if (picked == null) return null;
-    return (bytes: await picked.readAsBytes(), name: picked.name);
-  }
-
   Future<void> _capture(ImageSource source) async {
     if (_analyzing) return;
     HapticFeedback.mediumImpact();
 
     final CapturedPhoto? photo;
     try {
-      photo = await (widget.capturePhoto ?? _pickWithSystem)(source);
+      photo = await (widget.capturePhoto ?? pickPhotoWithSystem)(source);
     } on PlatformException {
       _showMessage('Não foi possível abrir a câmera. Verifique a permissão do app.');
       return;

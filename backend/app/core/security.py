@@ -130,6 +130,14 @@ async def get_current_user(
         db.add(user)
         await db.flush()
 
+    # Nome exibido no feed (RF14): o token traz o nome atual do Supabase Auth; grava na próxima escrita
+    metadata = claims.get("user_metadata")
+    full_name = metadata.get("full_name") if isinstance(metadata, dict) else None
+    if isinstance(full_name, str) and full_name.strip():
+        full_name = full_name.strip()[:100]
+        if user.display_name != full_name:
+            user.display_name = full_name
+
     # A cota diária exibida e aplicada em qualquer rota é sempre a de hoje (RN02)
     sync_daily_counter(user)
     return user

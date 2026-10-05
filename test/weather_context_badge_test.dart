@@ -7,6 +7,7 @@ import 'package:harmonia_mvp/models/weather_context.dart';
 import 'package:harmonia_mvp/presentation/screens/daily_outfit_screen.dart';
 import 'package:harmonia_mvp/presentation/widgets/weather_context_badge.dart';
 
+import 'support/fake_community_service.dart';
 import 'support/fake_outfit_service.dart';
 import 'support/fake_weather_repository.dart';
 import 'support/sample_weather.dart';
@@ -155,12 +156,22 @@ void main() {
   });
 
   group('DailyOutfitScreen Integration Tests', () {
-    Future<FakeOutfitService> pumpDaily(WidgetTester tester, FakeOutfitService service, {FakeWeatherRepository? weather}) async {
+    Future<FakeOutfitService> pumpDaily(
+      WidgetTester tester,
+      FakeOutfitService service, {
+      FakeWeatherRepository? weather,
+      FakeCommunityService? community,
+    }) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(MaterialApp(
-        home: DailyOutfitScreen(service: service, weatherRepository: weather ?? FakeWeatherRepository()),
+        home: DailyOutfitScreen(
+          service: service,
+          weatherRepository: weather ?? FakeWeatherRepository(),
+          communityService: community,
+          capturePhoto: (source) async => (bytes: samplePhotoBytes, name: 'look.jpg'),
+        ),
       ));
       await tester.pumpAndSettle();
       return service;
@@ -251,6 +262,34 @@ void main() {
 
       expect(service.feedback, isEmpty);
       expect(find.text('Aprovar look do dia'), findsOneWidget);
+    });
+
+    testWidgets('look aprovado pode ir para a comunidade com o ID da aprovação (RF14)', (WidgetTester tester) async {
+      final community = FakeCommunityService(const {});
+      final service = await pumpDaily(tester, FakeOutfitService.sample(), community: community);
+
+      expect(find.text('Publicar na comunidade', skipOffstage: false), findsNothing);
+      await tester.ensureVisible(find.text('Aprovar look do dia'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aprovar look do dia'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Publicar na comunidade'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Publicar na comunidade'));
+      await tester.pumpAndSettle();
+      expect(find.text('A publicação leva as peças e o IHE do look aprovado.'), findsOneWidget);
+      expect(find.text('OCASIÃO'), findsNothing); // a ocasião vem do look aprovado
+
+      await tester.tap(find.text('GALERIA'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Meu look de hoje');
+      await tester.ensureVisible(find.text('PUBLICAR LOOK'));
+      await tester.tap(find.text('PUBLICAR LOOK'));
+      await tester.pumpAndSettle();
+
+      expect(community.published.single.feedbackId, service.feedback.keys.single);
+      expect(find.text('Look publicado na comunidade.'), findsOneWidget);
     });
 
     testWidgets('falha ao aprovar mantém o look sem aprovação', (WidgetTester tester) async {

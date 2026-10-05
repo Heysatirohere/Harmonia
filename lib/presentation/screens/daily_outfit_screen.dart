@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/services/community_api_service.dart';
 import '../../data/services/open_meteo_weather_service.dart';
 import '../../data/services/outfit_api_service.dart';
 import '../../domain/models/recommended_look.dart';
@@ -11,6 +12,8 @@ import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
 import '../widgets/filter_chips_bar.dart';
+import '../widgets/photo_capture.dart';
+import '../widgets/share_outfit_sheet.dart';
 import '../widgets/weather_context_badge.dart';
 import 'store_mirror_screen.dart';
 
@@ -23,11 +26,15 @@ import 'store_mirror_screen.dart';
 class DailyOutfitScreen extends StatefulWidget {
   final WeatherRepository? weatherRepository;
   final OutfitApiService? service;
+  final CommunityApiService? communityService;
+  final PhotoCapture? capturePhoto;
 
   const DailyOutfitScreen({
     super.key,
     this.weatherRepository,
     this.service,
+    this.communityService,
+    this.capturePhoto,
   });
 
   @override
@@ -45,6 +52,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   /// Sem clima, o motor recebe o mesmo padrão neutro da API
   static const _neutralTemperature = 22.0;
   late final OutfitApiService _service = widget.service ?? OutfitApiService();
+  late final CommunityApiService _communityService = widget.communityService ?? CommunityApiService();
   /// Aprovações registradas (RF13), por look exibido: id do registro para desfazer
   final Map<RecommendedLook, String> _approvals = {};
   bool _sendingFeedback = false;
@@ -175,6 +183,18 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     } finally {
       if (mounted) setState(() => _sendingFeedback = false);
     }
+  }
+
+  Future<void> _shareApproved(String approvalId) async {
+    final post = await ShareOutfitSheet.show(
+      context,
+      service: _communityService,
+      feedbackId: approvalId,
+      capturePhoto: widget.capturePhoto,
+    );
+    if (post == null || !mounted) return;
+    HapticFeedback.mediumImpact();
+    _showMessage(post.isPublic ? 'Look publicado na comunidade.' : 'Look salvo em "Meus looks".');
   }
 
   /// Descartar tira o look desta lista e das próximas sugestões (RF13)
@@ -489,6 +509,15 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                 busy: _sendingFeedback,
               ),
               const SizedBox(height: 12),
+              // Look aprovado pode ir para o feed com as peças e o IHE (RF14)
+              if (_approvals[look] case final approvalId?) ...[
+                _OutlineAction(
+                  icon: Icons.ios_share,
+                  label: 'Publicar na comunidade',
+                  onPressed: () => _shareApproved(approvalId),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (_looks.length > 1) ...[
                 _OutlineAction(
                   icon: Icons.autorenew,

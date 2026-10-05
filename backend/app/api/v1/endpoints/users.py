@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
-from app.models.entities import ClothingItem, LookFeedback, User
+from app.models.entities import ClothingItem, CommunityPost, LookFeedback, PostReaction, SavedPost, User
 from app.schemas.dtos import StyleProfileResponse, StyleProfileUpdate
 
 router = APIRouter()
@@ -57,8 +57,10 @@ async def delete_own_account(
     falhar, o banco volta atrás e uma nova tentativa conclui a exclusão.
     """
     items = (await db.execute(select(ClothingItem).where(ClothingItem.user_id == user.id))).scalars().all()
-    # Fotos referenciadas pelas peças (inclui uploads antigos fora da pasta do usuário) + a pasta dele
-    paths = {path for item in items if (path := admin.object_path(item.image_url))}
+    posts = (await db.execute(select(CommunityPost).where(CommunityPost.user_id == user.id))).scalars().all()
+    # Fotos das peças e dos posts (inclui uploads antigos fora da pasta do usuário) + a pasta dele
+    urls = [item.image_url for item in items] + [post.image_url for post in posts]
+    paths = {path for url in urls if (path := admin.object_path(url))}
     try:
         paths |= set(await admin.list_user_objects(user.id))
         await admin.delete_objects(paths)
@@ -68,6 +70,10 @@ async def delete_own_account(
             detail="Não foi possível apagar as suas fotos agora. Nada foi excluído; tente novamente.",
         )
 
+    # Curtidas e salvos que outras pessoas deram nos posts dele caem em cascata com os posts
+    await db.execute(delete(PostReaction).where(PostReaction.user_id == user.id))
+    await db.execute(delete(SavedPost).where(SavedPost.user_id == user.id))
+    await db.execute(delete(CommunityPost).where(CommunityPost.user_id == user.id))
     await db.execute(delete(LookFeedback).where(LookFeedback.user_id == user.id))
     await db.execute(delete(ClothingItem).where(ClothingItem.user_id == user.id))
     await db.execute(delete(User).where(User.id == user.id))

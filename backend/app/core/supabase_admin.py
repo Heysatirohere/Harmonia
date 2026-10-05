@@ -15,6 +15,25 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 
 
+def bucket_object_path(public_url: str) -> Optional[str]:
+    """Caminho no bucket de fotos a partir da URL pública; None se a URL não for deste bucket."""
+    base = (settings.SUPABASE_URL or "").rstrip("/")
+    marker = f"/storage/v1/object/public/{settings.SUPABASE_STORAGE_BUCKET}/"
+    parsed = urlparse(public_url)
+    if not base or f"{parsed.scheme}://{parsed.netloc}" != base or marker not in parsed.path:
+        return None
+    return unquote(parsed.path.split(marker, 1)[1]) or None
+
+
+def is_user_photo(public_url: str, user_id: UUID) -> bool:
+    """
+    A URL é de uma foto na pasta do usuário (`<user_id>/arquivo`) no bucket deste projeto.
+    Subpastas não valem: a exclusão da conta (RN04) lista só a raiz da pasta do usuário.
+    """
+    path = bucket_object_path(public_url)
+    return path is not None and path.startswith(f"{user_id}/") and "/" not in path[len(f"{user_id}/"):]
+
+
 class SupabaseAdminError(Exception):
     """Falha ao falar com o Supabase; a operação deve ser repetida."""
 
@@ -34,11 +53,7 @@ class SupabaseAdmin:
 
     def object_path(self, public_url: str) -> Optional[str]:
         """Caminho no bucket a partir da URL pública; None se a URL não for deste bucket."""
-        marker = f"/storage/v1/object/public/{self._bucket}/"
-        parsed = urlparse(public_url)
-        if f"{parsed.scheme}://{parsed.netloc}" != self._base or marker not in parsed.path:
-            return None
-        return unquote(parsed.path.split(marker, 1)[1]) or None
+        return bucket_object_path(public_url)
 
     async def list_user_objects(self, user_id: UUID) -> List[str]:
         """Arquivos na pasta do usuário (`<user_id>/`), onde ficam os uploads atuais."""

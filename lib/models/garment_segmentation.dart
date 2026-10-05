@@ -54,12 +54,16 @@ class GarmentSegmentation {
   final List<GarmentColor> colors;
   final int processingMs;
 
+  /// Vetor de estilo da peça (512d) para o pilar S_cos; nulo se o servidor estiver sem o modelo
+  final List<double>? styleEmbedding;
+
   const GarmentSegmentation({
     required this.cutoutPng,
     required this.width,
     required this.height,
     required this.colors,
     required this.processingMs,
+    this.styleEmbedding,
   });
 
   factory GarmentSegmentation.fromJson(Map<String, dynamic> json) {
@@ -71,6 +75,7 @@ class GarmentSegmentation {
           .map((c) => GarmentColor.fromJson(c as Map<String, dynamic>))
           .toList(),
       processingMs: json['processing_ms'] as int,
+      styleEmbedding: (json['style_embedding'] as List?)?.map((v) => (v as num).toDouble()).toList(),
     );
   }
 }

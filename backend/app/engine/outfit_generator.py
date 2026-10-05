@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from app.models.entities import ClothingItem, User
 from app.engine.color_science import LabColor
 from app.engine.ihe_calculator import calculate_ihe, IHERequest, IHEResponse
+from app.engine.style_vector import StyleSpace, NEUTRAL_VECTOR
 
 
 TOP_CATEGORIES = {
@@ -116,11 +117,14 @@ def _score_combo(
     occasion: str,
     temperature_celsius: float,
     is_raining: bool,
+    style: Optional[StyleSpace] = None,
 ) -> CandidateOutfit:
-    """Calcula o IHE de um look a partir das peças, do perfil do usuário e do contexto."""
+    """
+    Calcula o IHE de um look a partir das peças, do perfil do usuário e do contexto.
+    Sem espaço de estilo (acervo sem vetores ou usuário sem histórico), o S_cos fica neutro.
+    """
     user_palette = user.seasonal_palette or "OUTONO_QUENTE"
     user_biotype = user.body_shape or "AMPULHETA"
-    user_vec = user.style_vector or [0.0] * 512
 
     avg_l = sum(i.dominant_l for i in combo) / len(combo)
     avg_a = sum(i.dominant_a for i in combo) / len(combo)
@@ -138,15 +142,9 @@ def _score_combo(
     else:
         thermal = "MEDIO"
 
-    # Vetor de estilo médio do look
-    vectors_with_data = [i.style_embedding for i in combo if i.style_embedding]
-    if vectors_with_data:
-        look_vec = [
-            sum(v[dim] for v in vectors_with_data) / len(vectors_with_data)
-            for dim in range(512)
-        ]
-    else:
-        look_vec = [0.0] * 512
+    # Direções de estilo do usuário e do look, relativas ao centro do acervo (S_cos)
+    user_vec = style.user_vector() if style else NEUTRAL_VECTOR
+    look_vec = style.look_vector(combo) if style else NEUTRAL_VECTOR
 
     ihe_res = calculate_ihe(IHERequest(
         garment_color=garment_color,
@@ -176,11 +174,13 @@ def generate_outfit_recommendations(
     is_raining: bool = False,
     limit: int = 5,
     excluded_looks: Optional[Set[FrozenSet[str]]] = None,
+    style: Optional[StyleSpace] = None,
 ) -> List[CandidateOutfit]:
     """
     Gera as melhores combinações de looks a partir do acervo do usuário,
     ranqueando as opções pela pontuação do IHE.
-    Looks em `excluded_looks` (conjuntos de IDs descartados pelo usuário, RF13) nunca voltam.
+    Looks em `excluded_looks` (conjuntos de IDs descartados pelo usuário, RF13) nunca voltam;
+    `style` aproxima o ranking do que o usuário aprovou e o afasta do que descartou.
     """
     if not items:
         return []
@@ -241,7 +241,7 @@ def generate_outfit_recommendations(
 
     # 4. Avaliar cada combinação candidata pelo IHE
     scored_candidates = [
-        _score_combo(combo, user, occasion, temperature_celsius, is_raining)
+        _score_combo(combo, user, occasion, temperature_celsius, is_raining, style)
         for combo in candidates_raw
     ]
 
@@ -308,13 +308,14 @@ def rank_store_parity(
     temperature_celsius: float = 22.0,
     is_raining: bool = False,
     limit: int = 5,
+    style: Optional[StyleSpace] = None,
 ) -> StoreParity:
     """
     Ranqueia as peças do acervo pela paridade com uma peça vista na loja (RF09):
     cada peça vale o IHE do melhor look que forma junto com a peça da loja.
     """
     scored = [
-        _score_combo(look, user, occasion, temperature_celsius, is_raining)
+        _score_combo(look, user, occasion, temperature_celsius, is_raining, style)
         for look in _looks_with_store_piece(store_item, items)
     ]
     scored.sort(key=lambda c: c.ihe_result.ihe_score, reverse=True)

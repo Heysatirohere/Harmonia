@@ -74,6 +74,7 @@ async def segment_garment_photo(
         width=result.width,
         height=result.height,
         colors=[ExtractedColorResponse(**vars(c)) for c in result.colors],
+        style_embedding=result.style_embedding,
         processing_ms=result.processing_ms,
     )
 

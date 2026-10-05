@@ -189,6 +189,9 @@ class SegmentationResponse(BaseModel):
     width: int
     height: int
     colors: List[ExtractedColorResponse] = Field(..., description="Cores dominantes, da maior para a menor área")
+    style_embedding: Optional[List[float]] = Field(
+        default=None, description="Vetor de estilo da peça (512d, norma 1); nulo se o modelo estiver indisponível"
+    )
     processing_ms: int = Field(..., description="Tempo de processamento no servidor (RNF03: ≤ 3500 ms)")
 
 
@@ -331,11 +334,19 @@ class StoreParityRequest(BaseModel):
     temperature_celsius: float = Field(default=22.0)
     is_raining: bool = Field(default=False)
     limit: int = Field(default=5, ge=1, le=10, description="Máximo de peças do acervo no ranking")
+    style_embedding: Optional[List[float]] = Field(
+        default=None, description="Vetor de estilo da peça da loja (512d), vindo do /wardrobe/segment"
+    )
 
     @field_validator("occasion")
     @classmethod
     def check_occasion(cls, v: str) -> str:
         return normalize_occasion(v)
+
+    @field_validator("style_embedding")
+    @classmethod
+    def check_embedding_dim(cls, v: Optional[List[float]]) -> Optional[List[float]]:
+        return validate_vector_512(v)
 
 
 class ParityMatchResponse(BaseModel):

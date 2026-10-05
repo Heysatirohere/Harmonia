@@ -14,7 +14,7 @@ from httpx import ASGITransport
 from PIL import Image
 
 from app.main import app
-from app.vision import segmentation
+from app.vision import segmentation, style_embedding
 from app.vision.color_extraction import describe_lab, extract_color_centroids, lab_to_hex, srgb_to_lab
 from tests.test_api_endpoints import auth_headers, setup_test_environment  # noqa: F401 (fixture autouse)
 
@@ -133,6 +133,20 @@ def jpeg_bytes(color=(163, 72, 54), size=(80, 60)):
     return buffer.getvalue()
 
 
+class FakeStyleSession:
+    """Simula o CLIP: devolve um vetor fixo (sem norma 1, para o teste ver a normalização)."""
+
+    def run(self, outputs, feeds):
+        assert feeds["pixel_values"].shape == (1, 3, 224, 224)
+        return [np.full((1, style_embedding.EMBEDDING_DIMENSION), 2.0, dtype=np.float32)]
+
+
+@pytest.fixture(autouse=True)
+def fake_style_model(monkeypatch):
+    """Nenhum teste baixa nem roda o modelo de estilo de verdade."""
+    monkeypatch.setattr(style_embedding, "_get_session", lambda: FakeStyleSession())
+
+
 @pytest.fixture
 def fake_background_removal(monkeypatch):
     """Simula o rembg: mantém o centro da foto opaco e torna a borda transparente."""
@@ -172,6 +186,26 @@ async def test_segment_returns_cutout_and_lab_colors(fake_background_removal):
     assert color["name"] == "Terracota"
     assert (color["L"], color["a"], color["b"]) == pytest.approx((42.3, 36.4, 29.0), abs=1.5)
     assert data["processing_ms"] >= 0
+
+    embedding = data["style_embedding"]
+    assert len(embedding) == 512
+    assert float(np.linalg.norm(embedding)) == pytest.approx(1.0, abs=1e-4)
+
+
+@pytest.mark.anyio
+async def test_segment_still_works_without_the_style_model(fake_background_removal, monkeypatch):
+    """Sem o modelo de estilo, a peça é recortada mesmo assim e fica sem vetor (S_cos neutro)."""
+    def unavailable():
+        raise style_embedding.StyleModelUnavailable("sem rede")
+
+    monkeypatch.setattr(style_embedding, "_get_session", unavailable)
+    response = await post_segment(
+        {"file": ("peca.jpg", jpeg_bytes(), "image/jpeg")}, auth_headers(uuid.uuid4())
+    )
+
+    assert response.status_code == 200
+    assert response.json()["style_embedding"] is None
+    assert response.json()["colors"]
 
 
 def test_crop_ignores_faint_alpha_residue():

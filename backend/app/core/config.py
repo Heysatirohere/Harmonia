@@ -63,6 +63,22 @@ class Settings(BaseSettings):
         default="isnet-general-use",
         description="Modelo do rembg usado na remoção de fundo"
     )
+    # Vetor de estilo da peça (S_cos): CLIP ViT-B/32 em ONNX, revisão fixa
+    STYLE_MODEL_URL: str = Field(
+        default=(
+            "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/"
+            "d15189d7028b43f1d3e65039190477f6af591c2a/onnx/vision_model.onnx"
+        ),
+        description="Codificador visual do CLIP usado no vetor de estilo das peças"
+    )
+    STYLE_MODEL_SHA256: str = Field(
+        default="fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40",
+        description="SHA-256 esperado do modelo de estilo"
+    )
+    STYLE_MODEL_PATH: str = Field(
+        default="~/.cache/harmonia/clip-vit-b32-vision.onnx",
+        description="Onde o modelo de estilo fica salvo depois de baixado"
+    )
     MAX_UPLOAD_BYTES: int = Field(
         default=10 * 1024 * 1024,
         description="Tamanho máximo da foto enviada para segmentação"

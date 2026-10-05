@@ -76,7 +76,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
         throw const SegmentationException('Não encontramos a cor da peça. Tente outra foto.');
       }
       final result = await _outfitService.analyzeStoreParity(
-        storeGarment: _storeGarment(segmentation.colors.first),
+        storeGarment: _storeGarment(segmentation.colors.first, segmentation.styleEmbedding),
       );
       if (!mounted) return;
       setState(() => _analyzing = false);
@@ -91,7 +91,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
     }
   }
 
-  ClothingItem _storeGarment(GarmentColor color) {
+  ClothingItem _storeGarment(GarmentColor color, List<double>? styleEmbedding) {
     return ClothingItem(
       id: 'store-${DateTime.now().millisecondsSinceEpoch}',
       name: '${_singular(_category)} ${color.name.toLowerCase()}',
@@ -101,6 +101,7 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
       labL: color.l,
       labA: color.a,
       labB: color.b,
+      styleEmbedding: styleEmbedding,
       usageRate: 0,
       imageUrl: '',
       brandOrProvenance: 'Peça da loja',

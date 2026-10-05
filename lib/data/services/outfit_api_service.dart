@@ -130,6 +130,8 @@ class OutfitApiService {
           'dominant_b': b,
           'formality_score': storeGarment.formalityScore ?? 0.5,
           'occasion': occasion,
+          // Com o vetor, a paridade também mede a proximidade com o estilo que o usuário aprova (S_cos)
+          if (storeGarment.styleEmbedding != null) 'style_embedding': storeGarment.styleEmbedding,
         },
       );
     } catch (e) {

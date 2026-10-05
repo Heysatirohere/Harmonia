@@ -34,7 +34,8 @@ def calculate_s_cos(u: List[float], v: List[float]) -> float:
 
     S_cos = (u · v) / (||u|| · ||v||)
 
-    Trata adequadamente vetores com norma nula e ajusta o intervalo final para [0.0, 1.0].
+    O cosseno vai de [-1, 1] para [0, 1] por (cos + 1) / 2, que preserva a ordem: oposto ao
+    gosto do usuário vale 0, ortogonal (ou sem histórico, norma nula) vale 0,5 e alinhado vale 1.
     """
     if len(u) != len(v):
         raise ValueError(f"Dimensões incompatíveis para cálculo de cosseno: len(u)={len(u)} != len(v)={len(v)}.")
@@ -50,12 +51,7 @@ def calculate_s_cos(u: List[float], v: List[float]) -> float:
         return 0.5  # Retorna baseline neutro
 
     raw_cos = float(np.dot(arr_u, arr_v) / (norm_u * norm_v))
-
-    # Mapeia intervalo [-1.0, 1.0] do cosseno bruto para [0.0, 1.0] caso haja valores negativos
-    if raw_cos < 0.0:
-        normalized_cos = (raw_cos + 1.0) / 2.0
-    else:
-        normalized_cos = raw_cos
+    normalized_cos = (raw_cos + 1.0) / 2.0
 
     return max(0.0, min(1.0, normalized_cos))
 

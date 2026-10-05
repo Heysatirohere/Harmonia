@@ -26,6 +26,7 @@ final _segmentation = GarmentSegmentation(
   height: 1,
   colors: const [GarmentColor(l: 45, a: 32, b: 25, hex: '#A34836', percentage: 80, name: 'Terracota')],
   processingMs: 900,
+  styleEmbedding: List.filled(512, 0.044),
 );
 
 void main() {
@@ -83,6 +84,7 @@ void main() {
     final sent = outfits.parityRequests.single;
     expect(sent.category, 'Partes de baixo');
     expect(sent.labCoordinates, (45.0, 32.0, 25.0));
+    expect(sent.styleEmbedding, hasLength(512));
     expect(find.byType(StoreParitySheet), findsOneWidget);
     expect(find.text('86%'), findsWidgets);
     expect(find.text('Cores em harmonia com a sua cartela.'), findsOneWidget);

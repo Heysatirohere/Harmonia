@@ -22,6 +22,7 @@ class ClothingItem {
   final double? labA;
   final double? labB;
   final double? formalityScore; // 0.0 (casual) a 1.0 (formal)
+  final List<double>? styleEmbedding; // Vetor de estilo (512d) do recorte, só no cadastro; a API não o devolve
 
   const ClothingItem({
     required this.id,
@@ -41,6 +42,7 @@ class ClothingItem {
     this.labA,
     this.labB,
     this.formalityScore,
+    this.styleEmbedding,
   });
 
   String get title => name;
@@ -66,6 +68,7 @@ class ClothingItem {
     double? labA,
     double? labB,
     double? formalityScore,
+    List<double>? styleEmbedding,
   }) {
     return ClothingItem(
       id: id ?? this.id,
@@ -85,6 +88,7 @@ class ClothingItem {
       labA: labA ?? this.labA,
       labB: labB ?? this.labB,
       formalityScore: formalityScore ?? this.formalityScore,
+      styleEmbedding: styleEmbedding ?? this.styleEmbedding,
     );
   }
 
@@ -137,6 +141,7 @@ class ClothingItem {
       'dominant_a': a,
       'dominant_b': b,
       'formality_score': formalityScore ?? 0.5,
+      if (styleEmbedding != null) 'style_embedding': styleEmbedding,
     };
   }
 }

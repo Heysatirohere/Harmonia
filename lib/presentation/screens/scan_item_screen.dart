@@ -201,6 +201,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       labA: selectedColor.a,
       labB: selectedColor.b,
       formalityScore: _formalityLevel,
+      styleEmbedding: segmentation.styleEmbedding,
       usageRate: 1,
       imageUrl: '', // preenchida com a URL do recorte após o upload
       brandOrProvenance: _provenanceController.text.trim().isEmpty

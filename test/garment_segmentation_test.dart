@@ -42,6 +42,21 @@ void main() {
       expect(seg.cutoutPng, _pngBytes);
       expect(seg.colors.single.color, const Color(0xFFA34836));
       expect(seg.colors.single.labLabel, 'L* 42.3, a* 36.3, b* 29.0');
+      expect(seg.styleEmbedding, isNull);
+    });
+
+    test('lê o vetor de estilo da peça quando o servidor o calcula', () {
+      final seg = GarmentSegmentation.fromJson({
+        'image_png_base64': base64Encode(_pngBytes),
+        'width': 1,
+        'height': 1,
+        'processing_ms': 1093,
+        'colors': const [],
+        'style_embedding': List.filled(512, 0.044),
+      });
+
+      expect(seg.styleEmbedding, hasLength(512));
+      expect(seg.styleEmbedding!.first, 0.044);
     });
   });
 
@@ -65,6 +80,13 @@ void main() {
       expect(json['dominant_b'], 29.0);
       expect(json['formality_score'], 0.8);
       expect(json.containsKey('cut_type'), isFalse);
+      expect(json.containsKey('style_embedding'), isFalse);
+    });
+
+    test('envia o vetor de estilo do recorte no cadastro (S_cos)', () {
+      final json = base.copyWith(styleEmbedding: List.filled(512, 0.044)).toApiJson();
+
+      expect(json['style_embedding'], hasLength(512));
     });
 
     test('peças sem coordenadas numéricas usam o rótulo L*a*b*', () {

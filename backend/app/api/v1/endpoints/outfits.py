@@ -5,7 +5,7 @@ Integração com o motor determinístico (Etapa 1) e controle da Cota Freemium (
 
 import uuid
 from datetime import datetime, timezone
-from typing import FrozenSet, List, Set
+from typing import FrozenSet, List, Set, Tuple
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -31,6 +31,7 @@ from app.schemas.dtos import (
 from app.engine.ihe_calculator import calculate_ihe, IHERequest, IHEResponse
 from app.engine.color_science import LabColor, calculate_garment_s_cor
 from app.engine.outfit_generator import rank_store_parity, temperature_band
+from app.engine.style_vector import build_style_space
 
 router = APIRouter()
 
@@ -129,7 +130,7 @@ async def generate_daily_outfits(
     if not items:
         return []
 
-    discarded = await _discarded_looks(db, user)
+    approved, discarded = await _feedback_looks(db, user)
 
     signature = look_request_signature(
         user,
@@ -158,6 +159,8 @@ async def generate_daily_outfits(
         is_raining=payload.is_raining,
         limit=payload.limit,
         excluded_looks=discarded,
+        # Aprovações reordenam o ranking sem gastar cota: só descartes mudam a assinatura
+        style=build_style_space(list(items), approved, discarded),
     )
 
     # Incrementa cota Freemium diária utilizada
@@ -224,7 +227,9 @@ async def analyze_store_parity(
         dominant_a=payload.dominant_a,
         dominant_b=payload.dominant_b,
         formality_score=payload.formality_score,
+        style_embedding=payload.style_embedding,
     )
+    approved, discarded = await _feedback_looks(db, user)
     parity = rank_store_parity(
         store_item,
         items,
@@ -233,6 +238,8 @@ async def analyze_store_parity(
         temperature_celsius=payload.temperature_celsius,
         is_raining=payload.is_raining,
         limit=payload.limit,
+        # O centro vem só do acervo: a peça da loja é medida contra o gosto, não o desloca
+        style=build_style_space(items, approved, discarded),
     )
 
     palette_harmony = None
@@ -266,14 +273,18 @@ async def analyze_store_parity(
 # Feedback de Recomendações (RF13)
 # -----------------------------------------------------------------------------
 
-async def _discarded_looks(db: AsyncSession, user: User) -> Set[FrozenSet[str]]:
-    """Conjuntos de peças que o usuário descartou: nunca voltam como sugestão."""
-    stmt = select(LookFeedback).where(
-        LookFeedback.user_id == user.id,
-        LookFeedback.action == "DISCARDED",
-    )
+async def _feedback_looks(db: AsyncSession, user: User) -> Tuple[List[FrozenSet[str]], Set[FrozenSet[str]]]:
+    """
+    Looks aprovados e descartados pelo usuário (RF13), como conjuntos de IDs de peças.
+    Aprovados puxam o vetor de estilo (S_cos); descartados o empurram e nunca voltam como sugestão.
+    """
+    stmt = select(LookFeedback).where(LookFeedback.user_id == user.id)
     feedback = (await db.execute(stmt)).scalars().all()
-    return {frozenset(str(i) for i in entry.item_ids) for entry in feedback}
+
+    def looks(action: str) -> List[FrozenSet[str]]:
+        return [frozenset(str(i) for i in entry.item_ids) for entry in feedback if entry.action == action]
+
+    return looks("APPROVED"), set(looks("DISCARDED"))
 
 
 @router.post("/feedback", response_model=LookFeedbackResponse, status_code=status.HTTP_201_CREATED)

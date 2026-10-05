@@ -22,6 +22,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 ENV SEGMENTATION_MODEL=isnet-general-use
 RUN python -c "import os; from rembg import new_session; new_session(os.environ['SEGMENTATION_MODEL'])"
 
+# Baixa o modelo do vetor de estilo (S_cos) no build, conferido pelo SHA-256 (mesmos valores de app/core/config.py)
+ENV STYLE_MODEL_PATH=/opt/harmonia/clip-vit-b32-vision.onnx
+RUN mkdir -p /opt/harmonia && \
+    curl -fsSL -o "$STYLE_MODEL_PATH" \
+    "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/d15189d7028b43f1d3e65039190477f6af591c2a/onnx/vision_model.onnx" && \
+    echo "fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40  $STYLE_MODEL_PATH" | sha256sum -c -
+
 # Copiar a aplicação FastAPI
 COPY app ./app
 

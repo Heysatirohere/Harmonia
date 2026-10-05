@@ -1410,3 +1410,91 @@ async def test_analytics_requires_authentication():
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/v1/wardrobe/analytics")
     assert response.status_code == 401
+
+
+# -----------------------------------------------------------------------------
+# Vetor de estilo (S_cos) aprendido com o feedback (RF13)
+# -----------------------------------------------------------------------------
+
+def _style_vec(axis):
+    """Vetor dominado por um eixo comum, como os do CLIP, mais um eixo de estilo."""
+    v = [0.0] * 512
+    v[0], v[axis] = 1.0, 0.3
+    norm = sum(x * x for x in v) ** 0.5
+    return [x / norm for x in v]
+
+
+def _seed_styled_wardrobe():
+    """Duas partes de cima iguais em tudo menos no estilo, e uma parte de baixo neutra."""
+    user_id = _seed_wardrobe_user()
+    for key in [k for k, v in store.clothing_items.items() if v.user_id == user_id]:
+        del store.clothing_items[key]
+    pieces = {}
+    for name, category, axis in (("minimal", "top", 1), ("boho", "top", 2), ("calca", "bottom", 3)):
+        piece = ClothingItem(
+            id=uuid.uuid4(), user_id=user_id, category=category,
+            image_url=f"https://example.supabase.co/{name}.png",
+            dominant_l=50.0, dominant_a=10.0, dominant_b=15.0, formality_score=0.4,
+            style_embedding=_style_vec(axis), is_archived=False, created_at=datetime.now(timezone.utc),
+        )
+        store.clothing_items[piece.id] = piece
+        pieces[name] = piece
+    return user_id, pieces
+
+
+def _looks_by_top(response, pieces):
+    by_id = {str(p.id): name for name, p in pieces.items()}
+    return {
+        next(by_id[i["id"]] for i in look["items"] if by_id[i["id"]] != "calca"): look
+        for look in response.json()
+    }
+
+
+@pytest.mark.anyio
+async def test_approving_a_look_steers_the_next_suggestions():
+    user_id, pieces = _seed_styled_wardrobe()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        before = _looks_by_top(await _generate(client, user_id), pieces)
+        approval = _feedback([str(pieces["minimal"].id), str(pieces["calca"].id)])
+        await client.post("/api/v1/outfits/feedback", json=approval, headers=auth_headers(user_id))
+        after = _looks_by_top(await _generate(client, user_id), pieces)
+
+    # Sem histórico o pilar é neutro e as duas empatam
+    assert before["minimal"]["s_cos"] == before["boho"]["s_cos"] == 0.5
+    assert before["minimal"]["ihe_score"] == before["boho"]["ihe_score"]
+    # Depois de aprovar, o estilo aprovado sobe e o outro desce
+    assert after["minimal"]["s_cos"] > 0.5 > after["boho"]["s_cos"]
+    assert after["minimal"]["ihe_score"] > after["boho"]["ihe_score"]
+
+
+@pytest.mark.anyio
+async def test_store_piece_vector_counts_in_parity():
+    """A peça da loja no estilo que o usuário aprova forma looks com S_cos maior que uma no estilo oposto."""
+    user_id, pieces = _seed_styled_wardrobe()
+    store.look_feedback.clear()
+    _approve(user_id, [pieces["minimal"].id, pieces["calca"].id], days_ago=1)
+
+    def parity(axis):
+        return {
+            "category": "top", "dominant_l": 50.0, "dominant_a": 10.0, "dominant_b": 15.0,
+            "formality_score": 0.4, "style_embedding": _style_vec(axis),
+        }
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        like = await client.post("/api/v1/outfits/store-parity", json=parity(1), headers=auth_headers(user_id))
+        unlike = await client.post("/api/v1/outfits/store-parity", json=parity(2), headers=auth_headers(user_id))
+
+    assert like.status_code == unlike.status_code == 200
+    assert like.json()["ihe_percentage"] > unlike.json()["ihe_percentage"]
+
+
+@pytest.mark.anyio
+async def test_store_parity_rejects_a_vector_of_the_wrong_size():
+    user_id, _ = _seed_styled_wardrobe()
+    payload = {"category": "top", "dominant_l": 50.0, "dominant_a": 10.0, "dominant_b": 15.0, "style_embedding": [0.1] * 10}
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/outfits/store-parity", json=payload, headers=auth_headers(user_id))
+
+    assert response.status_code == 422

@@ -182,14 +182,16 @@ class WardrobeApiService {
     return 'image/jpeg';
   }
 
-  /// Exclui peça do acervo no backend
+  /// Exclui peça do acervo no backend com isolamento multi-tenant (RN01, RN04).
+  /// Sem segunda via no Supabase: só a API apaga a foto do Storage junto com o registro.
   Future<bool> deleteClothingItem(String itemId) async {
     try {
       final response = await _client.delete('/wardrobe/items/$itemId');
       return response.statusCode == 204;
     } catch (e) {
-      debugPrint('[WardrobeApiService] Falha ao deletar peça: $e');
+      debugPrint('[WardrobeApiService] Falha ao deletar peça via API: $e');
       return false;
     }
   }
+
 }

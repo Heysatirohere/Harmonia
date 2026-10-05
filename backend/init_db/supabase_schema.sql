@@ -95,10 +95,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Política de Storage: Leitura pública ou autenticada, upload autenticado
 DROP POLICY IF EXISTS "Upload autenticado de fotos de roupas" ON storage.objects;
+-- Cada usuário só envia fotos para a própria pasta (<user_id>/...), o que permite
+-- apagar tudo dele na exclusão da conta (RN04)
 CREATE POLICY "Upload autenticado de fotos de roupas"
 ON storage.objects FOR INSERT
 TO authenticated
-WITH CHECK (bucket_id = 'wardrobe-items');
+WITH CHECK (bucket_id = 'wardrobe-items' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 DROP POLICY IF EXISTS "Visualização pública de roupas recortadas" ON storage.objects;
 CREATE POLICY "Visualização pública de roupas recortadas"
@@ -148,27 +150,8 @@ FOR EACH ROW
 WHEN (OLD.email IS DISTINCT FROM NEW.email)
 EXECUTE FUNCTION public.handle_auth_user_email_change();
 
--- 8. Direito ao Esquecimento (RN04): exclusão definitiva pelo próprio usuário
--- Remove auth.users; public.users e clothing_items caem em cascata.
--- Obs.: arquivos do Storage precisam ser removidos pela Storage API
--- (o Supabase bloqueia DELETE direto em storage.objects).
-CREATE OR REPLACE FUNCTION public.delete_own_account()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-    uid UUID := auth.uid();
-BEGIN
-    IF uid IS NULL THEN
-        RAISE EXCEPTION 'Sessão não autenticada' USING ERRCODE = '42501';
-    END IF;
-
-    DELETE FROM public.users WHERE id = uid;
-    DELETE FROM auth.users WHERE id = uid;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.delete_own_account() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.delete_own_account() TO authenticated;
+-- 8. Direito ao Esquecimento (RN04)
+-- A exclusão da conta é feita pela API (DELETE /api/v1/users/me) com a service role key:
+-- apaga as fotos do Storage, os registros e o login. A antiga RPC apagava só o banco
+-- e deixava as fotos no bucket, por isso foi removida.
+DROP FUNCTION IF EXISTS public.delete_own_account();

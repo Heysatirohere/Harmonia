@@ -16,6 +16,7 @@ from sqlalchemy import select, asc, desc
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import get_current_user, get_current_user_id
+from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
 from app.models.entities import User, ClothingItem
 from app.schemas.dtos import (
     ClothingItemCreate,
@@ -169,9 +170,11 @@ async def delete_clothing_item(
     item_id: UUID,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    admin: SupabaseAdmin = Depends(get_supabase_admin),
 ):
     """
     Exclui uma peça garantindo validação de posse e isolamento Multi-Tenant estrito (RN01).
+    A foto recortada sai do Storage antes do registro, para não sobrar imagem órfã (RN04).
     """
     stmt = select(ClothingItem).where(ClothingItem.id == item_id)
     result = await db.execute(stmt)
@@ -190,6 +193,16 @@ async def delete_clothing_item(
             detail="Acesso negado. Esta peça não pertence ao usuário autenticado."
         )
 
+    photo = admin.object_path(item.image_url)
+    if photo:
+        try:
+            await admin.delete_objects([photo])
+        except SupabaseAdminError:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Não foi possível apagar a foto da peça agora. Tente novamente.",
+            )
+
     # Decrementa o contador de peças do usuário
     user_stmt = select(User).where(User.id == current_user_id)
     user_res = await db.execute(user_stmt)
@@ -200,3 +213,4 @@ async def delete_clothing_item(
     await db.delete(item)
     await db.commit()
     return None
+

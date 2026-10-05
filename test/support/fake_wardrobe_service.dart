@@ -34,4 +34,11 @@ class FakeWardrobeService extends WardrobeApiService {
     if (result == null) throw const SegmentationException('Não foi possível analisar a foto.');
     return result;
   }
+
+  @override
+  Future<bool> deleteClothingItem(String itemId) async {
+    items.removeWhere((item) => item.id == itemId);
+    return true;
+  }
+
 }

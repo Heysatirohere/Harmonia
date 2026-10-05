@@ -96,8 +96,8 @@ class ApiClient {
     return http.Response.fromStream(streamed);
   }
 
-  Future<http.Response> delete(String endpoint) async {
+  Future<http.Response> delete(String endpoint, {Duration? timeout}) async {
     final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.delete(uri, headers: _headers).timeout(timeoutDuration);
+    return await http.delete(uri, headers: _headers).timeout(timeout ?? timeoutDuration);
   }
 }

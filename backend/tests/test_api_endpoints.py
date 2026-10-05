@@ -16,6 +16,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.quota import quota_today
+from app.core.supabase_admin import SupabaseAdminError, get_supabase_admin
 from app.models.entities import User, ClothingItem, LookFeedback
 
 
@@ -46,6 +47,39 @@ def auth_headers(user_id, **kwargs):
 # -----------------------------------------------------------------------------
 # Repositório em Memória e Fake AsyncSession para Testes Isolados de API
 # -----------------------------------------------------------------------------
+
+class FakeSupabaseAdmin:
+    """Dublê do Supabase administrativo: registra o que seria apagado e falha sob demanda."""
+
+    def __init__(self):
+        self.folder = {}
+        self.deleted_objects = []
+        self.deleted_auth_users = []
+        self.fail_storage = False
+        self.fail_auth = False
+
+    def object_path(self, public_url):
+        marker = f"{TEST_SUPABASE_URL}/storage/v1/object/public/wardrobe-items/"
+        return public_url[len(marker):] if public_url.startswith(marker) else None
+
+    async def list_user_objects(self, user_id):
+        if self.fail_storage:
+            raise SupabaseAdminError("storage fora do ar")
+        return list(self.folder.get(user_id, []))
+
+    async def delete_objects(self, paths):
+        if self.fail_storage:
+            raise SupabaseAdminError("storage fora do ar")
+        self.deleted_objects.extend(sorted(paths))
+
+    async def delete_auth_user(self, user_id):
+        if self.fail_auth:
+            raise SupabaseAdminError("auth fora do ar")
+        self.deleted_auth_users.append(user_id)
+
+
+supabase_admin = FakeSupabaseAdmin()
+
 
 class InMemoryStore:
     def __init__(self):
@@ -96,9 +130,18 @@ class MockAsyncSession:
 
     def __init__(self):
         self.store = store
+        # DELETEs em massa só valem no commit, como numa transação
+        self.pending_deletes = []
 
     async def execute(self, statement):
         sql_text = str(statement).lower()
+
+        # 0. DELETE em massa por usuário (exclusão de conta, RN04)
+        if sql_text.startswith("delete from"):
+            table = sql_text.split()[2]
+            target = next(v for v in statement.compile().params.values() if isinstance(v, uuid.UUID))
+            self.pending_deletes.append((table, target))
+            return FakeExecuteResult([])
 
         # 1. Healthcheck query
         if "select 1" in sql_text:
@@ -149,11 +192,15 @@ class MockAsyncSession:
             item_id_param = None
             category_param = None
 
-            for p_val in params.values():
+            for p_key, p_val in params.items():
                 if isinstance(p_val, uuid.UUID):
-                    if p_val in self.store.users or any(i.user_id == p_val for i in items_list):
+                    if "user_id" in p_key or p_val in self.store.users:
                         user_id_param = p_val
-                    if p_val in self.store.clothing_items or any(i.id == p_val for i in items_list):
+                    elif "id" in p_key:
+                        item_id_param = p_val
+                    elif any(i.id == p_val for i in items_list):
+                        item_id_param = p_val
+                    else:
                         item_id_param = p_val
                 elif isinstance(p_val, str) and p_val in ["top", "bottom", "shoes", "one_piece", "outerwear"]:
                     category_param = p_val
@@ -163,9 +210,9 @@ class MockAsyncSession:
             for p_val in params.values():
                 if isinstance(p_val, (list, tuple)) and p_val and isinstance(p_val[0], uuid.UUID):
                     filtered = [i for i in filtered if i.id in p_val]
-            if item_id_param:
+            if item_id_param is not None:
                 filtered = [i for i in filtered if i.id == item_id_param]
-            elif user_id_param:
+            elif user_id_param is not None:
                 filtered = [i for i in filtered if i.user_id == user_id_param]
 
             if category_param:
@@ -198,7 +245,16 @@ class MockAsyncSession:
             del self.store.users[instance.id]
 
     async def commit(self):
-        pass
+        for table, target in self.pending_deletes:
+            if table == "users":
+                self.store.users.pop(target, None)
+            elif table == "clothing_items":
+                for key in [k for k, v in self.store.clothing_items.items() if v.user_id == target]:
+                    del self.store.clothing_items[key]
+            elif table == "look_feedback":
+                for key in [k for k, v in self.store.look_feedback.items() if v.user_id == target]:
+                    del self.store.look_feedback[key]
+        self.pending_deletes.clear()
 
     async def flush(self):
         pass
@@ -207,7 +263,7 @@ class MockAsyncSession:
         pass
 
     async def rollback(self):
-        pass
+        self.pending_deletes.clear()
 
     async def close(self):
         pass
@@ -226,7 +282,9 @@ def setup_test_environment(monkeypatch):
     monkeypatch.setattr(settings, "SUPABASE_URL", TEST_SUPABASE_URL)
     monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", TEST_JWT_SECRET)
     store.clear()
+    supabase_admin.__init__()
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_supabase_admin] = lambda: supabase_admin
     yield
     store.clear()
     app.dependency_overrides.clear()
@@ -1032,3 +1090,116 @@ async def test_feedback_validates_payload(payload):
         response = await client.post("/api/v1/outfits/feedback", json=payload, headers=auth_headers(uuid.uuid4()))
 
     assert response.status_code == 422
+
+
+
+# -----------------------------------------------------------------------------
+# Direito ao Esquecimento (RN04)
+# -----------------------------------------------------------------------------
+
+def _photo_url(path):
+    return f"{TEST_SUPABASE_URL}/storage/v1/object/public/wardrobe-items/{path}"
+
+
+@pytest.mark.anyio
+async def test_account_deletion_purges_photos_records_and_login():
+    """Fotos (antigas e da pasta do usuário), peças, feedback, perfil e login somem."""
+    user_id = _seed_wardrobe_user()
+    items = [i for i in store.clothing_items.values() if i.user_id == user_id]
+    items[0].image_url = _photo_url("garments/legacy_top.png")
+    items[1].image_url = _photo_url(f"{user_id}/bottom.png")
+    supabase_admin.folder[user_id] = [f"{user_id}/bottom.png", f"{user_id}/orphan.png"]
+    other = _seed_wardrobe_user()
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.post("/api/v1/outfits/feedback", json=_feedback(_wardrobe_ids(user_id)), headers=headers)
+        response = await client.delete("/api/v1/users/me", headers=headers)
+
+    assert response.status_code == 204
+    assert supabase_admin.deleted_objects == sorted(
+        ["garments/legacy_top.png", f"{user_id}/bottom.png", f"{user_id}/orphan.png"]
+    )
+    assert supabase_admin.deleted_auth_users == [user_id]
+    assert user_id not in store.users
+    assert not [i for i in store.clothing_items.values() if i.user_id == user_id]
+    assert not [f for f in store.look_feedback.values() if f.user_id == user_id]
+    # Outra conta intacta (RN01)
+    assert other in store.users
+    assert len([i for i in store.clothing_items.values() if i.user_id == other]) == 2
+
+
+@pytest.mark.anyio
+async def test_storage_failure_deletes_nothing():
+    user_id = _seed_wardrobe_user()
+    supabase_admin.fail_storage = True
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.delete("/api/v1/users/me", headers=auth_headers(user_id))
+
+    assert response.status_code == 502
+    assert "Nada foi excluído" in response.json()["detail"]
+    assert user_id in store.users
+    assert supabase_admin.deleted_auth_users == []
+
+
+@pytest.mark.anyio
+async def test_auth_failure_rolls_back_records_and_retry_completes():
+    user_id = _seed_wardrobe_user()
+    headers = auth_headers(user_id)
+    supabase_admin.fail_auth = True
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        failed = await client.delete("/api/v1/users/me", headers=headers)
+        assert failed.status_code == 502
+        assert user_id in store.users
+        assert len([i for i in store.clothing_items.values() if i.user_id == user_id]) == 2
+
+        supabase_admin.fail_auth = False
+        retried = await client.delete("/api/v1/users/me", headers=headers)
+
+    assert retried.status_code == 204
+    assert user_id not in store.users
+    assert supabase_admin.deleted_auth_users == [user_id]
+
+
+@pytest.mark.anyio
+async def test_deleting_a_garment_removes_its_photo():
+    user_id = _seed_wardrobe_user()
+    item = next(i for i in store.clothing_items.values() if i.user_id == user_id)
+    item.image_url = _photo_url(f"{user_id}/top.png")
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.delete(f"/api/v1/wardrobe/items/{item.id}", headers=auth_headers(user_id))
+
+    assert response.status_code == 204
+    assert supabase_admin.deleted_objects == [f"{user_id}/top.png"]
+    assert item.id not in store.clothing_items
+
+
+@pytest.mark.anyio
+async def test_garment_stays_when_its_photo_cannot_be_removed():
+    user_id = _seed_wardrobe_user()
+    item = next(i for i in store.clothing_items.values() if i.user_id == user_id)
+    item.image_url = _photo_url(f"{user_id}/top.png")
+    supabase_admin.fail_storage = True
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.delete(f"/api/v1/wardrobe/items/{item.id}", headers=auth_headers(user_id))
+
+    assert response.status_code == 502
+    assert item.id in store.clothing_items
+
+
+@pytest.mark.anyio
+async def test_account_deletion_without_admin_key_is_unavailable(monkeypatch):
+    """Sem a service role key o servidor recusa com 503 em vez de apagar pela metade."""
+    app.dependency_overrides.pop(get_supabase_admin)
+    monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None)
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.delete("/api/v1/users/me", headers=auth_headers(user_id))
+
+    assert response.status_code == 503
+    assert user_id in store.users

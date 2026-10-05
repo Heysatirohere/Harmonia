@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../domain/models/account.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -16,8 +19,6 @@ class SupabaseAuthService implements AuthRepository {
   /// Chave do nome completo em `auth.users.user_metadata`
   static const String _fullNameKey = 'full_name';
 
-  /// Função RPC de exclusão definitiva (ver backend/init_db/supabase_schema.sql)
-  static const String _deleteAccountRpc = 'delete_own_account';
 
   SupabaseClient? get _client => SupabaseConfig.client;
 
@@ -118,11 +119,37 @@ class SupabaseAuthService implements AuthRepository {
     }
   }
 
+  /// Exclusão definitiva pela API (RN04): fotos do Storage, registros e login.
+  /// A API usa a chave administrativa, que o app não tem; se algo falhar, nada fica pela metade.
   @override
   Future<void> deleteAccount() async {
-    await _guard((client) => client.rpc(_deleteAccountRpc));
+    if (_client == null) {
+      throw const AuthFailure('Serviço de conta indisponível. Verifique sua conexão.');
+    }
+    final http.Response response;
+    try {
+      // Apagar as fotos pode levar alguns segundos
+      response = await ApiClient().delete('/users/me', timeout: const Duration(seconds: 30));
+    } catch (e) {
+      debugPrint('[SupabaseAuth] Exclusão sem conexão: $e');
+      throw const AuthFailure('Falha de conexão. Nada foi excluído; tente novamente.');
+    }
+    if (response.statusCode != 204) {
+      debugPrint('[SupabaseAuth] Exclusão recusada: ${response.statusCode}');
+      throw AuthFailure(_detailOf(response.body) ?? 'Não foi possível excluir a conta agora. Tente novamente.');
+    }
     // A sessão local ainda guarda o token revogado: descarta sem chamar o servidor
     await _client?.auth.signOut(scope: SignOutScope.local);
+  }
+
+  /// Mensagem do backend (`detail`), já escrita para o usuário
+  static String? _detailOf(String body) {
+    try {
+      final detail = (jsonDecode(body) as Map<String, dynamic>)['detail'];
+      return detail is String ? detail : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Account? _toAccount(User? user) {

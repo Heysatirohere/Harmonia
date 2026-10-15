@@ -3,6 +3,7 @@ import 'package:harmonia_mvp/domain/models/recommended_look.dart';
 import 'package:harmonia_mvp/mocks/mock_clothes.dart';
 import 'package:harmonia_mvp/models/clothing_item.dart';
 import 'package:harmonia_mvp/models/store_parity_result.dart';
+import 'package:harmonia_mvp/models/wardrobe_gap.dart';
 
 /// Motor de looks em memória para testes de widget
 class FakeOutfitService extends OutfitApiService {
@@ -20,6 +21,12 @@ class FakeOutfitService extends OutfitApiService {
 
   /// Peças enviadas para paridade, na ordem
   final List<ClothingItem> parityRequests = [];
+
+  /// Lacunas por ocasião devolvidas por [getWardrobeGaps]; ocasião ausente = nenhuma lacuna
+  final Map<String, WardrobeGapReport> gapReports = {};
+
+  /// Ocasiões pedidas em [getWardrobeGaps], na ordem
+  final List<String> gapOccasions = [];
 
   FakeOutfitService(this.looks, {this.failure});
 
@@ -92,6 +99,17 @@ class FakeOutfitService extends OutfitApiService {
         ),
       ],
     );
+  }
+
+  @override
+  Future<WardrobeGapReport> getWardrobeGaps({String occasion = 'CASUAL'}) async {
+    gapOccasions.add(occasion);
+    final queued = failure;
+    if (queued != null) {
+      failure = null;
+      throw queued;
+    }
+    return gapReports[occasion] ?? WardrobeGapReport(occasion: occasion, baselineIhe: 55, gaps: const []);
   }
 
   @override

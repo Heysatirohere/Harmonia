@@ -5,6 +5,7 @@ import '../../core/network/api_client.dart';
 import '../../domain/models/recommended_look.dart';
 import '../../models/clothing_item.dart';
 import '../../models/store_parity_result.dart';
+import '../../models/wardrobe_gap.dart';
 
 /// Falha ao gerar looks, com mensagem pronta para o usuário
 class OutfitException implements Exception {
@@ -149,6 +150,27 @@ class OutfitApiService {
         throw const OutfitException('Sessão expirada. Entre novamente.');
       default:
         throw const OutfitException('Não foi possível comparar a peça agora.');
+    }
+  }
+
+  /// Peças-chave que faltam no acervo e onde comprá-las nos parceiros (RF11, RF12).
+  /// Produtos esgotados nunca vêm (RN03) e a consulta não gasta a cota (RN02).
+  Future<WardrobeGapReport> getWardrobeGaps({String occasion = 'CASUAL'}) async {
+    final http.Response response;
+    try {
+      response = await _client.get('/outfits/gaps', queryParams: {'occasion': occasion});
+    } catch (e) {
+      debugPrint('[OutfitApiService] Lacunas indisponíveis: $e');
+      throw const OutfitException('Não foi possível conectar ao ateliê. Verifique sua conexão.');
+    }
+
+    switch (response.statusCode) {
+      case 200:
+        return WardrobeGapReport.fromJson(jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>);
+      case 401:
+        throw const OutfitException('Sessão expirada. Entre novamente.');
+      default:
+        throw const OutfitException('Não foi possível mapear as lacunas do acervo agora.');
     }
   }
 

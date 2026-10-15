@@ -1,57 +1,65 @@
+import 'dart:ui';
+
 import '../models/affiliated_product.dart';
 import '../models/wardrobe_gap.dart';
 
+/// Lacunas de exemplo para o modo demo (HARMONIA_DEMO); o app real lê de /outfits/gaps
 class MockGapAnalysis {
-  static final List<WardrobeGap> gaps = [
-    const WardrobeGap(
-      id: 'gap_01',
-      missingCategory: 'Camisa Linho Off-White',
-      stylisticRationale: 'Destrava 14 novas combinações com suas partes de baixo de alfaiataria.',
-      deltaIhe: 14.5,
+  static const report = WardrobeGapReport(occasion: 'CASUAL', baselineIhe: 56.8, gaps: gaps);
+
+  static const List<WardrobeGap> gaps = [
+    WardrobeGap(
+      id: 'camisa-linho-off-white',
+      title: 'Camisa de linho off-white',
+      category: 'top',
+      stylisticRationale: 'Destrava 4 looks fortemente recomendados com suas partes de baixo.',
+      color: Color(0xFFEAE6DC),
+      looksEvaluated: 6,
+      strongLooks: 4,
+      bestIhe: 81.5,
+      deltaIhe: 24.7,
       suggestedProducts: [
         AffiliatedProduct(
-          id: 'prod_01',
+          id: 'renner-camisa-linho-off',
           store: AffiliateStore.renner,
-          name: 'Camisa 100% Linho MANGAS DOBRADAS',
-          formattedPrice: 'R\$ 199,90',
-          imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=500',
-          affiliateUrl: 'https://www.lojasrenner.com.br/item/camisa-linho?utm_source=harmonia',
-          inStock: true,
+          name: 'Camisa de linho manga longa off-white',
+          color: Color(0xFFEBE6DA),
+          affiliateUrl: 'https://www.lojasrenner.com.br/b?Ntt=camisa+linho+off+white&utm_source=harmonia',
         ),
         AffiliatedProduct(
-          id: 'prod_02',
+          id: 'cea-camisa-linho-off',
           store: AffiliateStore.cea,
-          name: 'Camisa Linho Leve Off-White',
-          formattedPrice: 'R\$ 179,99',
-          imageUrl: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500',
-          affiliateUrl: 'https://www.cea.com.br/item/camisa-linho-cea?utm_source=harmonia',
-          inStock: true,
+          name: 'Camisa de linho off-white',
+          color: Color(0xFFE8E3D9),
+          affiliateUrl: 'https://www.cea.com.br/camisa%20linho%20off%20white?_q=camisa+linho+off+white&map=ft&utm_source=harmonia',
         ),
         AffiliatedProduct(
-          id: 'prod_03_out_of_stock',
+          id: 'renner-camisa-linho-esgotada',
           store: AffiliateStore.renner,
-          name: 'Camisa Linho Esgotada Edição Especial',
-          formattedPrice: 'R\$ 229,90',
-          imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=500',
-          affiliateUrl: 'https://www.lojasrenner.com.br/item/esgotada?utm_source=harmonia',
-          inStock: false, // Must be filtered out by RN03
+          name: 'Camisa de linho edição especial',
+          color: Color(0xFFEBE6DA),
+          affiliateUrl: 'https://www.lojasrenner.com.br/b?Ntt=camisa+linho&utm_source=harmonia',
+          inStock: false, // RN03: nunca aparece
         ),
       ],
     ),
-    const WardrobeGap(
-      id: 'gap_02',
-      missingCategory: 'Mule Couro Areia',
-      stylisticRationale: 'Harmoniza o contraste entre saias midi e casacos de inverno.',
-      deltaIhe: 9.8,
+    WardrobeGap(
+      id: 'mocassim-couro-caramelo',
+      title: 'Mocassim de couro caramelo',
+      category: 'shoes',
+      stylisticRationale: 'Cria 3 looks acima da média do seu acervo com as peças que você já tem; o melhor chega a 68%.',
+      color: Color(0xFF8C5E37),
+      looksEvaluated: 5,
+      strongLooks: 0,
+      bestIhe: 68.2,
+      deltaIhe: 11.4,
       suggestedProducts: [
         AffiliatedProduct(
-          id: 'prod_04',
+          id: 'cea-mocassim-caramelo',
           store: AffiliateStore.cea,
-          name: 'Mule Couro Trançado Areia',
-          formattedPrice: 'R\$ 159,99',
-          imageUrl: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500',
-          affiliateUrl: 'https://www.cea.com.br/item/mule-couro?utm_source=harmonia',
-          inStock: true,
+          name: 'Mocassim caramelo',
+          color: Color(0xFF8E5F39),
+          affiliateUrl: 'https://www.cea.com.br/mocassim%20caramelo?_q=mocassim+caramelo&map=ft&utm_source=harmonia',
         ),
       ],
     ),

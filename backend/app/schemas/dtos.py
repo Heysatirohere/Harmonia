@@ -373,6 +373,41 @@ class StoreParityResponse(BaseModel):
 
 
 # -----------------------------------------------------------------------------
+# Lacunas do Acervo e Afiliação (RF11, RF12, RN03)
+# -----------------------------------------------------------------------------
+
+class PartnerProductResponse(BaseModel):
+    """Produto de parceiro com estoque; o link leva à busca na loja com UTM (RF12)."""
+    id: str
+    store: Literal["CEA", "RENNER"]
+    store_name: str
+    name: str
+    color_hex: str
+    url: str
+
+
+class WardrobeGapResponse(BaseModel):
+    id: str
+    title: str
+    category: str = Field(..., description="Família da peça (top, bottom, shoes, one_piece)")
+    rationale: str
+    color_hex: str
+    looks_evaluated: int = Field(..., description="Looks que a peça forma com o acervo")
+    strong_looks: int = Field(..., description="Desses, quantos chegam a IHE >= 75%")
+    best_ihe_percentage: float
+    delta_ihe: float = Field(..., description="Pontos percentuais sobre o melhor look possível hoje")
+    products: List[PartnerProductResponse] = Field(..., description="Só produtos com estoque (RN03)")
+
+
+class WardrobeGapsResponse(BaseModel):
+    occasion: str
+    baseline_ihe_percentage: Optional[float] = Field(
+        default=None, description="IHE do melhor look com o acervo atual (sem looks: nulo)"
+    )
+    gaps: List[WardrobeGapResponse]
+
+
+# -----------------------------------------------------------------------------
 # Feedback de Recomendações (RF13)
 # -----------------------------------------------------------------------------
 

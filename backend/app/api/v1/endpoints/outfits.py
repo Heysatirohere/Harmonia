@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import FrozenSet, List, Set, Tuple
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -27,11 +27,18 @@ from app.schemas.dtos import (
     ParityMatchResponse,
     StoreParityRequest,
     StoreParityResponse,
+    PartnerProductResponse,
+    WardrobeGapResponse,
+    WardrobeGapsResponse,
 )
 from app.engine.ihe_calculator import calculate_ihe, IHERequest, IHEResponse
 from app.engine.color_science import LabColor, calculate_garment_s_cor
 from app.engine.outfit_generator import rank_store_parity, temperature_band
 from app.engine.style_vector import build_style_space
+from app.engine.context_rules import normalize_occasion
+from app.engine.gap_analysis import analyze_gaps
+from app.engine.partner_catalog import STORE_NAMES, StaticPartnerCatalog, partner_search_url
+from app.vision.color_extraction import lab_to_hex
 
 router = APIRouter()
 
@@ -265,6 +272,72 @@ async def analyze_store_parity(
                 rationale=_parity_rationale(match.best_look.ihe_result),
             )
             for match in parity.matches
+        ],
+    )
+
+
+# -----------------------------------------------------------------------------
+# Lacunas do Acervo e Afiliação (RF11, RF12, RN03)
+# -----------------------------------------------------------------------------
+
+@router.get("/gaps", response_model=WardrobeGapsResponse, status_code=status.HTTP_200_OK)
+async def wardrobe_gaps(
+    occasion: str = Query(default="CASUAL", description="Ocasião usada para pontuar os looks"),
+    limit: int = Query(default=3, ge=1, le=5),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Peças-chave que faltam no acervo (RF11) e onde comprá-las nos parceiros (RF12).
+    Cada lacuna vale os looks fortemente recomendados que destrava com as peças do usuário;
+    produtos esgotados nunca saem daqui (RN03). Só lê o acervo do próprio usuário (RN01)
+    e, como a paridade em loja, não gasta a cota RN02.
+    """
+    try:
+        occasion = normalize_occasion(occasion)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+    items = list((await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == user.id, ClothingItem.is_archived == False)
+    )).scalars().all())
+    approved, discarded = await _feedback_looks(db, user)
+    analysis = analyze_gaps(
+        items,
+        user,
+        StaticPartnerCatalog().archetypes(),
+        occasion=occasion,
+        limit=limit,
+        style=build_style_space(items, approved, discarded),
+    )
+
+    return WardrobeGapsResponse(
+        occasion=occasion,
+        baseline_ihe_percentage=analysis.baseline_ihe_percentage,
+        gaps=[
+            WardrobeGapResponse(
+                id=gap.archetype.id,
+                title=gap.archetype.title,
+                category=gap.archetype.category,
+                rationale=gap.rationale,
+                color_hex=lab_to_hex(gap.archetype.L, gap.archetype.a, gap.archetype.b),
+                looks_evaluated=gap.looks_evaluated,
+                strong_looks=gap.strong_looks,
+                best_ihe_percentage=gap.best_ihe_percentage,
+                delta_ihe=gap.delta_ihe,
+                products=[
+                    PartnerProductResponse(
+                        id=product.id,
+                        store=product.store,
+                        store_name=STORE_NAMES[product.store],
+                        name=product.name,
+                        color_hex=lab_to_hex(product.L, product.a, product.b),
+                        url=partner_search_url(product.store, product.search_query, gap.archetype.id),
+                    )
+                    for product in gap.products
+                ],
+            )
+            for gap in analysis.gaps
         ],
     )
 

@@ -172,13 +172,13 @@ def generate_outfit_recommendations(
     occasion: str = "CASUAL",
     temperature_celsius: float = 22.0,
     is_raining: bool = False,
-    limit: int = 5,
+    limit: Optional[int] = 5,
     excluded_looks: Optional[Set[FrozenSet[str]]] = None,
     style: Optional[StyleSpace] = None,
 ) -> List[CandidateOutfit]:
     """
     Gera as melhores combinações de looks a partir do acervo do usuário,
-    ranqueando as opções pela pontuação do IHE.
+    ranqueando as opções pela pontuação do IHE (`limit=None` devolve todas).
     Looks em `excluded_looks` (conjuntos de IDs descartados pelo usuário, RF13) nunca voltam;
     `style` aproxima o ranking do que o usuário aprovou e o afasta do que descartou.
     """

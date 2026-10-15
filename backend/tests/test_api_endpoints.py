@@ -1029,6 +1029,85 @@ async def test_store_parity_requires_bearer_token():
     assert response.status_code == 401
 
 
+# -----------------------------------------------------------------------------
+# Lacunas do Acervo e Afiliação (RF11, RF12, RN03)
+# -----------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_gaps_rank_partner_pieces_without_spending_quota():
+    user_id = _seed_wardrobe_user()
+    items_before = set(store.clothing_items)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/outfits/gaps", headers=auth_headers(user_id))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["occasion"] == "CASUAL"
+    assert data["baseline_ihe_percentage"] is not None
+    assert 0 < len(data["gaps"]) <= 3
+    for gap in data["gaps"]:
+        assert gap["strong_looks"] > 0 or gap["delta_ihe"] >= 0
+        assert gap["color_hex"].startswith("#")
+        for product in gap["products"]:
+            assert product["store"] in {"CEA", "RENNER"}
+            assert "utm_source=harmonia" in product["url"]
+            assert f"utm_content={gap['id']}" in product["url"]
+    assert set(store.clothing_items) == items_before
+    assert store.users[user_id].looks_generated_today == 0
+
+
+@pytest.mark.anyio
+async def test_gaps_never_list_out_of_stock_products_rn03():
+    """A camiseta preta da Renner está esgotada no catálogo: nunca pode sair na resposta."""
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/outfits/gaps?limit=5", headers=auth_headers(user_id))
+
+    product_ids = {p["id"] for gap in response.json()["gaps"] for p in gap["products"]}
+    assert "renner-camiseta-preta" not in product_ids
+
+
+@pytest.mark.anyio
+async def test_gaps_of_an_empty_wardrobe():
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/outfits/gaps", headers=auth_headers(uuid.uuid4()))
+
+    assert response.status_code == 200
+    assert response.json()["gaps"] == []
+    assert response.json()["baseline_ihe_percentage"] is None
+
+
+@pytest.mark.anyio
+async def test_gaps_ignore_other_users_wardrobes():
+    """RN01: o acervo de outra conta não cria lacunas para ninguém."""
+    _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/outfits/gaps", headers=auth_headers(uuid.uuid4()))
+
+    assert response.json()["gaps"] == []
+
+
+@pytest.mark.anyio
+async def test_gaps_reject_unknown_occasion():
+    user_id = _seed_wardrobe_user()
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/outfits/gaps?occasion=PIQUENIQUE", headers=auth_headers(user_id))
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_gaps_require_bearer_token():
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/outfits/gaps")
+
+    assert response.status_code == 401
+
+
 @pytest.mark.anyio
 async def test_temperature_change_within_band_does_not_spend_quota():
     """Com clima real a temperatura oscila; na mesma faixa do motor os looks são os mesmos e não há nova cobrança."""

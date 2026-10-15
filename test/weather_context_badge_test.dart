@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:harmonia_mvp/models/wardrobe_gap.dart';
 import 'package:harmonia_mvp/data/services/outfit_api_service.dart';
 import 'package:harmonia_mvp/domain/repositories/weather_repository.dart';
 import 'package:harmonia_mvp/mocks/mock_clothes.dart';
@@ -7,6 +8,7 @@ import 'package:harmonia_mvp/models/weather_context.dart';
 import 'package:harmonia_mvp/presentation/screens/daily_outfit_screen.dart';
 import 'package:harmonia_mvp/presentation/widgets/weather_context_badge.dart';
 
+import 'gap_analysis_test.dart' show gapsJson;
 import 'support/fake_community_service.dart';
 import 'support/fake_outfit_service.dart';
 import 'support/fake_weather_repository.dart';
@@ -202,6 +204,23 @@ void main() {
       expect(find.text('64%', findRichText: true, skipOffstage: false), findsOneWidget);
       expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsNothing);
       expect(service.occasions, ['CASUAL']);
+    });
+
+    testWidgets('a peça-chave dos parceiros aparece abaixo do look (3.6.2)', (WidgetTester tester) async {
+      final service = FakeOutfitService.sample()..gapReports['CASUAL'] = WardrobeGapReport.fromJson(gapsJson());
+      await pumpDaily(tester, service);
+
+      expect(find.text('Complete o acervo', skipOffstage: false), findsOneWidget);
+      expect(find.text('Pantalona caramelo', skipOffstage: false), findsOneWidget);
+      expect(find.text('Calça pantalona caramelo', skipOffstage: false), findsOneWidget);
+      expect(service.gapOccasions, ['CASUAL']);
+    });
+
+    testWidgets('sem lacuna, a seção de parceiros não aparece', (WidgetTester tester) async {
+      await pumpDaily(tester, FakeOutfitService.sample());
+
+      expect(find.text('Complete o acervo', skipOffstage: false), findsNothing);
+      expect(find.text('Aprovar look do dia', skipOffstage: false), findsOneWidget);
     });
 
     testWidgets('trocar a ocasião pede novos looks ao motor', (WidgetTester tester) async {

@@ -9,6 +9,7 @@ import '../../domain/models/recommended_look.dart';
 import '../../domain/repositories/weather_repository.dart';
 import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
+import '../../models/wardrobe_gap.dart';
 import '../../models/weather_context.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
@@ -16,9 +17,11 @@ import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
 import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
+import '../widgets/gap_analysis_sheet.dart';
 import '../widgets/photo_capture.dart';
 import '../widgets/share_outfit_sheet.dart';
 import '../widgets/weather_context_badge.dart';
+import 'gap_analysis_screen.dart';
 import 'store_mirror_screen.dart';
 
 /// Tela de Sugestão Diária de Look (DailyOutfitScreen - RF16)
@@ -64,6 +67,9 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
   /// Todas as sugestões desta consulta foram descartadas
   bool _discardedAll = false;
+
+  /// Peça-chave dos parceiros que mais destravaria looks nesta ocasião (Seção 3.6.2)
+  WardrobeGap? _topGap;
 
   /// Ocasiões oferecidas e a chave correspondente no motor do IHE
   static const _occasions = [
@@ -150,6 +156,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
       _loading = true;
       _error = null;
       _discardedAll = false;
+      _topGap = null;
       _approvals.clear();
     });
     try {
@@ -163,6 +170,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
         _looks = looks.isEmpty && kDemoMode ? _demoLooks : looks;
         _lookIndex = 0;
       });
+      _loadTopGap(requestId);
     } on OutfitException catch (e) {
       if (!mounted || requestId != _requestId) return;
       setState(() {
@@ -173,6 +181,51 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     } finally {
       if (mounted && requestId == _requestId) setState(() => _loading = false);
     }
+  }
+
+  /// A sugestão de parceiro vem depois dos looks e nunca os atrasa; sem ela, a seção some
+  Future<void> _loadTopGap(int requestId) async {
+    try {
+      final report = await _service.getWardrobeGaps(occasion: _occasions[_occasionIndex].$2);
+      if (!mounted || requestId != _requestId) return;
+      setState(() => _topGap = report.gaps.firstOrNull);
+    } on OutfitException catch (e) {
+      debugPrint('[DailyOutfitScreen] Sugestão de parceiro indisponível: ${e.message}');
+    }
+  }
+
+  void _openGaps() {
+    HapticFeedback.selectionClick();
+    Navigator.push(context, MaterialPageRoute(builder: (_) => GapAnalysisScreen(service: _service)));
+  }
+
+  /// Seção 3.6.2: a lacuna que mais destravaria looks, com os parceiros que a têm
+  List<Widget> _buildPartnerSuggestion(WardrobeGap gap) {
+    return [
+      const RoomMarker(room: AtelierRoom.verdigris),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
+      const SliverToBoxAdapter(child: RoomSectionTitle(title: 'Complete o acervo', meta: 'PARCEIROS')),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AtelierSheet(child: GapAnalysisSheet(gap: gap)),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _openGaps,
+                  style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+                  child: Text('VER TODAS AS LACUNAS  →', style: AppTypography.atelierMeta(color: AppColors.ivoryText)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   void _selectOccasion(int index) {
@@ -403,6 +456,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
               ..._buildLook(look)
             else
               SliverToBoxAdapter(child: _buildPlaceholder()),
+            if (look != null && _topGap != null) ..._buildPartnerSuggestion(_topGap!),
             SliverToBoxAdapter(child: SizedBox(height: MediaQuery.sizeOf(context).height * 0.5)),
           ],
         ),

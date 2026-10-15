@@ -1,0 +1,14 @@
+# O que não sobe para o Cloud Build: segredos locais, ambiente virtual e testes
+.gcloudignore
+.git
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+scripts/
+init_db/
+docker-compose.yml

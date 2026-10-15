@@ -1,0 +1,14 @@
+# O que não entra no contexto do docker build: segredos locais, ambiente virtual e testes
+.dockerignore
+.git
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+scripts/
+init_db/
+docker-compose.yml

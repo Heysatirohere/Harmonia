@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
-import '../../models/user_profile.dart';
+import '../../theme/app_theme.dart';
+import '../../domain/models/style_profile.dart';
 
 class FreemiumQuotaCard extends StatelessWidget {
-  final UserProfile profile;
+  final StyleProfile profile;
   final VoidCallback? onUpgradeTap;
 
   const FreemiumQuotaCard({
@@ -17,14 +17,14 @@ class FreemiumQuotaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasHitLimit = profile.isPiecesQuotaReached || profile.isDailyLooksQuotaReached;
+    final hasHitLimit = profile.isItemsQuotaReached || profile.isDailyLooksQuotaReached;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSubtle, width: 0.8),
+        color: AppColors.paperBone,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+        boxShadow: AppColors.paperShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,8 +34,8 @@ class FreemiumQuotaCard extends StatelessWidget {
             children: [
               Text(
                 'SAÚDE DA ASSINATURA (RN02)',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.textMuted,
+                style: GoogleFonts.interTight(
+                  color: AppColors.inkSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
@@ -45,18 +45,18 @@ class FreemiumQuotaCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: profile.isPremium
-                      ? AppColors.surfaceRaised
-                      : AppColors.surfaceSubtle,
+                      ? AppColors.paperBoneRaised
+                      : AppColors.paperBone,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: profile.isPremium ? AppColors.borderGold : AppColors.borderSubtle,
+                    color: profile.isPremium ? AppColors.hairlineInk : AppColors.hairlineInk,
                     width: 0.8,
                   ),
                 ),
                 child: Text(
                   profile.isPremium ? '✦ PLANO PREMIUM' : 'PLANO FREEMIUM',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: profile.isPremium ? AppColors.iheGold : AppColors.textSecondary,
+                  style: GoogleFonts.interTight(
+                    color: profile.isPremium ? AppColors.gildedInk : AppColors.inkSecondary,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
@@ -70,19 +70,19 @@ class FreemiumQuotaCard extends StatelessWidget {
           // Piece quota metric
           _buildThinRulerMetric(
             label: 'Acervo Cadastrado',
-            current: profile.registeredPiecesCount,
-            max: profile.maxPiecesQuota,
+            current: profile.itemsCount,
+            max: profile.maxItems,
             unit: 'peças',
-            ratio: profile.piecesRatio,
-            isWarning: profile.isPiecesQuotaReached,
+            ratio: profile.itemsRatio,
+            isWarning: profile.isItemsQuotaReached,
           ),
           const SizedBox(height: 14),
 
           // Daily looks metric
           _buildThinRulerMetric(
             label: 'Combinações Diárias por IA',
-            current: profile.dailyLooksGeneratedCount,
-            max: profile.maxDailyLooksQuota,
+            current: profile.looksToday,
+            max: profile.maxDailyLooks,
             unit: 'looks hoje',
             ratio: profile.dailyLooksRatio,
             isWarning: profile.isDailyLooksQuotaReached,
@@ -93,10 +93,10 @@ class FreemiumQuotaCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.accentTerracotta.withValues(alpha: 0.08),
+                color: AppColors.accentCinnabar.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.accentTerracotta.withValues(alpha: 0.3),
+                  color: AppColors.accentCinnabar.withValues(alpha: 0.3),
                   width: 0.8,
                 ),
               ),
@@ -104,7 +104,7 @@ class FreemiumQuotaCard extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.lock_clock_outlined,
-                    color: AppColors.accentTerracotta,
+                    color: AppColors.accentCinnabar,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -114,8 +114,8 @@ class FreemiumQuotaCard extends StatelessWidget {
                       children: [
                         Text(
                           'Limite da Cota Gratuita Atingido',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppColors.accentTerracotta,
+                          style: GoogleFonts.interTight(
+                            color: AppColors.accentCinnabar,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
@@ -123,8 +123,8 @@ class FreemiumQuotaCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           'Desbloqueie peças e gerações ilimitadas com a assinatura HarmonIA Ateliê.',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppColors.textSecondary,
+                          style: GoogleFonts.interTight(
+                            color: AppColors.inkSecondary,
                             fontSize: 11,
                           ),
                         ),
@@ -140,13 +140,13 @@ class FreemiumQuotaCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.accentTerracotta,
+                        color: AppColors.accentCinnabar,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'Upgrade',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: Colors.white,
+                        style: GoogleFonts.interTight(
+                          color: AppColors.ivoryText,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -178,16 +178,16 @@ class FreemiumQuotaCard extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppColors.textPrimary,
+              style: GoogleFonts.interTight(
+                color: AppColors.inkText,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
               ),
             ),
             Text(
               '$current / $max $unit',
-              style: GoogleFonts.plusJakartaSans(
-                color: isWarning ? AppColors.accentTerracotta : AppColors.textSecondary,
+              style: GoogleFonts.interTight(
+                color: isWarning ? AppColors.accentCinnabar : AppColors.inkSecondary,
                 fontSize: 12,
                 fontWeight: isWarning ? FontWeight.w700 : FontWeight.w600,
               ),
@@ -201,7 +201,7 @@ class FreemiumQuotaCard extends StatelessWidget {
           height: 2.5,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppColors.surfaceSubtle,
+            color: AppColors.hairlineInk,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Stack(
@@ -211,8 +211,8 @@ class FreemiumQuotaCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isWarning
-                        ? AppColors.accentTerracotta
-                        : AppColors.iheGold,
+                        ? AppColors.accentCinnabar
+                        : AppColors.gildedInk,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

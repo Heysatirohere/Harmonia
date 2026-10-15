@@ -8,7 +8,7 @@ import '../../theme/app_theme.dart';
 /// Medidor Visual do IHE (Índice de Harmonia Estética)
 /// Conforme AGENTS.md Seção 6.2:
 /// - Medidor minimalista circular vetorial via CustomPainter com gradiente metálico joalheiro
-/// - Pontuação central em Playfair Display
+/// - Pontuação central em Bodoni Moda
 /// - Selo "✦ LOOK FORTEMENTE RECOMENDADO" para pontuações >= 75% em caixa alta (+0.8 kerning)
 /// - Decomposição visual dos 4 pilares (S_cor, S_bio, S_ocasion, S_cos) em microchips refinados
 class IheScoreGauge extends StatelessWidget {
@@ -43,15 +43,15 @@ class IheScoreGauge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised.withValues(alpha: 0.9),
+        color: AppColors.paperBoneRaised.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
         border: Border.all(
           color: ihe.isStronglyRecommended
-              ? AppColors.iheGold.withValues(alpha: 0.4)
-              : AppColors.borderSubtle,
+              ? AppColors.gildedInk.withValues(alpha: 0.4)
+              : AppColors.hairlineInk,
           width: 0.8,
         ),
-        boxShadow: AppColors.editorialShadow,
+        boxShadow: AppColors.paperShadow,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -74,7 +74,7 @@ class IheScoreGauge extends StatelessWidget {
                       child: Text(
                         '${ihe.overallScore}%',
                         style: AppTypography.displayEditorial(
-                          color: AppColors.iheGold,
+                          color: AppColors.gildedInk,
                         ).copyWith(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -97,14 +97,14 @@ class IheScoreGauge extends StatelessWidget {
                           Text(
                             'ÍNDICE DE HARMONIA ESTÉTICA',
                             style: AppTypography.metadataBadge(
-                              color: AppColors.textSecondary,
+                              color: AppColors.inkSecondary,
                             ).copyWith(fontSize: 9.5, letterSpacing: 1.0),
                           ),
                           const Spacer(),
                           const Icon(
                             Icons.info_outline_rounded,
                             size: 14,
-                            color: AppColors.textMuted,
+                            color: AppColors.inkSecondary,
                           ),
                         ],
                       ),
@@ -113,17 +113,17 @@ class IheScoreGauge extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppColors.iheGoldLight.withValues(alpha: 0.8),
+                            color: AppColors.gildedWash.withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: AppColors.borderGold,
+                              color: AppColors.hairlineInk,
                               width: 0.6,
                             ),
                           ),
                           child: Text(
                             '✦ LOOK FORTEMENTE RECOMENDADO',
                             style: AppTypography.metadataBadge(
-                              color: AppColors.iheGold,
+                              color: AppColors.gildedInk,
                             ).copyWith(fontSize: 9.0, fontWeight: FontWeight.w700, letterSpacing: 0.8),
                           ),
                         )
@@ -131,7 +131,7 @@ class IheScoreGauge extends StatelessWidget {
                         Text(
                           'Equilíbrio & Ressonância Tonal',
                           style: AppTypography.subtitleCuratorial(
-                            color: AppColors.textPrimary,
+                            color: AppColors.inkText,
                           ).copyWith(fontSize: 14),
                         ),
                     ],
@@ -142,7 +142,7 @@ class IheScoreGauge extends StatelessWidget {
           ),
 
           const SizedBox(height: 14),
-          const Divider(color: AppColors.borderSubtle, height: 1),
+          const Divider(color: AppColors.hairlineInk, height: 1),
           const SizedBox(height: 12),
 
           // Área Inferior: Microchips Horizontais dos 4 Pilares
@@ -160,7 +160,7 @@ class IheScoreGauge extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: ihe.dominantColor,
-                      border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                      border: Border.all(color: AppColors.hairlineInk, width: 0.5),
                     ),
                   ),
                 ),
@@ -207,7 +207,7 @@ class _IheArcPainter extends CustomPainter {
 
     // 1. Trilha de Fundo Capilar
     final trackPaint = Paint()
-      ..color = AppColors.borderSubtle
+      ..color = AppColors.hairlineInk
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -223,7 +223,7 @@ class _IheArcPainter extends CustomPainter {
       endAngle: startAngle + (2 * math.pi),
       colors: const [
         Color(0xFFE4C586), // Champanhe Suave
-        AppColors.iheGold, // Ouro IHE
+        AppColors.gildedInk, // Ouro IHE
         Color(0xFF8B6420), // Ouro Queimado
         Color(0xFFE4C586),
       ],
@@ -267,10 +267,10 @@ class _PillarMicroChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.borderSubtle,
+          color: AppColors.hairlineInk,
           width: 0.6,
         ),
       ),
@@ -284,14 +284,14 @@ class _PillarMicroChip extends StatelessWidget {
             Icon(
               icon,
               size: 11,
-              color: AppColors.textSecondary,
+              color: AppColors.inkSecondary,
             ),
             const SizedBox(width: 4),
           ],
           Text(
             label,
             style: AppTypography.metadataBadge(
-              color: AppColors.textPrimary,
+              color: AppColors.inkText,
             ).copyWith(fontSize: 9.5, fontWeight: FontWeight.w600),
           ),
         ],
@@ -310,10 +310,10 @@ class _IhePillarsDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 0.8),
+          top: BorderSide(color: AppColors.hairlineInk, width: 0.8),
         ),
         boxShadow: [
           BoxShadow(
@@ -333,7 +333,7 @@ class _IhePillarsDetailSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.accentSand,
+                color: AppColors.hairlineInk,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -345,13 +345,13 @@ class _IhePillarsDetailSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
+                  color: AppColors.paperBoneRaised,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.borderGold, width: 1.0),
+                  border: Border.all(color: AppColors.hairlineInk, width: 1.0),
                 ),
                 child: Text(
                   '${ihe.overallScore}',
-                  style: AppTypography.displayEditorial(color: AppColors.iheGold)
+                  style: AppTypography.displayEditorial(color: AppColors.gildedInk)
                       .copyWith(fontSize: 26, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -368,7 +368,7 @@ class _IhePillarsDetailSheet extends StatelessWidget {
                     if (ihe.isStronglyRecommended)
                       Text(
                         '✦ Look Fortemente Recomendado',
-                        style: AppTypography.metadataBadge(color: AppColors.iheGold),
+                        style: AppTypography.metadataBadge(color: AppColors.gildedInk),
                       )
                     else
                       Text(
@@ -382,7 +382,7 @@ class _IhePillarsDetailSheet extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          const Divider(color: AppColors.borderSubtle, height: 1),
+          const Divider(color: AppColors.hairlineInk, height: 1),
           const SizedBox(height: 16),
 
           Text(
@@ -446,9 +446,9 @@ class _PillarRow extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: AppColors.surfaceRaised,
+              color: AppColors.paperBoneRaised,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.borderSubtle, width: 0.6),
+              border: Border.all(color: AppColors.hairlineInk, width: 0.6),
             ),
             child: Center(
               child: colorSwatch != null
@@ -463,7 +463,7 @@ class _PillarRow extends StatelessWidget {
                   : Icon(
                       icon ?? Icons.circle_outlined,
                       size: 14,
-                      color: AppColors.textPrimary,
+                      color: AppColors.inkText,
                     ),
             ),
           ),
@@ -481,7 +481,7 @@ class _PillarRow extends StatelessWidget {
                     ),
                     Text(
                       '$percentage%',
-                      style: AppTypography.uiHeadline(color: AppColors.iheGold)
+                      style: AppTypography.uiHeadline(color: AppColors.gildedInk)
                           .copyWith(fontSize: 13, fontWeight: FontWeight.w700),
                     ),
                   ],

@@ -10,10 +10,13 @@ class AppMotion {
 
   static const Cubic editorialDecel = Cubic(0.16, 1.0, 0.3, 1.0); // Ease-Out-Expo
   static const Cubic editorialIn = Cubic(0.7, 0.0, 0.84, 0.0);
+  /// Gesto Teatral: uma ultrapassagem curta, só em escala e translação
+  static const Cubic theatricalGesture = Cubic(0.34, 1.56, 0.64, 1.0);
 
   static const Duration fast = Duration(milliseconds: 200); // Toggles, chips, microinterações
   static const Duration medium = Duration(milliseconds: 450); // Bottom sheets, cards
   static const Duration slow = Duration(milliseconds: 700); // Transições de silhueta e look completo
+  static const Duration roomDissolve = Duration(milliseconds: 900); // Troca de Sala fora do scroll
 }
 
 /// Espaçamentos & Dimensões Curatórias conforme AGENTS.md
@@ -23,6 +26,7 @@ class AppSpacing {
   static const double pageMargin = 24.0;
   static const double elementGap = 16.0;
   static const double tightGap = 8.0;
+  static const double sectionGap = 56.0; // Respiro entre Salas numa mesma rolagem
 
   static const double radiusLarge = 20.0;
   static const double radiusMedium = 14.0;
@@ -38,11 +42,11 @@ class AppTheme {
 
   static ThemeData get lightTheme {
     return ThemeData(
-      scaffoldBackgroundColor: AppColors.surfaceCanvas,
+      scaffoldBackgroundColor: AppColors.tapestryNoir,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.accentTerracotta,
-        primary: AppColors.accentTerracotta,
-        surface: AppColors.surfaceCanvas,
+        seedColor: AppColors.accentCinnabar,
+        primary: AppColors.accentCinnabar,
+        surface: AppColors.paperBone,
       ),
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,

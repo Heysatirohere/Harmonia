@@ -48,14 +48,49 @@ class Settings(BaseSettings):
         description="URL de conexão assíncrona com PostgreSQL via asyncpg"
     )
 
-    # Segurança e Autenticação JWT
-    SECRET_KEY: str = "harmonia_super_secret_key_change_in_production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Validação dos access tokens do Supabase Auth (RNF02)
+    SUPABASE_JWT_SECRET: Optional[str] = Field(
+        default=None,
+        description="JWT Secret legado (HS256). Sem ele, os tokens são validados pelo JWKS do projeto"
+    )
+    SUPABASE_JWT_AUDIENCE: str = Field(
+        default="authenticated",
+        description="Claim `aud` esperado nos access tokens de usuários logados"
+    )
+
+    # Pipeline de visão: recorte de fundo (RF04) e extração cromática (RF05)
+    SEGMENTATION_MODEL: str = Field(
+        default="isnet-general-use",
+        description="Modelo do rembg usado na remoção de fundo"
+    )
+    # Vetor de estilo da peça (S_cos): CLIP ViT-B/32 em ONNX, revisão fixa
+    STYLE_MODEL_URL: str = Field(
+        default=(
+            "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/"
+            "d15189d7028b43f1d3e65039190477f6af591c2a/onnx/vision_model.onnx"
+        ),
+        description="Codificador visual do CLIP usado no vetor de estilo das peças"
+    )
+    STYLE_MODEL_SHA256: str = Field(
+        default="fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40",
+        description="SHA-256 esperado do modelo de estilo"
+    )
+    STYLE_MODEL_PATH: str = Field(
+        default="~/.cache/harmonia/clip-vit-b32-vision.onnx",
+        description="Onde o modelo de estilo fica salvo depois de baixado"
+    )
+    MAX_UPLOAD_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        description="Tamanho máximo da foto enviada para segmentação"
+    )
 
     # Limites das Cotas Freemium (RN02)
     FREEMIUM_MAX_CLOTHING_ITEMS: int = 30
     FREEMIUM_MAX_DAILY_LOOKS: int = 5
+    QUOTA_TIMEZONE: str = Field(
+        default="America/Sao_Paulo",
+        description="Fuso em que a cota diária de looks vira o dia"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -4,11 +4,11 @@ Conforme Requisitos de Arquitetura e Persistência do HarmonIA.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Integer, Float, Boolean, Date, DateTime, ForeignKey, PrimaryKeyConstraint, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
@@ -54,9 +54,30 @@ class User(Base):
         default=False,
         nullable=False
     )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+    # Nome exibido no feed (RF14), espelhado do user_metadata.full_name do Supabase Auth
+    display_name: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
     looks_generated_today: Mapped[int] = mapped_column(
         Integer,
         default=0,
+        nullable=False
+    )
+    # Dia (fuso da cota) a que o contador se refere; em outro dia ele vale zero (RN02)
+    looks_counter_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    # Assinaturas das consultas já cobradas hoje: repetir a mesma consulta não gasta cota
+    looks_signatures_today: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
         nullable=False
     )
     items_count: Mapped[int] = mapped_column(
@@ -149,4 +170,151 @@ class ClothingItem(Base):
     user: Mapped["User"] = relationship(
         "User",
         back_populates="clothing_items"
+    )
+
+
+class LookFeedback(Base):
+    """
+    Retorno do usuário sobre um look sugerido (RF13).
+    Aprovações registram o uso do look no dia; descartes tiram a combinação das próximas sugestões.
+    """
+    __tablename__ = "look_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True  # Isolamento Multi-Tenant (RN01)
+    )
+    # IDs das peças do look (texto), na ordem em que foi sugerido
+    item_ids: Mapped[List[str]] = mapped_column(
+        JSONB,
+        nullable=False
+    )
+    action: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False
+    )
+    occasion: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+    ihe_percentage: Mapped[float] = mapped_column(
+        Float,
+        nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+
+
+class CommunityPost(Base):
+    """
+    Publicação no feed comunitário (RF14): foto do look vestido, legenda e tags.
+    Quando vem de um look aprovado (RF13), guarda as peças e o IHE daquele registro.
+    Só aparece para outras pessoas se ela e o perfil do autor forem públicos (RN05).
+    """
+    __tablename__ = "community_posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    image_url: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False
+    )
+    caption: Mapped[str] = mapped_column(
+        Text,
+        nullable=False
+    )
+    occasion: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+    style_tags: Mapped[List[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list
+    )
+    # Peças e IHE do look aprovado que originou o post; vazios para uma foto avulsa
+    item_ids: Mapped[List[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list
+    )
+    ihe_percentage: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True
+    )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True
+    )
+
+
+class PostReaction(Base):
+    """Curtida de um usuário num post (RF14); uma por pessoa e post."""
+    __tablename__ = "post_reactions"
+    __table_args__ = (PrimaryKeyConstraint("post_id", "user_id"),)
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("community_posts.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+
+
+class SavedPost(Base):
+    """Post de outra pessoa salvo no moodboard privado do usuário (Seção 3.5.2)."""
+    __tablename__ = "saved_posts"
+    __table_args__ = (PrimaryKeyConstraint("post_id", "user_id"),)
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("community_posts.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
     )

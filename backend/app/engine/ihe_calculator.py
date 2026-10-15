@@ -15,7 +15,7 @@ from typing import List, Optional, Dict
 import numpy as np
 from pydantic import BaseModel, Field, field_validator
 
-from .color_science import LabColor, calculate_garment_s_cor
+from .color_science import LabColor, calculate_garment_s_cor, calculate_look_s_cor
 from .morphology import calculate_s_bio
 from .context_rules import calculate_s_ocasion
 
@@ -34,7 +34,8 @@ def calculate_s_cos(u: List[float], v: List[float]) -> float:
 
     S_cos = (u · v) / (||u|| · ||v||)
 
-    Trata adequadamente vetores com norma nula e ajusta o intervalo final para [0.0, 1.0].
+    O cosseno vai de [-1, 1] para [0, 1] por (cos + 1) / 2, que preserva a ordem: oposto ao
+    gosto do usuário vale 0, ortogonal (ou sem histórico, norma nula) vale 0,5 e alinhado vale 1.
     """
     if len(u) != len(v):
         raise ValueError(f"Dimensões incompatíveis para cálculo de cosseno: len(u)={len(u)} != len(v)={len(v)}.")
@@ -50,12 +51,7 @@ def calculate_s_cos(u: List[float], v: List[float]) -> float:
         return 0.5  # Retorna baseline neutro
 
     raw_cos = float(np.dot(arr_u, arr_v) / (norm_u * norm_v))
-
-    # Mapeia intervalo [-1.0, 1.0] do cosseno bruto para [0.0, 1.0] caso haja valores negativos
-    if raw_cos < 0.0:
-        normalized_cos = (raw_cos + 1.0) / 2.0
-    else:
-        normalized_cos = raw_cos
+    normalized_cos = (raw_cos + 1.0) / 2.0
 
     return max(0.0, min(1.0, normalized_cos))
 
@@ -63,6 +59,10 @@ def calculate_s_cos(u: List[float], v: List[float]) -> float:
 class IHERequest(BaseModel):
     """Modelo de Entrada para o Cálculo do IHE."""
     garment_color: LabColor = Field(..., description="Cor representativa no espaço CIE L*a*b*")
+    garment_colors: List[LabColor] = Field(
+        default_factory=list,
+        description="Cor de cada peça do look; quando presente, o S_cor é a média do S_cor das peças",
+    )
     user_palette: str = Field(..., description="Nome da cartela sazonal do usuário (ex: OUTONO_QUENTE)")
     user_biotype: str = Field(..., description="Biótipo corporal (ex: AMPULHETA)")
     garment_cuts: List[str] = Field(default_factory=list, description="Lista de modelagens/cortes do look")
@@ -107,10 +107,13 @@ def calculate_ihe(request: IHERequest) -> IHEResponse:
     Executa em tempo real em alta performance (< 10ms).
     """
     # 1. Variável S_cor (Harmonia Cromática CIE L*a*b*)
-    s_cor = calculate_garment_s_cor(
-        garment_color=request.garment_color,
-        palette_name=request.user_palette,
-    )
+    if request.garment_colors:
+        s_cor = calculate_look_s_cor(request.garment_colors, request.user_palette)
+    else:
+        s_cor = calculate_garment_s_cor(
+            garment_color=request.garment_color,
+            palette_name=request.user_palette,
+        )
 
     # 2. Variável S_bio (Compensação Morfológica)
     s_bio = calculate_s_bio(

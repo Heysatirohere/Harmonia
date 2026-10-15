@@ -1,34 +1,71 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+
+import '../core/color/lab_color.dart';
 import 'clothing_item.dart';
 
-/// Distribuição Cromática Dominante do Guarda-Roupa (CIE L*a*b*)
+/// Família cromática do acervo com a cor média das peças dela (CIE L*a*b*)
 class DominantColorShare {
   final String colorName;
   final Color color;
   final double percentage; // 0.0 a 100.0
+  final int count;
   final String labCoordinates;
 
   const DominantColorShare({
     required this.colorName,
     required this.color,
     required this.percentage,
+    required this.count,
     required this.labCoordinates,
   });
+
+  factory DominantColorShare.fromJson(Map<String, dynamic> json) {
+    final l = (json['L'] as num).toDouble();
+    final a = (json['a'] as num).toDouble();
+    final b = (json['b'] as num).toDouble();
+    return DominantColorShare(
+      colorName: json['family'] as String,
+      color: labToColor(l, a, b),
+      percentage: (json['percentage'] as num).toDouble(),
+      count: json['count'] as int,
+      labCoordinates: formatLab(l, a, b),
+    );
+  }
 }
 
-/// Modelo de Inteligência Patrimonial e Rotação de Acervo (Seção 3.2.2 do HarmonIA)
+/// Peça sem uso há 90 dias ou mais, com o uso registrado pelas aprovações de looks
+class DormantGarment {
+  final ClothingItem item;
+  final int daysIdle;
+  final int wearCount;
+
+  const DormantGarment({required this.item, required this.daysIdle, required this.wearCount});
+
+  factory DormantGarment.fromJson(Map<String, dynamic> json) {
+    return DormantGarment(
+      item: ClothingItem.fromJson(json['item'] as Map<String, dynamic>),
+      daysIdle: json['days_idle'] as int,
+      wearCount: json['wear_count'] as int,
+    );
+  }
+
+  /// Ex.: "Nunca usada · 120 dias no acervo" ou "Último uso há 95 dias"
+  String get idleLabel =>
+      wearCount == 0 ? 'Nunca usada · $daysIdle dias no acervo' : 'Último uso há $daysIdle dias';
+}
+
+/// Saúde do acervo calculada pela API (Seção 3.2.2): rotação em janelas de 30, 60 e 90 dias
+/// a partir dos looks aprovados, e proporção cromática a partir das cores L*a*b* das peças.
 class WardrobeAnalytics {
   final int totalPieces;
-  final int activePiecesCount; // Usadas nos últimos 30 dias
-  final int idle30DaysCount; // Ociosas de 30 a 60 dias
-  final int idle60DaysCount; // Ociosas de 60 a 90 dias
-  final int idle90DaysCount; // Sem uso há mais de 90 dias (dormindo no armário)
-  final double averageCostPerWear; // Custo médio por uso em R$
-  final double estimatedIdleCapital; // Capital estimado ocioso em R$
-  final double esgConsciousPercentage; // Porcentagem de peças sustentáveis/circulares
+  final int activePiecesCount; // Usadas (ou cadastradas) há menos de 30 dias
+  final int idle30DaysCount; // Sem uso de 30 a 60 dias
+  final int idle60DaysCount; // Sem uso de 60 a 90 dias
+  final int idle90DaysCount; // Sem uso há 90 dias ou mais (dormindo no armário)
+  final int neverWornCount;
+  final int totalWears;
   final List<DominantColorShare> colorDistribution;
-  final List<ClothingItem> dormantItems; // Peças recomendadas para reativação
+  final List<DormantGarment> dormantItems;
 
   const WardrobeAnalytics({
     required this.totalPieces,
@@ -36,99 +73,31 @@ class WardrobeAnalytics {
     required this.idle30DaysCount,
     required this.idle60DaysCount,
     required this.idle90DaysCount,
-    required this.averageCostPerWear,
-    required this.estimatedIdleCapital,
-    required this.esgConsciousPercentage,
+    required this.neverWornCount,
+    required this.totalWears,
     required this.colorDistribution,
     required this.dormantItems,
   });
 
+  factory WardrobeAnalytics.fromJson(Map<String, dynamic> json) {
+    return WardrobeAnalytics(
+      totalPieces: json['total_pieces'] as int,
+      activePiecesCount: json['active_count'] as int,
+      idle30DaysCount: json['idle_30_count'] as int,
+      idle60DaysCount: json['idle_60_count'] as int,
+      idle90DaysCount: json['dormant_count'] as int,
+      neverWornCount: json['never_worn_count'] as int,
+      totalWears: json['total_wears'] as int,
+      colorDistribution: (json['color_distribution'] as List<dynamic>)
+          .map((c) => DominantColorShare.fromJson(c as Map<String, dynamic>))
+          .toList(),
+      dormantItems: (json['dormant_items'] as List<dynamic>)
+          .map((d) => DormantGarment.fromJson(d as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
   /// Taxa percentual de peças ativas
   double get activePercentage =>
       totalPieces > 0 ? (activePiecesCount / totalPieces) * 100.0 : 0.0;
-
-  /// Taxa percentual de peças em risco de ociosidade (>30 dias)
-  double get idlePercentage =>
-      totalPieces > 0 ? ((totalPieces - activePiecesCount) / totalPieces) * 100.0 : 0.0;
-
-  /// Gera métricas analíticas calculadas a partir de uma lista de peças
-  factory WardrobeAnalytics.fromItems(List<ClothingItem> items) {
-    if (items.isEmpty) {
-      return const WardrobeAnalytics(
-        totalPieces: 0,
-        activePiecesCount: 0,
-        idle30DaysCount: 0,
-        idle60DaysCount: 0,
-        idle90DaysCount: 0,
-        averageCostPerWear: 0.0,
-        estimatedIdleCapital: 0.0,
-        esgConsciousPercentage: 0.0,
-        colorDistribution: [],
-        dormantItems: [],
-      );
-    }
-
-    final total = items.length;
-    final esgCount = items.where((i) => i.isConsciousFashion).length;
-
-    final sortedByUsage = List<ClothingItem>.from(items)
-      ..sort((a, b) => a.usageRate.compareTo(b.usageRate));
-
-    final active = items.where((i) => i.usageRate >= 20).length;
-    final idle30 = items.where((i) => i.usageRate >= 12 && i.usageRate < 20).length;
-    final idle60 = items.where((i) => i.usageRate >= 5 && i.usageRate < 12).length;
-    final idle90 = items.where((i) => i.usageRate < 5).length;
-
-    // Peças menos utilizadas sugeridas para reativação patrimonial
-    final dormant = sortedByUsage.where((i) => i.usageRate <= 15).take(4).toList();
-    final effectiveDormant = dormant.isNotEmpty ? dormant : sortedByUsage.take(3).toList();
-
-    // Estimativa de custo por uso e capital ocioso
-    const avgPieceValue = 189.0;
-    final idlePiecesCount = idle60 + idle90;
-    final estimatedCapital = idlePiecesCount * avgPieceValue;
-    final totalUses = items.fold<int>(0, (sum, i) => sum + (i.usageRate > 0 ? i.usageRate : 1));
-    final costPerWear = (total * avgPieceValue) / (totalUses > 0 ? totalUses : 1);
-
-    // Distribuição de cores do acervo
-    final colors = [
-      const DominantColorShare(
-        colorName: 'Terracota Ateliê',
-        color: AppColors.accentTerracotta,
-        percentage: 34.0,
-        labCoordinates: 'L* 58.4, a* 28.2, b* 24.1',
-      ),
-      const DominantColorShare(
-        colorName: 'Areia Suave & Linho',
-        color: AppColors.accentSand,
-        percentage: 26.0,
-        labCoordinates: 'L* 82.1, a* 4.3, b* 11.8',
-      ),
-      const DominantColorShare(
-        colorName: 'Verde Oliva Botânico',
-        color: AppColors.accentOlive,
-        percentage: 22.0,
-        labCoordinates: 'L* 44.2, a* -6.1, b* 18.5',
-      ),
-      const DominantColorShare(
-        colorName: 'Carvão Editorial',
-        color: AppColors.textPrimary,
-        percentage: 18.0,
-        labCoordinates: 'L* 21.0, a* 0.5, b* 1.2',
-      ),
-    ];
-
-    return WardrobeAnalytics(
-      totalPieces: total,
-      activePiecesCount: active,
-      idle30DaysCount: idle30,
-      idle60DaysCount: idle60,
-      idle90DaysCount: idle90,
-      averageCostPerWear: double.parse(costPerWear.toStringAsFixed(2)),
-      estimatedIdleCapital: estimatedCapital,
-      esgConsciousPercentage: (esgCount / total) * 100.0,
-      colorDistribution: colors,
-      dormantItems: effectiveDormant,
-    );
-  }
 }

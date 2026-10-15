@@ -47,6 +47,12 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>A câmera fotografa peças do seu acervo e peças da loja para comparar com ele.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>A galeria permite escolher fotos de peças para o acervo e para o provador.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>A localização aproximada traz o clima do dia para ajustar as sugestões de look.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

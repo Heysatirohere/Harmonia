@@ -27,13 +27,13 @@ class ColorPalettePreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: AppColors.paperBoneRaised,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
         border: Border.all(
-          color: AppColors.borderGold,
+          color: AppColors.hairlineInk,
           width: 0.8,
         ),
-        boxShadow: AppColors.editorialShadow,
+        boxShadow: AppColors.paperShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,10 +44,10 @@ class ColorPalettePreview extends StatelessWidget {
               height: 160,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppColors.surfaceCanvas,
+                color: AppColors.paperBone,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
                 border: Border.all(
-                  color: AppColors.borderSubtle,
+                  color: AppColors.hairlineInk,
                   width: 0.6,
                 ),
               ),
@@ -68,12 +68,12 @@ class ColorPalettePreview extends StatelessWidget {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.surfaceRaised,
-                          border: Border.all(color: AppColors.iheGold, width: 0.8),
+                          color: AppColors.paperBoneRaised,
+                          border: Border.all(color: AppColors.gildedInk, width: 0.8),
                         ),
                         child: const Icon(
                           Icons.face_retouching_natural_outlined,
-                          color: AppColors.iheGold,
+                          color: AppColors.gildedInk,
                           size: 28,
                         ),
                       ),
@@ -81,7 +81,7 @@ class ColorPalettePreview extends StatelessWidget {
                       Text(
                         'ANÁLISE FACIAL & SUBTOM',
                         style: AppTypography.metadataBadge(
-                          color: AppColors.iheGold,
+                          color: AppColors.gildedInk,
                         ).copyWith(fontSize: 9.0, letterSpacing: 1.2),
                       ),
                     ],
@@ -102,7 +102,7 @@ class ColorPalettePreview extends StatelessWidget {
                   Text(
                     'CARTELA SAZONAL EXPANDIDA',
                     style: AppTypography.metadataBadge(
-                      color: AppColors.accentTerracotta,
+                      color: AppColors.accentCinnabar,
                     ).copyWith(fontSize: 9.5, letterSpacing: 1.2),
                   ),
                   const SizedBox(height: 2),
@@ -118,13 +118,13 @@ class ColorPalettePreview extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppColors.iheGoldLight,
+                  color: AppColors.gildedWash,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.borderGold, width: 0.6),
+                  border: Border.all(color: AppColors.hairlineInk, width: 0.6),
                 ),
                 child: Text(
                   paletteType.temperature,
-                  style: AppTypography.metadataBadge(color: AppColors.iheGold)
+                  style: AppTypography.metadataBadge(color: AppColors.gildedInk)
                       .copyWith(fontSize: 9.0, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -132,13 +132,13 @@ class ColorPalettePreview extends StatelessWidget {
           ),
 
           const SizedBox(height: 16),
-          const Divider(color: AppColors.borderSubtle, height: 1),
+          const Divider(color: AppColors.hairlineInk, height: 1),
           const SizedBox(height: 14),
 
           // Swatches Tonais Circulares da Paleta
           Text(
             'PALETA HARMONIZADA DE REFERÊNCIA',
-            style: AppTypography.metadataBadge(color: AppColors.textSecondary)
+            style: AppTypography.metadataBadge(color: AppColors.inkSecondary)
                 .copyWith(fontSize: 9.0),
           ),
           const SizedBox(height: 10),
@@ -155,7 +155,7 @@ class ColorPalettePreview extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: color,
                     border: Border.all(
-                      color: AppColors.surfaceCanvas,
+                      color: AppColors.paperBone,
                       width: 2.0,
                     ),
                     boxShadow: const [
@@ -176,7 +176,7 @@ class ColorPalettePreview extends StatelessWidget {
           if (onPaletteSelected != null) ...[
             Text(
               'ALTERNAR CARTELA SAZONAL',
-              style: AppTypography.metadataBadge(color: AppColors.textSecondary)
+              style: AppTypography.metadataBadge(color: AppColors.inkSecondary)
                   .copyWith(fontSize: 9.0),
             ),
             const SizedBox(height: 8),
@@ -197,13 +197,13 @@ class ColorPalettePreview extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: p == paletteType
-                                ? AppColors.textPrimary
-                                : AppColors.surfaceCanvas,
+                                ? AppColors.inkText
+                                : AppColors.paperBone,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: p == paletteType
-                                  ? AppColors.textPrimary
-                                  : AppColors.borderSubtle,
+                                  ? AppColors.inkText
+                                  : AppColors.hairlineInk,
                               width: 0.6,
                             ),
                           ),
@@ -211,8 +211,8 @@ class ColorPalettePreview extends StatelessWidget {
                             p.displayName,
                             style: AppTypography.metadataBadge(
                               color: p == paletteType
-                                  ? AppColors.surfaceCanvas
-                                  : AppColors.textPrimary,
+                                  ? AppColors.paperBone
+                                  : AppColors.inkText,
                             ).copyWith(fontSize: 9.5),
                           ),
                         ),
@@ -233,7 +233,7 @@ class _CameraHudPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.iheGold
+      ..color = AppColors.gildedInk
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 

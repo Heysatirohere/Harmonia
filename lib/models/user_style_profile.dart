@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 /// Mapeamento dos 5 Biótipos Corporais Principais (RF02)
 enum BodySilhouetteType {
@@ -11,6 +10,29 @@ enum BodySilhouetteType {
 }
 
 extension BodySilhouetteExtension on BodySilhouetteType {
+  /// Chave do biótipo no motor do IHE (backend/app/engine/morphology.py)
+  String get apiKey {
+    switch (this) {
+      case BodySilhouetteType.ampulheta:
+        return 'AMPULHETA';
+      case BodySilhouetteType.retangulo:
+        return 'RETANGULO';
+      case BodySilhouetteType.triangulo:
+        return 'TRIANGULO';
+      case BodySilhouetteType.trianguloInvertido:
+        return 'TRIANGULO_INVERTIDO';
+      case BodySilhouetteType.oval:
+        return 'OVAL';
+    }
+  }
+
+  static BodySilhouetteType? fromApiKey(String? key) {
+    for (final type in BodySilhouetteType.values) {
+      if (type.apiKey == key) return type;
+    }
+    return null;
+  }
+
   String get displayName {
     switch (this) {
       case BodySilhouetteType.ampulheta:
@@ -74,6 +96,44 @@ enum SeasonalPaletteType {
 }
 
 extension SeasonalPaletteExtension on SeasonalPaletteType {
+  /// Chave da cartela no motor do IHE (backend/app/engine/color_science.py).
+  /// "Vivo" e "Vibrante" correspondem às cartelas "Brilhante" do motor.
+  String get apiKey {
+    switch (this) {
+      case SeasonalPaletteType.outonoQuente:
+        return 'OUTONO_QUENTE';
+      case SeasonalPaletteType.outonoSuave:
+        return 'OUTONO_SUAVE';
+      case SeasonalPaletteType.outonoEscuro:
+        return 'OUTONO_ESCURO';
+      case SeasonalPaletteType.invernoFrio:
+        return 'INVERNO_FRIO';
+      case SeasonalPaletteType.invernoVivo:
+        return 'INVERNO_BRILHANTE';
+      case SeasonalPaletteType.invernoEscuro:
+        return 'INVERNO_ESCURO';
+      case SeasonalPaletteType.primaveraClara:
+        return 'PRIMAVERA_CLARA';
+      case SeasonalPaletteType.primaveraQuente:
+        return 'PRIMAVERA_QUENTE';
+      case SeasonalPaletteType.primaveraVibrante:
+        return 'PRIMAVERA_BRILHANTE';
+      case SeasonalPaletteType.veraoSuave:
+        return 'VERAO_SUAVE';
+      case SeasonalPaletteType.veraoFrio:
+        return 'VERAO_FRIO';
+      case SeasonalPaletteType.veraoClaro:
+        return 'VERAO_CLARO';
+    }
+  }
+
+  static SeasonalPaletteType? fromApiKey(String? key) {
+    for (final type in SeasonalPaletteType.values) {
+      if (type.apiKey == key) return type;
+    }
+    return null;
+  }
+
   String get displayName {
     switch (this) {
       case SeasonalPaletteType.outonoQuente:
@@ -126,17 +186,17 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
     switch (this) {
       case SeasonalPaletteType.outonoQuente:
         return const [
-          AppColors.accentTerracotta,
-          AppColors.accentOlive,
-          AppColors.iheGold,
-          AppColors.accentSand,
+          Color(0xFFA34836),
+          Color(0xFF4B5842),
+          Color(0xFFB88E3E),
+          Color(0xFFD9CDBF),
           Color(0xFF8B4513),
           Color(0xFF2E8B57),
         ];
       case SeasonalPaletteType.outonoSuave:
         return const [
-          AppColors.accentSand,
-          AppColors.accentOlive,
+          Color(0xFFD9CDBF),
+          Color(0xFF4B5842),
           Color(0xFFC2B280),
           Color(0xFFB0C4DE),
           Color(0xFF808000),
@@ -144,22 +204,22 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
         ];
       case SeasonalPaletteType.outonoEscuro:
         return const [
-          AppColors.textPrimary,
-          AppColors.accentTerracotta,
+          Color(0xFF1A1817),
+          Color(0xFFA34836),
           Color(0xFF4A0E17),
           Color(0xFF1B4D3E),
-          AppColors.iheGold,
+          Color(0xFFB88E3E),
           Color(0xFF3B2F2F),
         ];
       case SeasonalPaletteType.invernoFrio:
       case SeasonalPaletteType.invernoVivo:
       case SeasonalPaletteType.invernoEscuro:
         return const [
-          AppColors.textPrimary,
+          Color(0xFF1A1817),
           Color(0xFF000080),
           Color(0xFF800020),
           Color(0xFF4B0082),
-          AppColors.surfaceCanvas,
+          Color(0xFFFBF9F5),
           Color(0xFF2F4F4F),
         ];
       case SeasonalPaletteType.primaveraClara:
@@ -169,7 +229,7 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
           Color(0xFFFF7F50),
           Color(0xFFFFD700),
           Color(0xFF98FB98),
-          AppColors.accentSand,
+          Color(0xFFD9CDBF),
           Color(0xFFE6E6FA),
           Color(0xFFF4A460),
         ];
@@ -181,7 +241,7 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
           Color(0xFFBC8F8F),
           Color(0xFFB0C4DE),
           Color(0xFFD8BFD8),
-          AppColors.surfaceSubtle,
+          Color(0xFFEBE5DC),
           Color(0xFF4682B4),
         ];
     }

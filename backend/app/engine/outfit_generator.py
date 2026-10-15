@@ -7,13 +7,14 @@ Varre o acervo de peças ativas do usuário, compõe combinações candidatas
 em tempo real pela fórmula determinística multivariada do IHE.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, FrozenSet, Optional, Set
 import itertools
 from dataclasses import dataclass
 
 from app.models.entities import ClothingItem, User
 from app.engine.color_science import LabColor
 from app.engine.ihe_calculator import calculate_ihe, IHERequest, IHEResponse
+from app.engine.style_vector import StyleSpace, NEUTRAL_VECTOR
 
 
 TOP_CATEGORIES = {
@@ -32,7 +33,8 @@ SHOES_CATEGORIES = {
 }
 
 ONE_PIECE_CATEGORIES = {
-    "one_piece", "vestido", "macacao", "macacão", "vestidos", "macacões"
+    "one_piece", "vestido", "macacao", "macacão", "vestidos", "macacões",
+    "peças únicas", "peça única", "pecas unicas", "peca unica"
 }
 
 
@@ -94,17 +96,93 @@ def _generate_styling_advice(ihe: IHEResponse, occasion: str) -> str:
     return base + "Composição versátil e confortável para o clima do dia."
 
 
+def temperature_band(temperature_celsius: float) -> str:
+    """
+    Faixa de temperatura que o motor distingue: o IHE só muda ao cruzar 15°C
+    (context_rules), 16°C ou 25°C (categoria térmica abaixo). Temperaturas na
+    mesma faixa geram exatamente os mesmos looks.
+    """
+    if temperature_celsius < 15:
+        return "FRIO"
+    if temperature_celsius < 16:
+        return "FRESCO"
+    if temperature_celsius <= 25:
+        return "AMENO"
+    return "QUENTE"
+
+
+def _score_combo(
+    combo: List[ClothingItem],
+    user: User,
+    occasion: str,
+    temperature_celsius: float,
+    is_raining: bool,
+    style: Optional[StyleSpace] = None,
+) -> CandidateOutfit:
+    """
+    Calcula o IHE de um look a partir das peças, do perfil do usuário e do contexto.
+    Sem espaço de estilo (acervo sem vetores ou usuário sem histórico), o S_cos fica neutro.
+    """
+    user_palette = user.seasonal_palette or "OUTONO_QUENTE"
+    user_biotype = user.body_shape or "AMPULHETA"
+
+    avg_l = sum(i.dominant_l for i in combo) / len(combo)
+    avg_a = sum(i.dominant_a for i in combo) / len(combo)
+    avg_b = sum(i.dominant_b for i in combo) / len(combo)
+    garment_color = LabColor(L=avg_l, a=avg_a, b=avg_b)
+    piece_colors = [LabColor(L=i.dominant_l, a=i.dominant_a, b=i.dominant_b) for i in combo]
+
+    avg_formality = sum(i.formality_score for i in combo) / len(combo)
+    cuts = [i.cut_type for i in combo if i.cut_type]
+
+    # Determinar categoria térmica
+    if temperature_celsius < 16:
+        thermal = "PESADO"
+    elif temperature_celsius > 25:
+        thermal = "LEVE"
+    else:
+        thermal = "MEDIO"
+
+    # Direções de estilo do usuário e do look, relativas ao centro do acervo (S_cos)
+    user_vec = style.user_vector() if style else NEUTRAL_VECTOR
+    look_vec = style.look_vector(combo) if style else NEUTRAL_VECTOR
+
+    ihe_res = calculate_ihe(IHERequest(
+        garment_color=garment_color,
+        garment_colors=piece_colors,
+        user_palette=user_palette,
+        user_biotype=user_biotype,
+        garment_cuts=cuts,
+        garment_formality=round(avg_formality, 2),
+        occasion=occasion,
+        temperature_celsius=temperature_celsius,
+        is_raining=is_raining,
+        garment_thermal_category=thermal,
+        user_style_vector=user_vec,
+        look_style_vector=look_vec,
+    ))
+    return CandidateOutfit(
+        items=combo,
+        ihe_result=ihe_res,
+        styling_advice=_generate_styling_advice(ihe_res, occasion),
+    )
+
+
 def generate_outfit_recommendations(
     items: List[ClothingItem],
     user: User,
     occasion: str = "CASUAL",
     temperature_celsius: float = 22.0,
     is_raining: bool = False,
-    limit: int = 5,
+    limit: Optional[int] = 5,
+    excluded_looks: Optional[Set[FrozenSet[str]]] = None,
+    style: Optional[StyleSpace] = None,
 ) -> List[CandidateOutfit]:
     """
     Gera as melhores combinações de looks a partir do acervo do usuário,
-    ranqueando as opções pela pontuação do IHE.
+    ranqueando as opções pela pontuação do IHE (`limit=None` devolve todas).
+    Looks em `excluded_looks` (conjuntos de IDs descartados pelo usuário, RF13) nunca voltam;
+    `style` aproxima o ranking do que o usuário aprovou e o afasta do que descartou.
     """
     if not items:
         return []
@@ -156,66 +234,107 @@ def generate_outfit_recommendations(
     elif not candidates_raw and len(items) == 1:
         candidates_raw.append([items[0]])
 
-    user_palette = user.seasonal_palette or "OUTONO_QUENTE"
-    user_biotype = user.body_shape or "AMPULHETA"
-    user_vec = user.style_vector or [0.0] * 512
-
-    scored_candidates: List[CandidateOutfit] = []
+    # Retroalimentação (RF13): combinações descartadas saem antes do ranking
+    if excluded_looks:
+        candidates_raw = [
+            combo for combo in candidates_raw
+            if frozenset(str(i.id) for i in combo) not in excluded_looks
+        ]
 
     # 4. Avaliar cada combinação candidata pelo IHE
-    for combo in candidates_raw:
-        avg_l = sum(i.dominant_l for i in combo) / len(combo)
-        avg_a = sum(i.dominant_a for i in combo) / len(combo)
-        avg_b = sum(i.dominant_b for i in combo) / len(combo)
-        garment_color = LabColor(L=avg_l, a=avg_a, b=avg_b)
-
-        avg_formality = sum(i.formality_score for i in combo) / len(combo)
-        cuts = [i.cut_type for i in combo if i.cut_type]
-
-        # Determinar categoria térmica
-        if temperature_celsius < 16:
-            thermal = "PESADO"
-        elif temperature_celsius > 25:
-            thermal = "LEVE"
-        else:
-            thermal = "MEDIO"
-
-        # Vetor de estilo médio do look
-        vectors_with_data = [i.style_embedding for i in combo if i.style_embedding]
-        if vectors_with_data:
-            look_vec = [
-                sum(v[dim] for v in vectors_with_data) / len(vectors_with_data)
-                for dim in range(512)
-            ]
-        else:
-            look_vec = [0.0] * 512
-
-        ihe_req = IHERequest(
-            garment_color=garment_color,
-            user_palette=user_palette,
-            user_biotype=user_biotype,
-            garment_cuts=cuts,
-            garment_formality=round(avg_formality, 2),
-            occasion=occasion,
-            temperature_celsius=temperature_celsius,
-            is_raining=is_raining,
-            garment_thermal_category=thermal,
-            user_style_vector=user_vec,
-            look_style_vector=look_vec,
-        )
-
-        ihe_res = calculate_ihe(ihe_req)
-        advice = _generate_styling_advice(ihe_res, occasion)
-
-        scored_candidates.append(
-            CandidateOutfit(
-                items=combo,
-                ihe_result=ihe_res,
-                styling_advice=advice,
-            )
-        )
+    scored_candidates = [
+        _score_combo(combo, user, occasion, temperature_celsius, is_raining, style)
+        for combo in candidates_raw
+    ]
 
     # 5. Ordenar decrescente pelo score do IHE
     scored_candidates.sort(key=lambda c: c.ihe_result.ihe_score, reverse=True)
 
     return scored_candidates[:limit]
+
+
+# -----------------------------------------------------------------------------
+# Paridade de peça em loja com o acervo (RF08, RF09)
+# -----------------------------------------------------------------------------
+
+@dataclass
+class ParityMatch:
+    """Peça do acervo e o melhor look que ela forma com a peça da loja."""
+    item: ClothingItem
+    best_look: CandidateOutfit
+
+
+@dataclass
+class StoreParity:
+    best_look: Optional[CandidateOutfit]
+    matches: List[ParityMatch]
+    looks_evaluated: int
+    strong_looks: int
+
+
+def _looks_with_store_piece(store_item: ClothingItem, items: List[ClothingItem]) -> List[List[ClothingItem]]:
+    """Looks completos que incluem a peça da loja, montados com as peças do acervo."""
+    buckets: Dict[str, List[ClothingItem]] = {"top": [], "bottom": [], "shoes": [], "one_piece": []}
+    for item in items:
+        buckets[_categorize_item(item)].append(item)
+
+    shoes: List[Optional[ClothingItem]] = list(buckets["shoes"][:10]) or [None]
+
+    def with_shoes(base: List[ClothingItem]) -> List[List[ClothingItem]]:
+        return [base + [s] if s is not None else base for s in shoes]
+
+    family = _categorize_item(store_item)
+    looks: List[List[ClothingItem]] = []
+    if family == "top":
+        for bottom in buckets["bottom"][:15]:
+            looks.extend(with_shoes([store_item, bottom]))
+    elif family == "bottom":
+        for top in buckets["top"][:15]:
+            looks.extend(with_shoes([top, store_item]))
+    elif family == "one_piece":
+        looks.extend(with_shoes([store_item]))
+    else:  # calçado
+        for top, bottom in itertools.product(buckets["top"][:10], buckets["bottom"][:10]):
+            looks.append([top, bottom, store_item])
+        for piece in buckets["one_piece"][:10]:
+            looks.append([piece, store_item])
+    # Uma peça única sozinha não compara nada com o acervo
+    return [look for look in looks if len(look) > 1]
+
+
+def rank_store_parity(
+    store_item: ClothingItem,
+    items: List[ClothingItem],
+    user: User,
+    occasion: str = "CASUAL",
+    temperature_celsius: float = 22.0,
+    is_raining: bool = False,
+    limit: int = 5,
+    style: Optional[StyleSpace] = None,
+) -> StoreParity:
+    """
+    Ranqueia as peças do acervo pela paridade com uma peça vista na loja (RF09):
+    cada peça vale o IHE do melhor look que forma junto com a peça da loja.
+    """
+    scored = [
+        _score_combo(look, user, occasion, temperature_celsius, is_raining, style)
+        for look in _looks_with_store_piece(store_item, items)
+    ]
+    scored.sort(key=lambda c: c.ihe_result.ihe_score, reverse=True)
+
+    best_by_item: Dict[Any, CandidateOutfit] = {}
+    for look in scored:  # em ordem decrescente: o primeiro look de cada peça é o melhor
+        for piece in look.items:
+            if piece is not store_item and piece.id not in best_by_item:
+                best_by_item[piece.id] = look
+
+    by_id = {item.id: item for item in items}
+    matches = [ParityMatch(item=by_id[item_id], best_look=look) for item_id, look in best_by_item.items()]
+    matches.sort(key=lambda m: m.best_look.ihe_result.ihe_score, reverse=True)
+
+    return StoreParity(
+        best_look=scored[0] if scored else None,
+        matches=matches[:limit],
+        looks_evaluated=len(scored),
+        strong_looks=sum(1 for look in scored if look.ihe_result.is_strongly_recommended),
+    )

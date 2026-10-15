@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,8 +18,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     defaultConfig {
@@ -33,6 +37,10 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // HTTP sem TLS só é liberado quando a API não usa https (servidor local na rede Wi-Fi
+        // ou emulador). Um build apontando para https, como o Cloud Run, mantém o bloqueio.
+        manifestPlaceholders["usesCleartextTraffic"] = (!apiBaseUrl.startsWith("https://")).toString()
     }
 
     buildTypes {
@@ -47,3 +55,13 @@ android {
 flutter {
     source = "../.."
 }
+
+// Valor de --dart-define=API_BASE_URL (o Flutter repassa os dart-defines ao Gradle em base64)
+val apiBaseUrl: String
+    get() = (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.filter { it.isNotBlank() }
+        ?.map { String(Base64.getDecoder().decode(it)) }
+        ?.firstOrNull { it.startsWith("API_BASE_URL=") }
+        ?.substringAfter("=")
+        ?: ""

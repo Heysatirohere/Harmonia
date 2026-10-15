@@ -5,38 +5,94 @@ CRUD de Peças do Acervo Virtual com Isolamento Multi-Tenant (RN01) e Cota Freem
 from typing import List, Optional
 from datetime import datetime, timezone
 from uuid import UUID
+import base64
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, asc, desc
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.entities import User, ClothingItem
+from app.core.security import get_current_user, get_current_user_id
+from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
+from app.models.entities import User, ClothingItem, LookFeedback
 from app.schemas.dtos import (
     ClothingItemCreate,
     ClothingItemResponse,
+    ClothingItemUpdate,
+    ColorShareResponse,
+    ExtractedColorResponse,
+    GarmentUsageResponse,
+    SegmentationResponse,
+    WardrobeAnalyticsResponse,
+    WardrobeItemResponse,
 )
+from app import vision
+from app.engine.wardrobe_analytics import color_distribution, garment_usage, rotation_bucket
+
+ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 router = APIRouter()
 
 
-async def get_current_user_id(
-    user_id: Optional[UUID] = Query(None, description="ID do usuário (query parameter)"),
-    x_user_id: Optional[UUID] = Header(None, alias="X-User-ID", description="ID do usuário (header HTTP)")
-) -> UUID:
-    """Extrai e valida o user_id recebido via query string ou header HTTP."""
-    target_id = user_id or x_user_id
-    if not target_id:
+async def _worn_on(db: AsyncSession, user_id: UUID) -> dict[str, list[datetime]]:
+    """Datas de uso de cada peça: um uso por look aprovado que a contém (RF13). Só do próprio usuário (RN01)."""
+    approved = (await db.execute(
+        select(LookFeedback).where(LookFeedback.user_id == user_id, LookFeedback.action == "APPROVED")
+    )).scalars().all()
+    worn_on: dict[str, list[datetime]] = {}
+    for look in approved:
+        for item_id in look.item_ids:
+            worn_on.setdefault(str(item_id), []).append(look.created_at)
+    return worn_on
+
+
+@router.post("/segment", response_model=SegmentationResponse, status_code=status.HTTP_200_OK)
+async def segment_garment_photo(
+    file: UploadFile = File(..., description="Foto da peça (JPEG, PNG ou WebP)"),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Remove o fundo da foto (RF04) e extrai as cores dominantes em CIE L*a*b* (RF05).
+    Não persiste nada: o app confirma os atributos e envia o PNG ao Storage no cadastro.
+    """
+    if file.content_type not in ACCEPTED_IMAGE_TYPES:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Identificador de usuário (user_id na query ou X-User-ID no header) é obrigatório."
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Formato de imagem não suportado. Envie JPEG, PNG ou WebP."
         )
-    return target_id
+
+    data = await file.read(settings.MAX_UPLOAD_BYTES + 1)
+    if len(data) > settings.MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Foto muito grande. O limite é de 10 MB."
+        )
+
+    try:
+        result = await run_in_threadpool(vision.segment_garment, data)
+    except vision.InvalidImageError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    if not result.colors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nenhuma peça foi identificada na foto. Tente fotografar sobre um fundo liso."
+        )
+
+    return SegmentationResponse(
+        image_png_base64=base64.b64encode(result.png_bytes).decode("ascii"),
+        width=result.width,
+        height=result.height,
+        colors=[ExtractedColorResponse(**vars(c)) for c in result.colors],
+        style_embedding=result.style_embedding,
+        processing_ms=result.processing_ms,
+    )
 
 
-@router.get("/items", response_model=List[ClothingItemResponse], status_code=status.HTTP_200_OK)
+@router.get("/items", response_model=List[WardrobeItemResponse], status_code=status.HTTP_200_OK)
 async def list_clothing_items(
     current_user_id: UUID = Depends(get_current_user_id),
     category: Optional[str] = Query(None, description="Filtrar por categoria"),
@@ -50,6 +106,7 @@ async def list_clothing_items(
 ):
     """
     Lista peças do guarda-roupa do usuário logado (RN01) com suporte a filtros multicritérios (RF06).
+    Cada peça traz a família cromática e o uso (looks aprovados), para filtrar por cor e frequência.
     """
     stmt = select(ClothingItem).where(ClothingItem.user_id == current_user_id)
 
@@ -83,36 +140,29 @@ async def list_clothing_items(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
-    return [ClothingItemResponse.model_validate(item) for item in items]
+    worn_on = await _worn_on(db, current_user_id)
+    now = datetime.now(timezone.utc)
+    responses = []
+    for item in items:
+        usage = garment_usage(item.created_at, worn_on.get(str(item.id), []), now)
+        responses.append(WardrobeItemResponse.model_validate(item).model_copy(update={
+            "usage_rate": usage.wear_count,
+            "last_worn_at": usage.last_worn_at,
+            "days_idle": usage.days_idle,
+        }))
+    return responses
 
 
 @router.post("/items", response_model=ClothingItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_clothing_item(
     item_in: ClothingItemCreate,
-    current_user_id: UUID = Depends(get_current_user_id),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Cadastra uma nova peça de vestuário no acervo virtual do usuário.
     Enforça a Cota Freemium (RN02 - máximo 30 peças para não-premium) e atualiza items_count.
     """
-    stmt = select(User).where(User.id == current_user_id)
-    result = await db.execute(stmt)
-    user = result.scalars().first()
-
-    if not user:
-        user = User(
-            id=current_user_id,
-            email=f"user_{current_user_id}@harmonia.app",
-            hashed_password="autogenerated_pass",
-            is_premium=False,
-            items_count=0,
-            looks_generated_today=0,
-            created_at=datetime.now(timezone.utc)
-        )
-        db.add(user)
-        await db.flush()
-
     # Validação estrita da Cota Freemium (RN02)
     if not user.is_premium and user.items_count >= settings.FREEMIUM_MAX_CLOTHING_ITEMS:
         raise HTTPException(
@@ -122,7 +172,7 @@ async def create_clothing_item(
 
     new_item = ClothingItem(
         id=uuid.uuid4(),
-        user_id=current_user_id,
+        user_id=user.id,
         category=item_in.category,
         subcategory=item_in.subcategory,
         image_url=item_in.image_url,
@@ -150,9 +200,11 @@ async def delete_clothing_item(
     item_id: UUID,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    admin: SupabaseAdmin = Depends(get_supabase_admin),
 ):
     """
     Exclui uma peça garantindo validação de posse e isolamento Multi-Tenant estrito (RN01).
+    A foto recortada sai do Storage antes do registro, para não sobrar imagem órfã (RN04).
     """
     stmt = select(ClothingItem).where(ClothingItem.id == item_id)
     result = await db.execute(stmt)
@@ -168,8 +220,23 @@ async def delete_clothing_item(
     if item.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso negado. Esta peça não pertence ao usuário informado."
+            detail="Acesso negado. Esta peça não pertence ao usuário autenticado."
         )
+
+    # Cópias da mesma peça (cadastros repetidos) dividem a foto: ela só sai com a última
+    own_items = (await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == current_user_id)
+    )).scalars().all()
+    shared = any(other.id != item.id and other.image_url == item.image_url for other in own_items)
+    photo = None if shared else admin.object_path(item.image_url)
+    if photo:
+        try:
+            await admin.delete_objects([photo])
+        except SupabaseAdminError:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Não foi possível apagar a foto da peça agora. Tente novamente.",
+            )
 
     # Decrementa o contador de peças do usuário
     user_stmt = select(User).where(User.id == current_user_id)
@@ -181,3 +248,94 @@ async def delete_clothing_item(
     await db.delete(item)
     await db.commit()
     return None
+
+
+@router.patch("/items/{item_id}", response_model=ClothingItemResponse, status_code=status.HTTP_200_OK)
+async def update_clothing_item(
+    item_id: UUID,
+    item_update: ClothingItemUpdate,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Atualiza atributos taxonômicos da peça (RF05, Seção 3.2.3 da documentação).
+    Garante validação de posse e isolamento Multi-Tenant estrito (RN01).
+    """
+    stmt = select(ClothingItem).where(ClothingItem.id == item_id)
+    result = await db.execute(stmt)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Peça de vestuário não encontrada."
+        )
+
+    # Validação de posse para isolamento Multi-Tenant (RN01)
+    if item.user_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado. Esta peça não pertence ao usuário autenticado."
+        )
+
+    changes = item_update.model_dump(exclude_unset=True, exclude_none=True)
+    for field, value in changes.items():
+        setattr(item, field, value)
+
+    await db.commit()
+    await db.refresh(item)
+    return ClothingItemResponse.model_validate(item)
+
+
+@router.get("/analytics", response_model=WardrobeAnalyticsResponse, status_code=status.HTTP_200_OK)
+async def wardrobe_analytics(
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Saúde do acervo (Seção 3.2.2): rotação em janelas de 30, 60 e 90 dias e proporção
+    cromática dominante. O uso de cada peça vem dos looks aprovados (RF13), então desfazer
+    uma aprovação também desfaz o uso. Só peças e looks do próprio usuário (RN01).
+    """
+    items = (await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == current_user_id, ClothingItem.is_archived == False)
+    )).scalars().all()
+    worn_on = await _worn_on(db, current_user_id)
+
+    now = datetime.now(timezone.utc)
+    usages = [(item, garment_usage(item.created_at, worn_on.get(str(item.id), []), now)) for item in items]
+    buckets = {"active": 0, "idle_30": 0, "idle_60": 0, "dormant": 0}
+    for _, usage in usages:
+        buckets[rotation_bucket(usage.days_idle)] += 1
+
+    dormant = sorted(
+        (pair for pair in usages if rotation_bucket(pair[1].days_idle) == "dormant"),
+        key=lambda pair: (-pair[1].days_idle, pair[1].wear_count),
+    )
+    colors = color_distribution([(i.dominant_l, i.dominant_a, i.dominant_b) for i in items])
+
+    return WardrobeAnalyticsResponse(
+        total_pieces=len(items),
+        active_count=buckets["active"],
+        idle_30_count=buckets["idle_30"],
+        idle_60_count=buckets["idle_60"],
+        dormant_count=buckets["dormant"],
+        never_worn_count=sum(1 for _, usage in usages if usage.wear_count == 0),
+        total_wears=sum(usage.wear_count for _, usage in usages),
+        color_distribution=[
+            ColorShareResponse(
+                family=c.family, count=c.count, percentage=c.percentage,
+                L=c.mean_lab[0], a=c.mean_lab[1], b=c.mean_lab[2],
+            )
+            for c in colors
+        ],
+        dormant_items=[
+            GarmentUsageResponse(
+                item=ClothingItemResponse.model_validate(item),
+                wear_count=usage.wear_count,
+                last_worn_at=usage.last_worn_at,
+                days_idle=usage.days_idle,
+            )
+            for item, usage in dormant
+        ],
+    )

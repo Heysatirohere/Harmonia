@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../../data/services/supabase_auth_service.dart';
 
@@ -11,8 +12,15 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
+  /// Origem da API definida no build, ex: --dart-define=API_BASE_URL=http://192.168.0.10:8000
+  static const String _configuredOrigin = String.fromEnvironment('API_BASE_URL');
+
   /// URL Base da API FastAPI (Google Cloud Run ou Local)
   String get baseUrl {
+    if (_configuredOrigin.isNotEmpty) {
+      return '${_configuredOrigin.replaceFirst(RegExp(r'/+$'), '')}/api/v1';
+    }
+    // Sem definição: servidor local visto pelo emulador Android ou pelo próprio computador
     if (kIsWeb) {
       return 'http://127.0.0.1:8000/api/v1';
     }
@@ -26,14 +34,11 @@ class ApiClient {
     return 'http://127.0.0.1:8000/api/v1';
   }
 
-  /// ID do usuário autenticado no Supabase (ou ID padrão em desenvolvimento)
-  String get currentUserId => SupabaseAuthService().currentUserId;
-
+  /// A API identifica o usuário apenas pelo JWT do Supabase no header Authorization
   Map<String, String> get _headers {
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'X-User-ID': currentUserId,
     };
     final token = SupabaseAuthService().currentAccessToken;
     if (token != null) {
@@ -42,7 +47,10 @@ class ApiClient {
     return headers;
   }
 
-  Duration timeoutDuration = const Duration(seconds: 4);
+  /// O banco fica no Supabase, longe da API local (~0,5 s por consulta): uma escrita com
+  /// várias consultas passa fácil de 4 s. Desistir cedo demais faz o app relatar falha
+  /// de algo que o servidor concluiu.
+  Duration timeoutDuration = const Duration(seconds: 20);
 
   Future<http.Response> get(String endpoint, {Map<String, String>? queryParams}) async {
     final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
@@ -60,8 +68,44 @@ class ApiClient {
         .timeout(timeoutDuration);
   }
 
-  Future<http.Response> delete(String endpoint) async {
+  Future<http.Response> put(String endpoint) async {
     final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.delete(uri, headers: _headers).timeout(timeoutDuration);
+    return await http.put(uri, headers: _headers).timeout(timeoutDuration);
+  }
+
+  Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body}) async {
+    final uri = Uri.parse('$baseUrl$endpoint');
+    return await http
+        .patch(
+          uri,
+          headers: _headers,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(timeoutDuration);
+  }
+
+  /// Envia um arquivo como multipart/form-data no campo `file`.
+  Future<http.Response> postFile(
+    String endpoint, {
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+    Duration? timeout,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$endpoint'))
+      ..headers.addAll(_headers..remove('Content-Type'))
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: MediaType.parse(contentType),
+      ));
+    final streamed = await request.send().timeout(timeout ?? timeoutDuration);
+    return http.Response.fromStream(streamed);
+  }
+
+  Future<http.Response> delete(String endpoint, {Duration? timeout}) async {
+    final uri = Uri.parse('$baseUrl$endpoint');
+    return await http.delete(uri, headers: _headers).timeout(timeout ?? timeoutDuration);
   }
 }

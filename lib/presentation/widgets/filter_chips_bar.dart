@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 
-/// Barra Horizontal Minimalista de Filtros por Categoria
+/// Barra Horizontal Minimalista de Filtros por Categoria, desenhada para ficar sobre uma Sala
 /// Conforme AGENTS.md:
-/// - Linhas capilares (borderSubtle)
+/// - Linhas capilares (hairlineIvory)
 /// - Resposta tátil refinada (HapticFeedback.selectionClick())
 /// - Animação suave entre estados ativo e inativo com AppMotion.editorialDecel
 class FilterChipsBar extends StatelessWidget {
@@ -19,7 +19,7 @@ class FilterChipsBar extends StatelessWidget {
       'Partes de cima',
       'Partes de baixo',
       'Calçados',
-      'Ocasião',
+      'Peças únicas',
     ],
     required this.selectedIndex,
     required this.onCategorySelected,
@@ -68,6 +68,7 @@ class _FilterChipItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sobre a Sala: ativo em marfim sólido, inativos só com contorno capilar
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -76,27 +77,18 @@ class _FilterChipItem extends StatelessWidget {
         curve: AppMotion.editorialDecel,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.textPrimary : AppColors.surfaceRaised,
+          color: isSelected ? AppColors.ivoryText : const Color(0x00000000),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: isSelected ? AppColors.textPrimary : AppColors.borderSubtle,
+            color: isSelected ? AppColors.ivoryText : AppColors.hairlineIvory,
             width: 0.8,
           ),
-          boxShadow: isSelected
-              ? const [
-                  BoxShadow(
-                    color: Color(0x1A1A1817),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ]
-              : null,
         ),
         child: Center(
           child: Text(
             label,
             style: AppTypography.uiHeadline(
-              color: isSelected ? AppColors.surfaceCanvas : AppColors.textPrimary,
+              color: isSelected ? AppColors.inkText : AppColors.ivoryText,
             ).copyWith(
               fontSize: 12.5,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,

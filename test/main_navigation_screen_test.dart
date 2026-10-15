@@ -16,15 +16,15 @@ void main() {
   testWidgets('NavBar alterna entre as quatro abas pelos ícones', (tester) async {
     await pumpShell(tester);
 
-    expect(find.text('Sugestão Diária'), findsOneWidget);
+    expect(find.text('Look do Dia'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Editorial'));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Editorial Gallery'), findsOneWidget);
+    expect(find.text('Editorial'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Ateliê'));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Ateliê & Perfil'), findsOneWidget);
+    expect(find.text('ATELIÊ & PERFIL'), findsOneWidget);
     expect(find.text('Lacunas do Acervo (3.6.1)'), findsOneWidget);
     expect(find.text('Refazer Perfil de Estilo'), findsOneWidget);
     expect(find.text('Conta & Segurança'), findsOneWidget);

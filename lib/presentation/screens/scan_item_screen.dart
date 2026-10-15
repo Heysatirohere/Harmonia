@@ -2,9 +2,15 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/demo/demo_mode.dart';
 import '../../data/services/wardrobe_api_service.dart';
+import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
+import '../../models/garment_segmentation.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../widgets/color_extractor_chips.dart';
 import '../widgets/segmentation_preview.dart';
 
@@ -12,14 +18,12 @@ import '../widgets/segmentation_preview.dart';
 /// Conforme AGENTS.md e Regra dos 3 Toques (RNF06):
 /// - Toque 1: Captura/Alternância da foto e remoção do fundo via IA.
 /// - Toque 2: Confirmação rápida dos atributos extraídos (categoria, formalidade, CIE L*a*b*).
-/// - Toque 3: Toque em "Catalogar no Acervo" em accentTerracotta com HapticFeedback.mediumImpact().
+/// - Toque 3: Toque em "Catalogar no Acervo" em accentCinnabar com HapticFeedback.mediumImpact().
+/// Sala frescoBlue: fundo frio para a cor da peça recortada se destacar (AGENTS.md 4.2).
 class ScanItemScreen extends StatefulWidget {
   final ValueChanged<ClothingItem>? onItemCataloged;
 
-  const ScanItemScreen({
-    super.key,
-    this.onItemCataloged,
-  });
+  const ScanItemScreen({super.key, this.onItemCataloged});
 
   @override
   State<ScanItemScreen> createState() => _ScanItemScreenState();
@@ -29,54 +33,38 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
   final WardrobeApiService _wardrobeService = WardrobeApiService();
   final ImagePicker _picker = ImagePicker();
 
-  // Foto capturada pelo usuário
+  // Foto capturada pelo usuário e resultado do recorte/extração cromática (RF04, RF05)
   Uint8List? _capturedBytes;
   String? _capturedFileName;
+  GarmentSegmentation? _segmentation;
+  bool _isSegmenting = false;
+  String? _segmentationError;
   bool _isUploading = false;
 
   // Dados da inferência da IA / edição do usuário
-  final TextEditingController _nameController =
-      TextEditingController(text: 'Sobrecamisa Terracota Ateliê');
-  final TextEditingController _provenanceController =
-      TextEditingController(text: 'Linho Italiano • Segundas Mãos');
-  final TextEditingController _esgNoteController =
-      TextEditingController(text: '100% Linho Reciclado Certificado');
+  final TextEditingController _nameController = TextEditingController(text: 'Sobrecamisa Terracota Ateliê');
+  final TextEditingController _provenanceController = TextEditingController(text: 'Linho Italiano • Segundas Mãos');
+  final TextEditingController _esgNoteController = TextEditingController(text: '100% Linho Reciclado Certificado');
 
   int _selectedCategoryIndex = 0;
-  final List<String> _categories = const [
-    'Partes de cima',
-    'Partes de baixo',
-    'Calçados',
-    'Ocasião',
-  ];
+  final List<String> _categories = const ['Partes de cima', 'Partes de baixo', 'Calçados', 'Peças únicas'];
 
   double _formalityLevel = 0.65; // 65% Casual Chic
   bool _isConsciousFashion = true;
   int _selectedColorIndex = 0;
 
-  final List<ExtractedColorCentroid> _extractedCentroids = const [
-    ExtractedColorCentroid(
-      color: AppColors.accentTerracotta,
-      hexCode: '#A34836',
-      nuanceName: 'Terracota Ateliê',
-      labCoordinates: 'L* 58.4, a* 28.2, b* 24.1',
-      percentage: 62,
-    ),
-    ExtractedColorCentroid(
-      color: AppColors.accentSand,
-      hexCode: '#D9CDBF',
-      nuanceName: 'Areia Suave',
-      labCoordinates: 'L* 82.1, a* 4.3, b* 11.8',
-      percentage: 24,
-    ),
-    ExtractedColorCentroid(
-      color: AppColors.textPrimary,
-      hexCode: '#1A1817',
-      nuanceName: 'Carvão Profundo',
-      labCoordinates: 'L* 14.2, a* 0.5, b* -0.8',
-      percentage: 14,
-    ),
+  List<ExtractedColorCentroid> get _extractedCentroids => [
+    for (final c in _segmentation?.colors ?? const <GarmentColor>[])
+      ExtractedColorCentroid(
+        color: c.color,
+        hexCode: c.hex,
+        nuanceName: c.name,
+        labCoordinates: c.labLabel,
+        percentage: c.percentage,
+      ),
   ];
+
+  bool get _canCatalog => _segmentation != null && !_isUploading;
 
   @override
   void dispose() {
@@ -94,7 +82,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
-          color: AppColors.surfaceCanvas,
+          color: AppColors.paperBone,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -106,7 +94,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.25),
+                  color: AppColors.inkSecondary.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -119,7 +107,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
             ),
             const SizedBox(height: 20),
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined, color: AppColors.accentTerracotta),
+              leading: const Icon(Icons.photo_camera_outlined, color: AppColors.accentCinnabar),
               title: Text('Câmera Fotográfica', style: AppTypography.uiHeadline()),
               subtitle: Text('Fotografe a peça no cabide ou superfície plana', style: AppTypography.bodyReading()),
               onTap: () {
@@ -127,9 +115,9 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                 _pickImage(ImageSource.camera);
               },
             ),
-            const Divider(color: AppColors.borderSubtle, height: 1),
+            const Divider(color: AppColors.hairlineInk, height: 1),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: AppColors.iheGold),
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.gildedInk),
               title: Text('Galeria de Fotos', style: AppTypography.uiHeadline()),
               subtitle: Text('Escolha uma foto da galeria do seu dispositivo', style: AppTypography.bodyReading()),
               onTap: () {
@@ -145,11 +133,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 1400,
-      );
+      final picked = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1400);
 
       if (picked != null) {
         final bytes = await picked.readAsBytes();
@@ -161,52 +145,120 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
           }
         });
         HapticFeedback.mediumImpact();
+        await _analyzePhoto();
       }
     } catch (e) {
       debugPrint('[ScanItemScreen] Erro ao selecionar imagem: $e');
     }
   }
 
+  /// Envia a foto ao pipeline de recorte de fundo e extração cromática
+  Future<void> _analyzePhoto() async {
+    final bytes = _capturedBytes;
+    if (bytes == null) return;
+
+    setState(() {
+      _isSegmenting = true;
+      _segmentation = null;
+      _segmentationError = null;
+      _selectedColorIndex = 0;
+    });
+
+    try {
+      final result = await _wardrobeService.segmentGarment(
+        imageBytes: bytes,
+        fileName: _capturedFileName ?? 'peca.jpg',
+      );
+      if (!mounted || !identical(bytes, _capturedBytes)) return;
+      setState(() => _segmentation = result);
+      HapticFeedback.selectionClick();
+    } catch (e) {
+      if (!mounted || !identical(bytes, _capturedBytes)) return;
+      if (kDemoMode) {
+        final demo = GarmentSegmentation(
+          cutoutPng: bytes,
+          width: 600,
+          height: 800,
+          colors: const [
+            GarmentColor(l: 54, a: 32, b: 28, hex: '#C86D51', percentage: 70, name: 'Terracota'),
+            GarmentColor(l: 90, a: 1, b: 7, hex: '#E9E4D6', percentage: 30, name: 'Marfim'),
+          ],
+          processingMs: 650,
+          styleEmbedding: List.filled(512, 0.05),
+        );
+        setState(() => _segmentation = demo);
+        HapticFeedback.selectionClick();
+      } else {
+        setState(
+          () => _segmentationError = e is SegmentationException ? e.message : 'Não foi possível analisar a peça.',
+        );
+      }
+    } finally {
+      if (mounted && identical(bytes, _capturedBytes)) {
+        setState(() => _isSegmenting = false);
+      }
+    }
+  }
+
   Future<void> _handleCatalogItem() async {
-    if (_isUploading) return;
+    final segmentation = _segmentation;
+    if (segmentation == null || _isUploading) return;
 
     HapticFeedback.mediumImpact();
     setState(() {
       _isUploading = true;
     });
 
-    final selectedCentroid = _extractedCentroids[_selectedColorIndex];
-    final defaultUrl =
-        'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80';
+    final selectedColor = segmentation.colors[_selectedColorIndex];
 
     final newItem = ClothingItem(
       id: 'scanned-${DateTime.now().millisecondsSinceEpoch}',
-      name: _nameController.text.trim().isEmpty
-          ? 'Peça sem nome'
-          : _nameController.text.trim(),
+      name: _nameController.text.trim().isEmpty ? 'Peça sem nome' : _nameController.text.trim(),
       category: _categories[_selectedCategoryIndex],
-      dominantColor: selectedCentroid.color,
-      labColorSpace: selectedCentroid.labCoordinates,
+      dominantColor: selectedColor.color,
+      labColorSpace: selectedColor.labLabel,
+      labL: selectedColor.l,
+      labA: selectedColor.a,
+      labB: selectedColor.b,
+      formalityScore: _formalityLevel,
+      styleEmbedding: segmentation.styleEmbedding,
       usageRate: 1,
-      imageUrl: defaultUrl,
+      imageUrl: '', // preenchida com a URL do recorte após o upload
       brandOrProvenance: _provenanceController.text.trim().isEmpty
           ? 'Acervo Pessoal'
           : _provenanceController.text.trim(),
       isConsciousFashion: _isConsciousFashion,
       consciousNote: _isConsciousFashion ? _esgNoteController.text.trim() : null,
-      iheScore: 91,
     );
 
     // Upload no Supabase Storage e persistência no banco
-    ClothingItem catalogedItem = newItem;
+    ClothingItem catalogedItem;
     try {
+      // Envia o recorte PNG com canal alfa, não a foto original
       catalogedItem = await _wardrobeService.uploadAndCatalogGarment(
-        imageBytes: _capturedBytes,
-        fileName: _capturedFileName,
+        imageBytes: segmentation.cutoutPng,
+        fileName: 'garment_${DateTime.now().microsecondsSinceEpoch}.png',
         item: newItem,
       );
     } catch (e) {
-      debugPrint('[ScanItemScreen] Erro na catalogação: $e');
+      // Fora do modo demo, a peça continua na tela para uma nova tentativa, sem perder a análise
+      if (kDemoMode) {
+        catalogedItem = newItem.copyWith(imageUrl: mockClothes.first.imageUrl);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.tapestryNoir,
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                e is WardrobeException ? e.message : 'Não foi possível salvar a peça.',
+                style: AppTypography.bodyReading(color: AppColors.ivoryText),
+              ),
+            ),
+          );
+        }
+        return;
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -224,17 +276,17 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.tapestryNoir,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
           content: Row(
             children: [
-              const Icon(Icons.check_circle, color: AppColors.iheGold, size: 18),
+              const Icon(Icons.check_circle, color: AppColors.gildedLeaf, size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Peça "${catalogedItem.name}" catalogada no seu acervo!',
-                  style: AppTypography.bodyReading(color: AppColors.surfaceCanvas),
+                  style: AppTypography.bodyReading(color: AppColors.ivoryText),
                 ),
               ),
             ],
@@ -246,22 +298,29 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedCentroid = _extractedCentroids[_selectedColorIndex];
+    final centroids = _extractedCentroids;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      body: SafeArea(
-        top: false,
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: AtelierRoom.frescoBlue,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             // 1. Cabeçalho Editorial com Ação de Fechar
             SliverToBoxAdapter(
-              child: _buildEditorialHeader(context),
-            ),
-
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 12),
+              child: RoomHeader(
+                eyebrow: 'Pipeline morfocromático • RNF06',
+                title: 'Digitalizar peça',
+                room: AtelierRoom.frescoBlue,
+                trailing: RoomIconButton(
+                  icon: Icons.close_rounded,
+                  label: 'Fechar',
+                  onTap: () {
+                    if (Navigator.canPop(context)) Navigator.pop(context);
+                  },
+                ),
+              ),
             ),
 
             // 2. TOQUE 1: Visualizador de Remoção de Fundo (Foto Bruta vs PNG Alfa)
@@ -269,351 +328,265 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 child: SegmentationPreview(
-                  rawImageUrl:
-                      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
-                  croppedImageUrl:
-                      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80',
-                  localImageBytes: _capturedBytes,
+                  originalBytes: _capturedBytes,
+                  cutoutBytes: _segmentation?.cutoutPng,
+                  isProcessing: _isSegmenting,
+                  errorMessage: _segmentationError,
+                  onRetry: _analyzePhoto,
                   onChangePhoto: _showSourcePicker,
                 ),
               ),
             ),
 
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 24),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
             // 3. TOQUE 2: Painel de Atributos & Morfocromia Extraída
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Extração de Cores no Espaço CIE L*a*b*
-                    ColorExtractorChips(
-                      centroids: _extractedCentroids,
-                      selectedIndex: _selectedColorIndex,
-                      onSelectCentroid: (index) {
-                        setState(() => _selectedColorIndex = index);
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-                    const Divider(color: AppColors.borderSubtle, height: 1),
-                    const SizedBox(height: 20),
-
-                    // Campo de Nome da Peça
-                    Text(
-                      'NOME DA PEÇA',
-                      style: AppTypography.metadataBadge(color: AppColors.textSecondary)
-                          .copyWith(fontSize: 9.5),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _nameController,
-                      style: AppTypography.uiHeadline(color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppColors.surfaceRaised,
-                        hintText: 'Ex: Blazer Linho Cru',
-                        hintStyle: AppTypography.bodyReading(color: AppColors.textMuted),
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.8),
+                child: AtelierSheet(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Extração de Cores no Espaço CIE L*a*b*
+                      if (centroids.isNotEmpty)
+                        ColorExtractorChips(
+                          centroids: centroids,
+                          selectedIndex: _selectedColorIndex,
+                          onSelectCentroid: (index) {
+                            setState(() => _selectedColorIndex = index);
+                          },
+                        )
+                      else
+                        Text(
+                          _isSegmenting
+                              ? 'ANALISANDO CORES NO ESPAÇO CIE L*a*b*...'
+                              : 'AS CORES DOMINANTES SURGEM APÓS A ANÁLISE DA FOTO',
+                          style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          borderSide:
-                              const BorderSide(color: AppColors.accentTerracotta, width: 1.2),
+
+                      const SizedBox(height: 24),
+                      const Divider(color: AppColors.hairlineInk, height: 1),
+                      const SizedBox(height: 20),
+
+                      // Campo de Nome da Peça
+                      Text(
+                        'NOME DA PEÇA',
+                        style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _nameController,
+                        style: AppTypography.uiHeadline(color: AppColors.inkText),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppColors.paperBoneRaised,
+                          hintText: 'Ex: Blazer Linho Cru',
+                          hintStyle: AppTypography.bodyReading(color: AppColors.inkSecondary),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.accentCinnabar, width: 1.2),
+                          ),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                    // Seleção de Categoria Minimalista
-                    Text(
-                      'CATEGORIA TAXONÔMICA',
-                      style: AppTypography.metadataBadge(color: AppColors.textSecondary)
-                          .copyWith(fontSize: 9.5),
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
-                          for (int i = 0; i < _categories.length; i++) ...[
-                            GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setState(() => _selectedCategoryIndex = i);
-                              },
-                              child: AnimatedContainer(
-                                duration: AppMotion.fast,
-                                curve: AppMotion.editorialDecel,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: i == _selectedCategoryIndex
-                                      ? AppColors.textPrimary
-                                      : AppColors.surfaceRaised,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: i == _selectedCategoryIndex
-                                        ? AppColors.textPrimary
-                                        : AppColors.borderSubtle,
-                                    width: 0.6,
+                      // Seleção de Categoria Minimalista
+                      Text(
+                        'CATEGORIA TAXONÔMICA',
+                        style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            for (int i = 0; i < _categories.length; i++) ...[
+                              GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _selectedCategoryIndex = i);
+                                },
+                                child: AnimatedContainer(
+                                  duration: AppMotion.fast,
+                                  curve: AppMotion.editorialDecel,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: i == _selectedCategoryIndex ? AppColors.inkText : AppColors.paperBoneRaised,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: i == _selectedCategoryIndex ? AppColors.inkText : AppColors.hairlineInk,
+                                      width: 0.6,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _categories[i],
+                                    style: AppTypography.uiHeadline(
+                                      color: i == _selectedCategoryIndex ? AppColors.paperBone : AppColors.inkText,
+                                    ).copyWith(fontSize: 12),
                                   ),
                                 ),
-                                child: Text(
-                                  _categories[i],
-                                  style: AppTypography.uiHeadline(
-                                    color: i == _selectedCategoryIndex
-                                        ? AppColors.surfaceCanvas
-                                        : AppColors.textPrimary,
-                                  ).copyWith(fontSize: 12),
-                                ),
+                              ),
+                              if (i < _categories.length - 1) const SizedBox(width: 8),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Slider de Formalidade (0% a 100%)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'NÍVEL DE FORMALIDADE',
+                            style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
+                          ),
+                          Text(
+                            '${(_formalityLevel * 100).round()}% • ${_getFormalityLabel(_formalityLevel)}',
+                            style: AppTypography.uiHeadline(
+                              color: AppColors.accentCinnabar,
+                            ).copyWith(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                      SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 3,
+                          activeTrackColor: AppColors.accentCinnabar,
+                          inactiveTrackColor: AppColors.paperBone,
+                          thumbColor: AppColors.accentCinnabar,
+                          overlayColor: AppColors.accentCinnabar.withValues(alpha: 0.12),
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                        ),
+                        child: Slider(
+                          value: _formalityLevel,
+                          onChanged: (value) {
+                            setState(() => _formalityLevel = value);
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Proveniência / Brechó
+                      Text(
+                        'PROVENIÊNCIA & ORIGEM',
+                        style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _provenanceController,
+                        style: AppTypography.bodyReading(color: AppColors.inkText),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppColors.paperBoneRaised,
+                          hintText: 'Ex: Brechó Vintage 1994',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.accentCinnabar, width: 1.2),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Switch Editorial de Moda Consciente / ESG
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.paperBoneRaised,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                          border: Border.all(
+                            color: _isConsciousFashion
+                                ? AppColors.verdigrisInk.withValues(alpha: 0.4)
+                                : AppColors.hairlineInk,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.eco_outlined, color: AppColors.verdigrisInk, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'MODA CONSCIENTE / SEGULINHA CIRCULAR',
+                                    style: AppTypography.metadataBadge(
+                                      color: AppColors.verdigrisInk,
+                                    ).copyWith(fontSize: 9, fontWeight: FontWeight.w700),
+                                  ),
+                                  Text(
+                                    'Peça sustentável, vintage ou segunda mão',
+                                    style: AppTypography.bodySmall(
+                                      color: AppColors.inkSecondary,
+                                    ).copyWith(fontSize: 11),
+                                  ),
+                                ],
                               ),
                             ),
-                            if (i < _categories.length - 1) const SizedBox(width: 8),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Slider de Formalidade (0% a 100%)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'NÍVEL DE FORMALIDADE',
-                          style: AppTypography.metadataBadge(color: AppColors.textSecondary)
-                              .copyWith(fontSize: 9.5),
-                        ),
-                        Text(
-                          '${(_formalityLevel * 100).round()}% • ${_getFormalityLabel(_formalityLevel)}',
-                          style: AppTypography.uiHeadline(color: AppColors.accentTerracotta)
-                              .copyWith(fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                    SliderTheme(
-                      data: SliderThemeData(
-                        trackHeight: 3,
-                        activeTrackColor: AppColors.accentTerracotta,
-                        inactiveTrackColor: AppColors.surfaceSubtle,
-                        thumbColor: AppColors.accentTerracotta,
-                        overlayColor: AppColors.accentTerracotta.withValues(alpha: 0.12),
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                      ),
-                      child: Slider(
-                        value: _formalityLevel,
-                        onChanged: (value) {
-                          setState(() => _formalityLevel = value);
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Proveniência / Brechó
-                    Text(
-                      'PROVENIÊNCIA & ORIGEM',
-                      style: AppTypography.metadataBadge(color: AppColors.textSecondary)
-                          .copyWith(fontSize: 9.5),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _provenanceController,
-                      style: AppTypography.bodyReading(color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppColors.surfaceRaised,
-                        hintText: 'Ex: Brechó Vintage 1994',
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.8),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          borderSide: const BorderSide(color: AppColors.borderSubtle, width: 0.8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          borderSide:
-                              const BorderSide(color: AppColors.accentTerracotta, width: 1.2),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Switch Editorial de Moda Consciente / ESG
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                        border: Border.all(
-                          color: _isConsciousFashion
-                              ? AppColors.accentOlive.withValues(alpha: 0.4)
-                              : AppColors.borderSubtle,
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.eco_outlined,
-                            color: AppColors.accentOlive,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'MODA CONSCIENTE / SEGULINHA CIRCULAR',
-                                  style: AppTypography.metadataBadge(color: AppColors.accentOlive)
-                                      .copyWith(fontSize: 9, fontWeight: FontWeight.w700),
-                                ),
-                                Text(
-                                  'Peça sustentável, vintage ou segunda mão',
-                                  style: AppTypography.bodySmall(color: AppColors.textSecondary)
-                                      .copyWith(fontSize: 11),
-                                ),
-                              ],
+                            Switch.adaptive(
+                              value: _isConsciousFashion,
+                              activeThumbColor: AppColors.paperBoneRaised,
+                              activeTrackColor: AppColors.verdigrisInk,
+                              onChanged: (val) {
+                                HapticFeedback.selectionClick();
+                                setState(() => _isConsciousFashion = val);
+                              },
                             ),
-                          ),
-                          Switch.adaptive(
-                            value: _isConsciousFashion,
-                            activeColor: AppColors.accentOlive,
-                            onChanged: (val) {
-                              HapticFeedback.selectionClick();
-                              setState(() => _isConsciousFashion = val);
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
 
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 32),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
-            // 4. TOQUE 3: CTA Primário em Terracota ("Catalogar no Acervo")
+            // 4. TOQUE 3: CTA primário em cinábrio ("Catalogar no Acervo")
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   AppSpacing.pageMargin,
                   0,
                   AppSpacing.pageMargin,
-                  32,
+                  32 + MediaQuery.paddingOf(context).bottom,
                 ),
-                child: SizedBox(
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isUploading ? null : _handleCatalogItem,
-                    icon: _isUploading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.surfaceCanvas),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.checkroom_rounded,
-                            color: AppColors.surfaceCanvas,
-                            size: 20,
-                          ),
-                    label: Text(
-                      _isUploading ? 'Catalogando Peça...' : 'Catalogar no Acervo',
-                      style: AppTypography.uiHeadline(color: AppColors.surfaceCanvas).copyWith(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accentTerracotta,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                      ),
-                      shadowColor: AppColors.accentTerracotta.withValues(alpha: 0.3),
-                    ),
-                  ),
+                child: CinnabarButton(
+                  label: 'Catalogar no Acervo',
+                  icon: Icons.checkroom_rounded,
+                  busy: _isUploading,
+                  onPressed: _canCatalog ? _handleCatalogItem : null,
                 ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEditorialHeader(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.pageMargin,
-        MediaQuery.of(context).padding.top + 16,
-        AppSpacing.pageMargin,
-        8,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Digitalizar Peça',
-                style: AppTypography.displayEditorial().copyWith(
-                  fontSize: 28,
-                  letterSpacing: -0.6,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'PIPELINE MORFO-CROMÁTICO (RNF06)',
-                style: AppTypography.metadataBadge(
-                  color: AppColors.accentTerracotta,
-                ).copyWith(fontSize: 9.5, letterSpacing: 1.2),
-              ),
-            ],
-          ),
-          IconButton(
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
-              }
-            },
-            icon: const Icon(
-              Icons.close_rounded,
-              color: AppColors.textPrimary,
-              size: 22,
-            ),
-          ),
-        ],
       ),
     );
   }

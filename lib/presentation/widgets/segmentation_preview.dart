@@ -4,26 +4,28 @@ import '../../theme/app_theme.dart';
 
 import 'dart:typed_data';
 
-/// Visualizador Interativo da Remoção de Fundo e Segmentação Semântica (Canal Alfa)
+/// Visualizador da Remoção de Fundo e Segmentação Semântica (Canal Alfa)
 /// Conforme AGENTS.md Seção 5.1 e RNF06:
-/// - Alternância visual suave estilo "Antes (Foto Bruta) / Depois (IA Segmentada)"
-/// - Sem BoxShadow retangular no container da peça segmentada
-/// - Reamostragem com FilterQuality.medium e restrição de memória (cacheWidth/Height)
-/// - Transição com shimmer aquecido para simular o pipeline assíncrono de remoção de fundo
+/// - Alternância "Foto Original / Recorte" entre os bytes reais devolvidos pelo pipeline (RF04)
+/// - Sem BoxShadow: vitrine translúcida sobre a Sala, PNG recortado sem sombra de caixa
+/// - Reamostragem com FilterQuality.medium e decodificação limitada via cacheWidth
+/// - Shimmer aquecido enquanto o servidor processa a foto
 class SegmentationPreview extends StatefulWidget {
-  final String rawImageUrl;
-  final String croppedImageUrl;
-  final Uint8List? localImageBytes;
+  final Uint8List? originalBytes;
+  final Uint8List? cutoutBytes;
+  final bool isProcessing;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
   final VoidCallback? onChangePhoto;
-  final ValueChanged<bool>? onSegmentedToggle;
 
   const SegmentationPreview({
     super.key,
-    required this.rawImageUrl,
-    required this.croppedImageUrl,
-    this.localImageBytes,
+    this.originalBytes,
+    this.cutoutBytes,
+    this.isProcessing = false,
+    this.errorMessage,
+    this.onRetry,
     this.onChangePhoto,
-    this.onSegmentedToggle,
   });
 
   @override
@@ -31,50 +33,45 @@ class SegmentationPreview extends StatefulWidget {
 }
 
 class _SegmentationPreviewState extends State<SegmentationPreview> {
-  bool _isSegmented = true;
-  bool _isProcessing = false;
+  bool _showOriginal = false;
 
-  void _toggleSegmentation() async {
+  @override
+  void didUpdateWidget(covariant SegmentationPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Novo recorte chegou: volta a exibi-lo por padrão
+    if (widget.cutoutBytes != oldWidget.cutoutBytes) _showOriginal = false;
+  }
+
+  bool get _hasCutout => widget.cutoutBytes != null && !widget.isProcessing;
+  bool get _showingCutout => _hasCutout && !_showOriginal;
+
+  void _toggleView() {
     HapticFeedback.selectionClick();
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    // Simula a inferência do pipeline de segmentação semântica (FastAPI / AWS)
-    await Future.delayed(const Duration(milliseconds: 650));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isProcessing = false;
-      _isSegmented = !_isSegmented;
-    });
-
-    widget.onSegmentedToggle?.call(_isSegmented);
+    setState(() => _showOriginal = !_showOriginal);
   }
 
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.of(context).devicePixelRatio;
+    final hasPhoto = widget.originalBytes != null;
 
     return Container(
       height: 280,
       width: double.infinity,
+      // Vitrine escura e translúcida: a Sala aparece por trás e a peça recortada se destaca
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: AppColors.tapestryNoir.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
         border: Border.all(
-          color: AppColors.borderSubtle,
+          color: AppColors.hairlineIvory,
           width: 0.8,
         ),
-        boxShadow: AppColors.editorialShadow,
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
           // 1. Grid Padrão de Fundo Alfa (Chequerboard sutil em estado transparente)
-          if (_isSegmented && !_isProcessing)
+          if (_showingCutout)
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
@@ -84,56 +81,34 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
               ),
             ),
 
-          // 2. Imagem (Foto Bruta ou Silhueta Segmentada PNG Alfa)
+          // 2. Conteúdo: convite à captura, shimmer, foto original ou recorte PNG alfa
           Positioned.fill(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final targetWidth = (constraints.maxWidth * dpr).round();
-                  final targetHeight = (constraints.maxHeight * dpr).round();
-
-                  if (_isProcessing) {
+                  if (!hasPhoto) {
+                    return _CapturePrompt(onTap: widget.onChangePhoto);
+                  }
+                  if (widget.isProcessing) {
                     return _WarmShimmerProcessingPlaceholder();
                   }
 
-                  if (widget.localImageBytes != null) {
-                    return Center(
-                      child: Image.memory(
-                        widget.localImageBytes!,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                    );
-                  }
-
-                  final imageUrl = _isSegmented ? widget.croppedImageUrl : widget.rawImageUrl;
+                  final bytes = _showingCutout ? widget.cutoutBytes! : widget.originalBytes!;
+                  final targetWidth = (constraints.maxWidth * dpr).round();
 
                   return AnimatedSwitcher(
                     duration: AppMotion.medium,
                     switchInCurve: AppMotion.editorialDecel,
                     switchOutCurve: AppMotion.editorialDecel,
                     child: Center(
-                      key: ValueKey<String>(imageUrl),
-                      child: Image.network(
-                        imageUrl,
+                      key: ValueKey<bool>(_showingCutout),
+                      child: Image.memory(
+                        bytes,
                         fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium, // Reamostragem limpa conforme AGENTS.md
+                        filterQuality: FilterQuality.medium,
                         cacheWidth: targetWidth > 0 ? targetWidth : null,
-                        cacheHeight: targetHeight > 0 ? targetHeight : null,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceSubtle,
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.checkroom_outlined,
-                              color: AppColors.textMuted,
-                              size: 40,
-                            ),
-                          ),
-                        ),
+                        gaplessPlayback: true,
                       ),
                     ),
                   );
@@ -143,7 +118,7 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
           ),
 
           // 3. Botão de Trocar Foto (Topo Direito)
-          if (widget.onChangePhoto != null)
+          if (hasPhoto && widget.onChangePhoto != null && !widget.isProcessing)
             Positioned(
               top: 12,
               right: 12,
@@ -152,21 +127,21 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceCanvas.withValues(alpha: 0.95),
+                    color: AppColors.paperBone.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.borderSubtle,
+                      color: AppColors.hairlineInk,
                       width: 0.6,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.photo_camera_outlined, size: 14, color: AppColors.textPrimary),
+                      const Icon(Icons.photo_camera_outlined, size: 14, color: AppColors.inkText),
                       const SizedBox(width: 4),
                       Text(
                         'TROCAR FOTO',
-                        style: AppTypography.metadataBadge(color: AppColors.textPrimary)
+                        style: AppTypography.metadataBadge(color: AppColors.inkText)
                             .copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
                       ),
                     ],
@@ -176,83 +151,169 @@ class _SegmentationPreviewState extends State<SegmentationPreview> {
             ),
 
           // 4. Etiqueta Visual de Estado (Topo Esquerdo)
-          Positioned(
-            top: 14,
-            left: 14,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceCanvas.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.borderSubtle,
-                  width: 0.6,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isSegmented ? AppColors.accentOlive : AppColors.accentTerracotta,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _isSegmented ? 'IA SEGMENTADA • CANAL ALFA' : 'FOTO BRUTA (COM FUNDO)',
-                    style: AppTypography.metadataBadge(
-                      color: AppColors.textPrimary,
-                    ).copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 4. Botão Flutuante de Alternância "Antes / Depois" (Base Centro)
-          Positioned(
-            bottom: 14,
-            child: GestureDetector(
-              onTap: _toggleSegmentation,
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedContainer(
-                duration: AppMotion.fast,
-                curve: AppMotion.editorialDecel,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          if (hasPhoto && !widget.isProcessing && widget.errorMessage == null)
+            Positioned(
+              top: 14,
+              left: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.textPrimary,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x2E1A1817),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+                  color: AppColors.paperBone.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.hairlineInk,
+                    width: 0.6,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.auto_fix_high_rounded,
-                      color: AppColors.iheGold,
-                      size: 15,
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _showingCutout ? AppColors.verdigrisInk : AppColors.accentCinnabar,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _isSegmented ? 'VER FOTO ORIGINAL' : 'REMOVER FUNDO COM IA',
+                      _showingCutout ? 'IA SEGMENTADA • CANAL ALFA' : 'FOTO ORIGINAL (COM FUNDO)',
                       style: AppTypography.metadataBadge(
-                        color: AppColors.surfaceCanvas,
-                      ).copyWith(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                        color: AppColors.inkText,
+                      ).copyWith(fontSize: 8.5, fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
               ),
             ),
+
+          // 5. Falha na análise: mensagem e nova tentativa (Base)
+          if (hasPhoto && !widget.isProcessing && widget.errorMessage != null)
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: _ErrorBanner(message: widget.errorMessage!, onRetry: widget.onRetry),
+            ),
+
+          // 6. Alternância "Foto Original / Recorte" (Base Centro)
+          if (_hasCutout && widget.errorMessage == null)
+            Positioned(
+              bottom: 14,
+              child: GestureDetector(
+                onTap: _toggleView,
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: AppMotion.fast,
+                  curve: AppMotion.editorialDecel,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.inkText,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x2E1A1817),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.auto_fix_high_rounded,
+                        color: AppColors.gildedLeaf,
+                        size: 15,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _showingCutout ? 'VER FOTO ORIGINAL' : 'VER RECORTE',
+                        style: AppTypography.metadataBadge(
+                          color: AppColors.paperBone,
+                        ).copyWith(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Estado inicial: convite à captura da peça (Toque 1 do RNF06)
+class _CapturePrompt extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _CapturePrompt({this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.checkroom_outlined, color: AppColors.ivoryMuted, size: 44),
+            const SizedBox(height: 14),
+            Text(
+              'Fotografe a peça',
+              style: AppTypography.sectionDisplay().copyWith(fontSize: 24),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'NO CABIDE OU SOBRE UMA SUPERFÍCIE LISA',
+              style: AppTypography.atelierMeta().copyWith(fontSize: 9),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const _ErrorBanner({required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: AppColors.paperBone.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        border: Border.all(color: AppColors.accentCinnabar.withValues(alpha: 0.4), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              message,
+              style: AppTypography.bodySmall(color: AppColors.inkText).copyWith(fontSize: 11.5),
+            ),
           ),
+          if (onRetry != null)
+            TextButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onRetry!();
+              },
+              style: TextButton.styleFrom(foregroundColor: AppColors.accentCinnabar),
+              child: Text(
+                'TENTAR DE NOVO',
+                style: AppTypography.metadataBadge(color: AppColors.accentCinnabar)
+                    .copyWith(fontSize: 9, fontWeight: FontWeight.w700),
+              ),
+            ),
         ],
       ),
     );
@@ -281,8 +342,8 @@ class __WarmShimmerProcessingPlaceholderState
     )..repeat(reverse: true);
 
     _colorAnimation = ColorTween(
-      begin: AppColors.surfaceRaised,
-      end: AppColors.surfaceSubtle,
+      begin: const Color(0x0FF4EEE1),
+      end: const Color(0x2EF4EEE1),
     ).animate(
       CurvedAnimation(
         parent: _shimmerController,
@@ -316,8 +377,7 @@ class __WarmShimmerProcessingPlaceholderState
             const SizedBox(height: 12),
             Text(
               'REMOVENDO FUNDO E ISOLANDO CANAL ALFA...',
-              style: AppTypography.metadataBadge(color: AppColors.accentTerracotta)
-                  .copyWith(fontSize: 8.5, letterSpacing: 0.8),
+              style: AppTypography.atelierMeta().copyWith(fontSize: 9),
             ),
           ],
         ),
@@ -330,8 +390,9 @@ class __WarmShimmerProcessingPlaceholderState
 class _AlphaGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint1 = Paint()..color = AppColors.surfaceRaised.withValues(alpha: 0.4);
-    final paint2 = Paint()..color = AppColors.surfaceSubtle.withValues(alpha: 0.3);
+    // Xadrez de transparência discreto sobre a vitrine escura
+    final paint1 = Paint()..color = AppColors.ivoryText.withValues(alpha: 0.07);
+    final paint2 = Paint()..color = AppColors.ivoryText.withValues(alpha: 0.02);
 
     const checkSize = 12.0;
 

@@ -5,11 +5,20 @@ Configuração do servidor, CORS, ciclo de vida e roteamento RESTful v1.
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.api_router import api_router
+
+
+# create_all não altera tabelas existentes; colunas novas entram aqui de forma idempotente
+# (espelham o supabase_schema.sql)
+SCHEMA_UPGRADES = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS looks_counter_date DATE",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS looks_signatures_today JSONB NOT NULL DEFAULT '[]'::jsonb",
+]
 
 
 @asynccontextmanager
@@ -21,6 +30,8 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            for statement in SCHEMA_UPGRADES:
+                await conn.execute(text(statement))
     except Exception as exc:
         print(f"[WARN] Não foi possível conectar ao banco de dados durante startup: {exc}")
     yield

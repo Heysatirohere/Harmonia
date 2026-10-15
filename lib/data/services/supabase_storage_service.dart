@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase/supabase_config.dart';
+import 'supabase_auth_service.dart';
 
 /// Serviço de Storage de Fotos de Roupas no Supabase (RF03, RF04)
 class SupabaseStorageService {
@@ -11,7 +12,8 @@ class SupabaseStorageService {
 
   SupabaseClient? get _client => SupabaseConfig.client;
 
-  /// Faz o upload dos bytes da imagem PNG com canal alfa para o bucket 'wardrobe-items'
+  /// Faz o upload dos bytes da imagem PNG com canal alfa para o bucket 'wardrobe-items',
+  /// na pasta do usuário (`<user_id>/`), a única em que a política do bucket permite gravar
   Future<String?> uploadClothingImage({
     required Uint8List imageBytes,
     required String fileName,
@@ -24,8 +26,13 @@ class SupabaseStorageService {
     }
 
     try {
+      final userId = SupabaseAuthService().currentUserId;
+      if (userId == null) {
+        debugPrint('[SupabaseStorage] Upload sem sessão ativa.');
+        return null;
+      }
       final storage = client.storage.from(SupabaseConfig.wardrobeBucket);
-      final filePath = 'garments/$fileName';
+      final filePath = '$userId/$fileName';
 
       await storage.uploadBinary(
         filePath,

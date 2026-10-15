@@ -7,8 +7,12 @@ import 'package:harmonia_mvp/presentation/auth/auth_scope.dart';
 import 'package:harmonia_mvp/presentation/screens/account_settings_screen.dart';
 import 'package:harmonia_mvp/presentation/screens/auth_screen.dart';
 import 'package:harmonia_mvp/presentation/screens/main_navigation_screen.dart';
+import 'package:harmonia_mvp/presentation/screens/onboarding_profile_screen.dart';
+import 'package:harmonia_mvp/domain/repositories/style_profile_repository.dart';
+import 'package:harmonia_mvp/models/user_style_profile.dart';
 
 import 'support/fake_auth_repository.dart';
+import 'support/fake_style_profile_repository.dart';
 
 Finder _field(String label) => find.ancestor(
       of: find.text(label.toUpperCase()),
@@ -32,7 +36,10 @@ void main() {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(HarmoniaApp(authRepository: repo));
+    await tester.pumpWidget(HarmoniaApp(
+      authRepository: repo,
+      styleProfileRepository: FakeStyleProfileRepository.completed(),
+    ));
     await tester.pumpAndSettle();
   }
 
@@ -219,5 +226,72 @@ void main() {
     expect(repo.calls, contains('signOut'));
     expect(find.byType(AuthScreen), findsOneWidget);
     expect(find.byType(AccountSettingsScreen), findsNothing);
+  });
+
+  group('Onboarding após o login', () {
+    const account = Account(id: '1', email: 'ana@harmonia.app', fullName: 'Ana Lima');
+
+    Future<void> pumpWith(WidgetTester tester, FakeStyleProfileRepository profiles) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(HarmoniaApp(
+        authRepository: FakeAuthRepository(signedIn: account),
+        styleProfileRepository: profiles,
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> walkToSummary(WidgetTester tester) async {
+      await _tapButton(tester, 'Iniciar Consultoria');
+      await tester.tap(find.text('Oval'));
+      await tester.pump();
+      await _tapButton(tester, 'Avançar');
+      await _tapButton(tester, 'Avançar');
+    }
+
+    testWidgets('perfil completo vai direto para o app', (tester) async {
+      await pumpWith(tester, FakeStyleProfileRepository.completed());
+
+      expect(find.byType(OnboardingProfileScreen), findsNothing);
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
+    });
+
+    testWidgets('perfil incompleto passa pelo onboarding e salva a escolha', (tester) async {
+      final profiles = FakeStyleProfileRepository();
+      await pumpWith(tester, profiles);
+
+      expect(find.byType(OnboardingProfileScreen), findsOneWidget);
+      expect(find.byType(MainNavigationScreen), findsNothing);
+
+      await walkToSummary(tester);
+      await _tapButton(tester, 'Entrar no HarmonIA');
+
+      expect(profiles.calls.take(2), ['fetch', 'update']);
+      expect(profiles.profile.silhouette, BodySilhouetteType.oval);
+      expect(profiles.profile.palette, isNotNull);
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
+    });
+
+    testWidgets('falha ao salvar mantém o onboarding e informa', (tester) async {
+      final profiles = FakeStyleProfileRepository();
+      await pumpWith(tester, profiles);
+      await walkToSummary(tester);
+
+      profiles.nextFailure = const StyleProfileFailure('Não foi possível conectar ao ateliê.');
+      await _tapButton(tester, 'Entrar no HarmonIA');
+
+      expect(find.text('Não foi possível conectar ao ateliê.'), findsOneWidget);
+      expect(find.byType(OnboardingProfileScreen), findsOneWidget);
+      expect(find.byType(MainNavigationScreen), findsNothing);
+    });
+
+    testWidgets('API fora do ar não bloqueia a entrada no app', (tester) async {
+      final profiles = FakeStyleProfileRepository()
+        ..nextFailure = const StyleProfileFailure('Não foi possível conectar ao ateliê.');
+      await pumpWith(tester, profiles);
+
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
+    });
   });
 }

@@ -16,10 +16,10 @@ class EditorialNavDestination {
   });
 }
 
-/// Barra de navegação minimalista do HarmonIA
+/// Barra de navegação do HarmonIA (Renascença do Ateliê)
 ///
-/// Ícones lineares sem rótulo, ponto terracota sob o destino ativo e
-/// uma ação central de captura (peça / provador) em carvão editorial.
+/// Faixa de tapeçaria noir sob as Salas, ícones lineares em marfim, ponto de
+/// cinábrio sob o destino ativo e a ação central de captura em cinábrio.
 class EditorialNavBar extends StatelessWidget {
   final List<EditorialNavDestination> destinations;
   final int currentIndex;
@@ -48,8 +48,8 @@ class EditorialNavBar extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
-        border: Border(top: BorderSide(color: AppColors.borderSubtle, width: 0.6)),
+        color: AppColors.tapestryNoir,
+        border: Border(top: BorderSide(color: AppColors.hairlineIvory, width: 0.6)),
       ),
       child: SafeArea(
         top: false,
@@ -98,7 +98,7 @@ class _NavItem extends StatelessWidget {
                   selected ? destination.activeIcon : destination.icon,
                   key: ValueKey(selected),
                   size: 22,
-                  color: selected ? AppColors.textPrimary : AppColors.textMuted,
+                  color: selected ? AppColors.ivoryText : AppColors.ivoryMuted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -108,7 +108,7 @@ class _NavItem extends StatelessWidget {
                 width: selected ? 4 : 0,
                 height: 4,
                 decoration: const BoxDecoration(
-                  color: AppColors.accentTerracotta,
+                  color: AppColors.accentCinnabar,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -142,10 +142,11 @@ class _CaptureAction extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.textPrimary,
+              color: AppColors.accentCinnabar,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+              border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
             ),
-            child: const Icon(Icons.add, size: 22, color: AppColors.surfaceCanvas),
+            child: const Icon(Icons.add, size: 22, color: AppColors.ivoryText),
           ),
         ),
       ),

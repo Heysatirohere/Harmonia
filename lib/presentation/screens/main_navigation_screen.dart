@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/services/wardrobe_api_service.dart';
-import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/editorial_nav_bar.dart';
@@ -55,7 +53,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late int _currentIndex = widget.initialIndex;
 
-  /// Recria o Acervo após uma captura feita fora dele
+  /// Recria o Acervo e o Look do Dia após uma captura feita fora do Acervo
   int _wardrobeRevision = 0;
 
   void _onTabSelected(int index) {
@@ -68,7 +66,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final action = await showModalBottomSheet<_CaptureOption>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: AppColors.textPrimary.withValues(alpha: 0.24),
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
       builder: (_) => const _CaptureTray(),
     );
     if (!mounted || action == null) return;
@@ -87,9 +85,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+  /// A peça já foi salva pelo ScanItemScreen; aqui só se abre o Acervo atualizado
   void _onItemCataloged(ClothingItem item) {
-    WardrobeApiService().createClothingItem(item);
-    mockClothes.insert(0, item);
     setState(() {
       _wardrobeRevision++;
       _currentIndex = MainNavigationScreen.wardrobeTab;
@@ -99,11 +96,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.tapestryNoir,
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          const DailyOutfitScreen(),
+          DailyOutfitScreen(key: ValueKey(_wardrobeRevision)),
           WardrobeScreen(key: ValueKey(_wardrobeRevision)),
           const CommunityFeedScreen(),
           const ProfileScreen(),
@@ -130,7 +127,7 @@ class _CaptureTray extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 12, AppSpacing.pageMargin, 12),
       decoration: const BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: AppColors.paperBone,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLarge)),
       ),
       child: SafeArea(
@@ -144,15 +141,15 @@ class _CaptureTray extends StatelessWidget {
                 width: 32,
                 height: 3,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSubtle,
+                  color: AppColors.hairlineInk,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            Text('CAPTURAR', style: AppTypography.metadataBadge(color: AppColors.iheGold)),
+            Text('CAPTURAR', style: AppTypography.atelierMeta(color: AppColors.gildedInk)),
             const SizedBox(height: 4),
-            Text('O que vamos ver agora?', style: AppTypography.subtitleCuratorial(color: AppColors.textPrimary)),
+            Text('O que vamos ver agora?', style: AppTypography.sectionDisplay(color: AppColors.inkText).copyWith(fontSize: 24)),
             const SizedBox(height: 20),
             const _TrayOption(
               option: _CaptureOption.scanItem,
@@ -160,7 +157,7 @@ class _CaptureTray extends StatelessWidget {
               title: 'Digitalizar peça',
               subtitle: 'Foto, recorte e catalogação no acervo',
             ),
-            const Divider(height: 1, thickness: 0.6, color: AppColors.borderSubtle),
+            const Divider(height: 1, thickness: 0.6, color: AppColors.hairlineInk),
             const _TrayOption(
               option: _CaptureOption.storeMirror,
               icon: Icons.center_focus_strong_outlined,
@@ -199,7 +196,7 @@ class _TrayOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: AppColors.textPrimary),
+            Icon(icon, size: 22, color: AppColors.inkText),
             const SizedBox(width: AppSpacing.elementGap),
             Expanded(
               child: Column(
@@ -211,7 +208,7 @@ class _TrayOption extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward, size: 16, color: AppColors.textMuted),
+            const Icon(Icons.arrow_forward, size: 16, color: AppColors.inkSecondary),
           ],
         ),
       ),

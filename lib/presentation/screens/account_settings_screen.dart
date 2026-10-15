@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import '../../domain/models/account.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
 import '../auth/auth_scope.dart';
 import '../widgets/editorial_form.dart';
 
@@ -62,8 +65,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   bool get _profileDirty {
     final account = _account;
     if (account == null) return false;
-    return _nameController.text.trim() != (account.fullName ?? '') ||
-        _emailController.text.trim() != account.email;
+    return _nameController.text.trim() != (account.fullName ?? '') || _emailController.text.trim() != account.email;
   }
 
   Future<void> _saveProfile() async {
@@ -133,7 +135,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: AppColors.textPrimary.withValues(alpha: 0.32),
+      barrierColor: AppColors.inkText.withValues(alpha: 0.32),
       builder: (_) => const _DeleteAccountDialog(),
     );
     if (confirmed != true || !mounted) return;
@@ -148,9 +150,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       setState(() => _busy = _Busy.none);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.tapestryNoir,
           behavior: SnackBarBehavior.floating,
-          content: Text(e.message, style: AppTypography.bodyReading(color: AppColors.surfaceCanvas)),
+          content: Text(e.message, style: AppTypography.bodyReading(color: AppColors.ivoryText)),
         ),
       );
     }
@@ -160,42 +162,59 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   Widget build(BuildContext context) {
     final account = _account;
 
+    const room = AtelierRoom.velvetBordeaux;
+    Widget sheet(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+      child: AtelierSheet(padding: const EdgeInsets.all(AppSpacing.pageMargin), child: child),
+    );
+
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceCanvas,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          tooltip: 'Voltar',
-          icon: const Icon(Icons.arrow_back, size: 20, color: AppColors.textPrimary),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-        title: Text('Conta & Segurança', style: AppTypography.editorialTitleMedium()),
-      ),
-      body: account == null
-          ? _buildUnavailable()
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 8, AppSpacing.pageMargin, 48),
-              children: [
-                _buildIdentity(account),
-                const SizedBox(height: 36),
-                _buildProfileSection(),
-                const SizedBox(height: 40),
-                _buildPasswordSection(),
-                const SizedBox(height: 40),
-                const _SectionLabel('Sessão'),
-                const SizedBox(height: AppSpacing.elementGap),
-                EditorialButton(
-                  label: 'Encerrar sessão',
-                  tone: EditorialButtonTone.outline,
-                  isLoading: _busy == _Busy.signOut,
-                  onPressed: _isBusy ? null : _signOut,
-                ),
-                const SizedBox(height: 40),
-                _buildDangerZone(),
-              ],
+      backgroundColor: AppColors.tapestryNoir,
+      body: RoomScene(
+        room: room,
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 48),
+          children: [
+            RoomHeader(
+              eyebrow: 'Ateliê • RF18',
+              title: 'Conta & Segurança',
+              room: room,
+              onBack: () => Navigator.maybePop(context),
             ),
+            if (account == null)
+              sheet(_buildUnavailable())
+            else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                child: _buildIdentity(account),
+              ),
+              const SizedBox(height: 32),
+              sheet(_buildProfileSection()),
+              const SizedBox(height: 20),
+              sheet(_buildPasswordSection()),
+              const SizedBox(height: 20),
+              sheet(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _SectionLabel('Sessão'),
+                    const SizedBox(height: AppSpacing.elementGap),
+                    EditorialButton(
+                      label: 'Encerrar sessão',
+                      tone: EditorialButtonTone.outline,
+                      isLoading: _busy == _Busy.signOut,
+                      onPressed: _isBusy ? null : _signOut,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              sheet(_buildDangerZone()),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -205,12 +224,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Nenhuma sessão ativa', style: AppTypography.subtitleCuratorial(color: AppColors.textPrimary)),
+          Text('Nenhuma sessão ativa', style: AppTypography.subtitleCuratorial(color: AppColors.inkText)),
           const SizedBox(height: AppSpacing.tightGap),
           Text(
             'O serviço de conta está indisponível neste ambiente. '
             'Conecte-se à internet e entre novamente para editar seus dados.',
-            style: AppTypography.bodyReading(color: AppColors.textSecondary),
+            style: AppTypography.bodyReading(color: AppColors.inkSecondary),
           ),
         ],
       ),
@@ -226,26 +245,22 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           height: 56,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppColors.surfaceRaised,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderGold, width: 0.8),
+            border: Border.all(color: AppColors.gildedLeaf, width: 1.2),
           ),
-          child: Text(account.monogram, style: AppTypography.iheMetric()),
+          child: Text(account.monogram, style: AppTypography.iheMetric(color: AppColors.gildedLeaf)),
         ),
         const SizedBox(width: AppSpacing.elementGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(account.displayName, style: AppTypography.editorialTitleSmall()),
+              Text(account.displayName, style: AppTypography.editorialTitleSmall(color: AppColors.ivoryText)),
               const SizedBox(height: 2),
-              Text(account.email, style: AppTypography.bodySmall()),
+              Text(account.email, style: AppTypography.bodySmall(color: AppColors.ivoryMuted)),
               if (since != null) ...[
                 const SizedBox(height: 6),
-                Text(
-                  'MEMBRO DESDE ${_monthYear(since)}',
-                  style: AppTypography.metadataBadge(color: AppColors.textMuted).copyWith(fontSize: 9.5),
-                ),
+                Text('MEMBRO DESDE ${_monthYear(since)}', style: AppTypography.atelierMeta().copyWith(fontSize: 9.5)),
               ],
             ],
           ),
@@ -347,33 +362,23 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   Widget _buildDangerZone() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-        border: Border.all(color: AppColors.accentTerracotta.withValues(alpha: 0.28), width: 0.8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'EXCLUSÃO DEFINITIVA',
-            style: AppTypography.metadataBadge(color: AppColors.accentTerracotta),
-          ),
-          const SizedBox(height: AppSpacing.tightGap),
-          Text(
-            'Revoga suas credenciais e apaga perfil, acervo e looks. Esta ação não pode ser desfeita.',
-            style: AppTypography.bodyReading(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: AppSpacing.elementGap),
-          EditorialButton(
-            label: 'Excluir conta',
-            tone: EditorialButtonTone.destructive,
-            isLoading: _busy == _Busy.delete,
-            onPressed: _isBusy ? null : _confirmDelete,
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('EXCLUSÃO DEFINITIVA', style: AppTypography.metadataBadge(color: AppColors.accentCinnabar)),
+        const SizedBox(height: AppSpacing.tightGap),
+        Text(
+          'Revoga suas credenciais e apaga perfil, acervo e looks. Esta ação não pode ser desfeita.',
+          style: AppTypography.bodyReading(color: AppColors.inkSecondary),
+        ),
+        const SizedBox(height: AppSpacing.elementGap),
+        EditorialButton(
+          label: 'Excluir conta',
+          tone: EditorialButtonTone.destructive,
+          isLoading: _busy == _Busy.delete,
+          onPressed: _isBusy ? null : _confirmDelete,
+        ),
+      ],
     );
   }
 
@@ -389,7 +394,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: AppTypography.subtitleCuratorial(color: AppColors.textPrimary));
+    return Text(text, style: AppTypography.subtitleCuratorial(color: AppColors.inkText));
   }
 }
 
@@ -414,7 +419,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.paperBone,
       surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLarge)),
@@ -428,7 +433,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
             const SizedBox(height: AppSpacing.tightGap),
             Text(
               'Para confirmar, digite $_keyword abaixo.',
-              style: AppTypography.bodyReading(color: AppColors.textSecondary),
+              style: AppTypography.bodyReading(color: AppColors.inkSecondary),
             ),
             const SizedBox(height: AppSpacing.elementGap),
             EditorialTextField(

@@ -1,67 +1,191 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
-import '../../mocks/mock_store_parity.dart';
+import '../../data/services/outfit_api_service.dart';
+import '../../data/services/wardrobe_api_service.dart';
+import '../../mocks/mock_clothes.dart';
+import '../../models/clothing_item.dart';
+import '../../models/garment_segmentation.dart';
+import '../../models/store_parity_result.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
+import '../atelier/room_scene.dart';
+import '../widgets/photo_capture.dart';
 import '../widgets/store_parity_sheet.dart';
 
-/// Screen for Mirror Mode / Store Garment Parity Analysis (RF08)
+/// Modo Provador: paridade de uma peça da loja com o acervo (RF08, RF09)
+///
+/// Fluxo em 3 toques (RNF06): categoria → obturador → disparo da câmera.
+/// A foto passa pelo mesmo recorte e extração L*a*b* do scanner e é
+/// comparada com o acervo pelo motor do IHE, sem gastar a cota diária.
 class StoreMirrorScreen extends StatefulWidget {
-  const StoreMirrorScreen({super.key});
+  final WardrobeApiService? wardrobeService;
+  final OutfitApiService? outfitService;
+  final PhotoCapture? capturePhoto;
+
+  const StoreMirrorScreen({super.key, this.wardrobeService, this.outfitService, this.capturePhoto});
 
   @override
   State<StoreMirrorScreen> createState() => _StoreMirrorScreenState();
 }
 
 class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
-  String _selectedStore = 'Lojas Renner';
-  bool _isCapturing = false;
+  late final WardrobeApiService _wardrobeService = widget.wardrobeService ?? WardrobeApiService();
+  late final OutfitApiService _outfitService = widget.outfitService ?? OutfitApiService();
 
-  void _onCaptureGarment() async {
+  /// A segmentação ainda não classifica a peça (RF05), então a categoria é escolhida aqui
+  static const _categories = ['Partes de cima', 'Partes de baixo', 'Calçados', 'Peças únicas'];
+  String _category = _categories.first;
+
+  Uint8List? _photo;
+  bool _analyzing = false;
+
+  StoreParityResult get _demoParityResult => StoreParityResult(
+    storeGarment: _storeGarment(
+      const GarmentColor(l: 54, a: 32, b: 28, hex: '#C86D51', percentage: 85, name: 'Terracota'),
+      null,
+    ),
+    ihePercentage: 92,
+    isStronglyRecommended: true,
+    paletteHarmony: 0.94,
+    stylingAdvice: 'Alta sinergia estética: o tom terracota dialoga com a base neutra e terrosa do seu acervo atual.',
+    looksEvaluated: 8,
+    strongLooks: 3,
+    matches: [
+      ParityMatchItem(
+        closetItem: mockClothes[2],
+        ihePercentage: 94,
+        chromaticScore: 0.95,
+        morphologicalScore: 0.92,
+        isStronglyRecommended: true,
+        rationale: 'Contraste tonal equilibrado entre terracota e off-white.',
+      ),
+      ParityMatchItem(
+        closetItem: mockClothes[5],
+        ihePercentage: 89,
+        chromaticScore: 0.90,
+        morphologicalScore: 0.88,
+        isStronglyRecommended: true,
+        rationale: 'Harmonia análoga em tons de couro e terra.',
+      ),
+    ],
+  );
+
+  Future<void> _capture(ImageSource source) async {
+    if (_analyzing) return;
     HapticFeedback.mediumImpact();
+
+    final CapturedPhoto? photo;
+    try {
+      photo = await (widget.capturePhoto ?? pickPhotoWithSystem)(source);
+    } on PlatformException {
+      _showMessage('Não foi possível abrir a câmera. Verifique a permissão do app.');
+      return;
+    }
+    if (photo == null || !mounted) return;
+
     setState(() {
-      _isCapturing = true;
+      _photo = photo!.bytes;
+      _analyzing = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 350));
+    try {
+      final segmentation = await _wardrobeService.segmentGarment(imageBytes: photo.bytes, fileName: photo.name);
+      if (segmentation.colors.isEmpty) {
+        throw const SegmentationException('Não encontramos a cor da peça. Tente outra foto.');
+      }
+      final result = await _outfitService.analyzeStoreParity(
+        storeGarment: _storeGarment(segmentation.colors.first, segmentation.styleEmbedding),
+      );
+      if (!mounted) return;
+      setState(() => _analyzing = false);
+      HapticFeedback.selectionClick();
+      await StoreParitySheet.show(context, parityResult: result);
+    } catch (e) {
+      if (kDemoMode) {
+        if (!mounted) return;
+        setState(() => _analyzing = false);
+        HapticFeedback.selectionClick();
+        await StoreParitySheet.show(context, parityResult: _demoParityResult);
+      } else {
+        _showMessage(switch (e) {
+          SegmentationException(:final message) || OutfitException(:final message) => message,
+          _ => 'Não foi possível conectar ao motor do provador.',
+        });
+      }
+    } finally {
+      if (mounted && _analyzing) setState(() => _analyzing = false);
+    }
+  }
 
+  ClothingItem _storeGarment(GarmentColor color, List<double>? styleEmbedding) {
+    return ClothingItem(
+      id: 'store-${DateTime.now().millisecondsSinceEpoch}',
+      name: '${_singular(_category)} ${color.name.toLowerCase()}',
+      category: _category,
+      dominantColor: color.color,
+      labColorSpace: color.labLabel,
+      labL: color.l,
+      labA: color.a,
+      labB: color.b,
+      styleEmbedding: styleEmbedding,
+      usageRate: 0,
+      imageUrl: '',
+      brandOrProvenance: 'Peça da loja',
+    );
+  }
+
+  static String _singular(String category) => switch (category) {
+        'Partes de cima' => 'Parte de cima',
+        'Partes de baixo' => 'Parte de baixo',
+        'Calçados' => 'Calçado',
+        _ => 'Peça única',
+      };
+
+  void _showMessage(String message) {
     if (!mounted) return;
-    setState(() {
-      _isCapturing = false;
-    });
-
-    StoreParitySheet.show(
-      context,
-      parityResult: MockStoreParity.sample,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.tapestryNoir,
+        behavior: SnackBarBehavior.floating,
+        content: Text(message, style: GoogleFonts.interTight(color: AppColors.ivoryText, fontSize: 13)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final photo = _photo;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvasDark,
+      backgroundColor: AppColors.tapestryNoir,
       body: Stack(
+        // O body do Scaffold tem altura livre; sem expand a Stack encolhe até a barra do topo
+        fit: StackFit.expand,
         children: [
-          // Camera Simulation Background with error handling
+          // A foto da peça vira a cenografia; antes dela, a tapeçaria noturna
           Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=1000',
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: AppColors.surfaceCanvasDark,
-                  child: const Center(
-                    child: Icon(Icons.camera_alt_outlined, color: Colors.white30, size: 64),
-                  ),
-                );
-              },
-            ),
+            key: const Key('mirror_backdrop'),
+            child: photo != null
+                ? Image.memory(
+                    photo,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                    cacheWidth: (MediaQuery.sizeOf(context).width * dpr).round(),
+                    gaplessPlayback: true,
+                  )
+                : const RoomScene(room: AtelierRoom.tapestryNoir, child: SizedBox.expand()),
           ),
           Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.35),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 450),
+              curve: const Cubic(0.16, 1.0, 0.3, 1.0),
+              color: AppColors.tapestryNoir.withValues(alpha: _analyzing ? 0.6 : 0.35),
             ),
           ),
 
@@ -69,95 +193,125 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
           Positioned.fill(
             child: CustomPaint(
               painter: _ViewfinderPainter(
-                lineColor: AppColors.borderGold,
+                lineColor: AppColors.gildedLeaf,
               ),
             ),
           ),
 
           // Top Navigation Bar
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.borderGold, width: 0.8),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.ivoryText, size: 20),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.flare, color: AppColors.iheGold, size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          'MIRROR MODE • PROVADOR',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.tapestryNoir.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.flare, color: AppColors.gildedLeaf, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            'MIRROR MODE • PROVADOR',
+                            style: GoogleFonts.interTight(
+                              color: AppColors.ivoryText,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 40),
-                ],
+                    const SizedBox(width: 40),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // Store Switcher & Bottom Shutter Controls
+          // Categoria da peça & obturador
           Positioned(
             left: 0,
             right: 0,
             bottom: 40,
             child: SafeArea(
+              top: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Store selector chips
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildStoreChip('Lojas Renner'),
-                      const SizedBox(width: 12),
-                      _buildStoreChip('C&A'),
-                    ],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        for (final category in _categories) ...[
+                          _buildCategoryChip(category),
+                          if (category != _categories.last) const SizedBox(width: 10),
+                        ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 28),
 
-                  // Shutter Button
-                  GestureDetector(
-                    key: const Key('shutter_button'),
-                    onTap: _onCaptureGarment,
-                    child: AnimatedScale(
-                      scale: _isCapturing ? 0.92 : 1.0,
-                      duration: const Duration(milliseconds: 150),
-                      child: CustomPaint(
-                        size: const Size(76, 76),
-                        painter: _ShutterButtonPainter(
-                          borderColor: AppColors.iheGold,
-                          innerColor: AppColors.surfaceCanvas,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 40),
+                      const SizedBox(width: 28),
+                      // Obturador: abre a câmera
+                      GestureDetector(
+                        key: const Key('shutter_button'),
+                        onTap: () => _capture(ImageSource.camera),
+                        child: AnimatedScale(
+                          scale: _analyzing ? 0.92 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+                          child: CustomPaint(
+                            size: const Size(76, 76),
+                            painter: _ShutterButtonPainter(
+                              borderColor: AppColors.gildedLeaf,
+                              innerColor: AppColors.ivoryText,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 28),
+                      RoomIconButton(
+                        icon: Icons.photo_library_outlined,
+                        label: 'Escolher da galeria',
+                        onTap: () => _capture(ImageSource.gallery),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Toque para analisar paridade com seu acervo',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      _analyzing
+                          ? 'Comparando a peça com o seu acervo…'
+                          : 'Fotografe a peça da loja para comparar com o seu acervo',
+                      key: ValueKey(_analyzing),
+                      style: GoogleFonts.interTight(
+                        color: AppColors.ivoryMuted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -169,32 +323,30 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
     );
   }
 
-  Widget _buildStoreChip(String storeName) {
-    final isSelected = _selectedStore == storeName;
+  Widget _buildCategoryChip(String category) {
+    final isSelected = _category == category;
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        setState(() {
-          _selectedStore = storeName;
-        });
+        setState(() => _category = category);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.surfaceCanvas
-              : Colors.black.withValues(alpha: 0.45),
+              ? AppColors.ivoryText
+              : AppColors.tapestryNoir.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.iheGold : Colors.white24,
+            color: isSelected ? AppColors.gildedLeaf : AppColors.hairlineIvory,
             width: 1.0,
           ),
         ),
         child: Text(
-          storeName,
-          style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? AppColors.textPrimary : Colors.white,
+          category,
+          style: GoogleFonts.interTight(
+            color: isSelected ? AppColors.inkText : AppColors.ivoryText,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),

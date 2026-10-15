@@ -12,10 +12,12 @@ void main() {
   testWidgets('HarmonIA DailyOutfitScreen smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const HarmoniaApp());
 
-    // Verifica a inicialização da tela Sugestão Diária
-    expect(find.text('Sugestão Diária'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    // Verifica a inicialização da tela Sugestão Diária (sem API, sem look inventado)
+    expect(find.text('Look do Dia'), findsOneWidget);
     expect(find.byType(DailyOutfitScreen), findsOneWidget);
-    expect(find.text('LOOK FORTEMENTE RECOMENDADO'), findsWidgets);
+    expect(find.text('LOOK FORTEMENTE RECOMENDADO', skipOffstage: false), findsNothing);
   });
 
   testWidgets('HarmonIA ScanItemScreen & SegmentationPreview smoke test', (WidgetTester tester) async {
@@ -25,9 +27,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Digitalizar Peça'), findsOneWidget);
+    expect(find.text('Digitalizar peça'), findsOneWidget);
     expect(find.byType(SegmentationPreview), findsOneWidget);
-    expect(find.byType(ColorExtractorChips), findsOneWidget);
+    expect(find.text('Fotografe a peça'), findsOneWidget);
+    // Sem foto analisada não há cores extraídas nem cadastro possível
+    expect(find.byType(ColorExtractorChips), findsNothing);
 
     final ctaFinder = find.widgetWithText(ElevatedButton, 'Catalogar no Acervo');
     await tester.scrollUntilVisible(
@@ -37,6 +41,7 @@ void main() {
     );
 
     expect(ctaFinder, findsOneWidget);
+    expect(tester.widget<ElevatedButton>(ctaFinder).onPressed, isNull);
   });
 
   testWidgets('HarmonIA OnboardingProfileScreen smoke test', (WidgetTester tester) async {

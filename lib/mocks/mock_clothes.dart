@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/clothing_item.dart';
-import '../theme/app_theme.dart';
 
 /// Acervo Mockado de Peças Recortadas em PNG (Canal Alfa Transparente)
 /// Curadoria Editorial do Guarda-Roupa HarmonIA
@@ -9,7 +8,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-1',
     name: 'Blazer Desestruturado em Linho',
     category: 'Partes de cima',
-    dominantColor: AppColors.accentTerracotta,
+    dominantColor: Color(0xFFA34836),
     labColorSpace: 'L* 58.4, a* 28.2, b* 24.1',
     usageRate: 18,
     imageUrl:
@@ -23,7 +22,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-2',
     name: 'Camisa Regata Seda Areia',
     category: 'Partes de cima',
-    dominantColor: AppColors.accentSand,
+    dominantColor: Color(0xFFD9CDBF),
     labColorSpace: 'L* 82.1, a* 4.3, b* 11.8',
     usageRate: 24,
     imageUrl:
@@ -37,7 +36,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-3',
     name: 'Pantalona Flutuante Off-White',
     category: 'Partes de baixo',
-    dominantColor: AppColors.surfaceRaised,
+    dominantColor: Color(0xFFF3EFEA),
     labColorSpace: 'L* 94.0, a* 1.2, b* 3.5',
     usageRate: 15,
     imageUrl:
@@ -51,7 +50,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-4',
     name: 'Sobrecamisa Sarja Verde Oliva',
     category: 'Partes de cima',
-    dominantColor: AppColors.accentOlive,
+    dominantColor: Color(0xFF4B5842),
     labColorSpace: 'L* 38.6, a* -12.4, b* 14.8',
     usageRate: 31,
     imageUrl:
@@ -65,7 +64,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-5',
     name: 'Calça Alfaiataria Carvão Lã Fria',
     category: 'Partes de baixo',
-    dominantColor: AppColors.textPrimary,
+    dominantColor: Color(0xFF1A1817),
     labColorSpace: 'L* 14.2, a* 0.5, b* -0.8',
     usageRate: 29,
     imageUrl:
@@ -78,7 +77,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-6',
     name: 'Moccasin Couro Amaciado Carvão',
     category: 'Calçados',
-    dominantColor: AppColors.textSecondary,
+    dominantColor: Color(0xFF706B65),
     labColorSpace: 'L* 45.3, a* 6.1, b* 12.0',
     usageRate: 42,
     imageUrl:
@@ -91,8 +90,8 @@ final List<ClothingItem> mockClothes = [
   const ClothingItem(
     id: 'item-7',
     name: 'Trench Coat Terracota Editorial',
-    category: 'Ocasião',
-    dominantColor: AppColors.accentTerracotta,
+    category: 'Partes de cima',
+    dominantColor: Color(0xFFA34836),
     labColorSpace: 'L* 48.7, a* 32.1, b* 27.4',
     usageRate: 9,
     imageUrl:
@@ -106,7 +105,7 @@ final List<ClothingItem> mockClothes = [
     id: 'item-8',
     name: 'Loafer Minimalista Marfim',
     category: 'Calçados',
-    dominantColor: AppColors.surfaceSubtle,
+    dominantColor: Color(0xFFEBE5DC),
     labColorSpace: 'L* 91.2, a* 2.1, b* 6.7',
     usageRate: 20,
     imageUrl:

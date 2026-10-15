@@ -60,3 +60,7 @@ ENV/
 *.env
 !.env.example
 
+
+# Cobertura de testes (pytest-cov)
+.coverage
+htmlcov/

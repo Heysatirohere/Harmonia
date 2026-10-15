@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
 import '../../core/network/api_client.dart';
+import '../../domain/models/colorimetry_result.dart';
 import '../../domain/models/style_profile.dart';
 import '../../domain/repositories/style_profile_repository.dart';
 import '../../models/user_style_profile.dart';
@@ -27,6 +29,33 @@ class StyleProfileApiService implements StyleProfileRepository {
           if (palette != null) 'seasonal_palette': palette.apiKey,
           if (isPublic != null) 'is_public': isPublic,
         }));
+  }
+
+  @override
+  Future<ColorimetryResult> analyzeSelfie(Uint8List bytes, String fileName) async {
+    final http.Response response;
+    try {
+      response = await _client.postFile(
+        '/users/me/colorimetry',
+        bytes: bytes,
+        fileName: fileName,
+        contentType: fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg',
+      );
+    } catch (_) {
+      throw const StyleProfileFailure('Não foi possível conectar ao ateliê. Verifique sua conexão.');
+    }
+    switch (response.statusCode) {
+      case 200:
+        return ColorimetryResult.fromJson(jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>);
+      case 401:
+        throw const StyleProfileFailure('Sessão expirada. Entre novamente.');
+      case 422:
+        // Rosto fora do oval ou arquivo inválido: o servidor explica o que refazer
+        final detail = (jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>)['detail'];
+        throw StyleProfileFailure(detail is String ? detail : 'Não foi possível analisar a selfie.');
+      default:
+        throw const StyleProfileFailure('Não foi possível analisar a selfie agora.');
+    }
   }
 
   Future<StyleProfile> _send(Future<http.Response> Function() request) async {

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../domain/models/colorimetry_result.dart';
+import '../../domain/repositories/style_profile_repository.dart';
 import '../../models/user_style_profile.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
+import '../profile/style_profile_scope.dart';
 import '../widgets/color_palette_preview.dart';
+import '../widgets/photo_capture.dart';
 import '../widgets/silhouette_selector_card.dart';
 
 /// Tela de Onboarding Estético e Perfil Pessoal (Morfologia e Colorimetria Sazonal Expandida)
@@ -20,11 +26,15 @@ class OnboardingProfileScreen extends StatefulWidget {
   final BodySilhouetteType? initialSilhouette;
   final SeasonalPaletteType? initialPalette;
 
+  /// Câmera frontal para o teste de colorimetria; nos testes, substitui a câmera do sistema
+  final PhotoCapture captureSelfie;
+
   const OnboardingProfileScreen({
     super.key,
     this.onCompleted,
     this.initialSilhouette,
     this.initialPalette,
+    this.captureSelfie = pickSelfieWithSystem,
   });
 
   @override
@@ -38,6 +48,34 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   late BodySilhouetteType _selectedSilhouette = widget.initialSilhouette ?? BodySilhouetteType.ampulheta;
   late SeasonalPaletteType _selectedPalette = widget.initialPalette ?? SeasonalPaletteType.outonoQuente;
   bool _saving = false;
+
+  /// Teste de colorimetria por selfie (RF02): sugere a cartela, a pessoa confirma ou troca
+  ColorimetryResult? _analysis;
+  String? _analysisError;
+  bool _analyzing = false;
+
+  Future<void> _analyzeSelfie(StyleProfileRepository repository) async {
+    HapticFeedback.selectionClick();
+    final photo = await widget.captureSelfie(ImageSource.camera);
+    if (photo == null || !mounted) return;
+    setState(() {
+      _analyzing = true;
+      _analysisError = null;
+    });
+    try {
+      final result = await repository.analyzeSelfie(photo.bytes, photo.name);
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _analysis = result;
+        _selectedPalette = result.palette;
+      });
+    } on StyleProfileFailure catch (failure) {
+      if (mounted) setState(() => _analysisError = failure.message);
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
+    }
+  }
 
   /// Boas-vindas, biótipo, colorimetria (fundo frio e neutro para julgar cores) e resumo
   static const _stepRooms = [
@@ -235,9 +273,29 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
           Text('Colorimetria Pessoal Sazonal', style: AppTypography.heroDisplay().copyWith(fontSize: 34)),
           const SizedBox(height: 4),
           Text(
-            'Análise assistida por IA para enquadramento da sua cartela de cores:',
+            'Faça uma selfie sob luz natural, sem filtro, com o rosto no centro. A selfie não é guardada.',
             style: AppTypography.bodyReading(color: AppColors.ivoryMuted),
           ),
+          if (StyleProfileScope.maybeOf(context) case final repository?) ...[
+            const SizedBox(height: 16),
+            CinnabarButton(
+              label: _analysis == null ? 'Analisar com selfie' : 'Refazer a selfie',
+              icon: Icons.face_retouching_natural_outlined,
+              busy: _analyzing,
+              onPressed: _analyzing ? null : () => _analyzeSelfie(repository),
+            ),
+            if (_analysis case final analysis?) ...[
+              const SizedBox(height: 10),
+              Text(
+                '${analysis.summary}. Sugerimos ${analysis.palette.displayName}; troque se não combinar com você.',
+                style: AppTypography.bodyReading(color: AppColors.ivoryText),
+              ),
+            ],
+            if (_analysisError case final error?) ...[
+              const SizedBox(height: 10),
+              Text(error, style: AppTypography.bodyReading(color: AppColors.ivoryText)),
+            ],
+          ],
           const SizedBox(height: 20),
           ColorPalettePreview(
             paletteType: _selectedPalette,

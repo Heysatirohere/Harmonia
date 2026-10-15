@@ -193,6 +193,21 @@ class GarmentSuggestionResponse(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Probabilidade da categoria sugerida")
 
 
+class ColorimetryResponse(BaseModel):
+    """Teste de colorimetria por selfie (RF02): a cartela é sugestão, confirmada pelo PATCH /users/me."""
+    palette: str = Field(..., description="Cartela sugerida (chave do motor, ex: OUTONO_QUENTE)")
+    skin_hex: str
+    L: float
+    a: float
+    b: float
+    hue: float = Field(..., description="Ângulo de matiz h*ab da pele, em graus")
+    chroma: float
+    contrast: float = Field(..., description="Diferença de L* entre a pele e os tons mais escuros do rosto")
+    undertone: Literal["QUENTE", "NEUTRO", "FRIO"]
+    depth: Literal["CLARA", "MEDIA", "PROFUNDA"]
+    intensity: Literal["BRILHANTE", "SUAVE"]
+
+
 class SegmentationResponse(BaseModel):
     """Resultado do pipeline de recorte de fundo e extração cromática (RF04, RF05)."""
     image_png_base64: str = Field(..., description="Peça recortada em PNG com canal alfa (base64)")

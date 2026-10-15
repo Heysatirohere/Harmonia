@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:harmonia_mvp/domain/models/colorimetry_result.dart';
 import 'package:harmonia_mvp/domain/models/style_profile.dart';
 import 'package:harmonia_mvp/domain/repositories/style_profile_repository.dart';
 import 'package:harmonia_mvp/models/user_style_profile.dart';
@@ -7,6 +10,9 @@ class FakeStyleProfileRepository implements StyleProfileRepository {
   StyleProfile profile;
   StyleProfileFailure? nextFailure;
   final List<String> calls = [];
+
+  /// Resultado de [analyzeSelfie]; nulo simula rosto fora do oval
+  ColorimetryResult? colorimetry;
 
   FakeStyleProfileRepository({StyleProfile? profile}) : profile = profile ?? const StyleProfile();
 
@@ -45,5 +51,14 @@ class FakeStyleProfileRepository implements StyleProfileRepository {
     _throwIfQueued();
     profile = profile.copyWith(silhouette: silhouette, palette: palette, isPublic: isPublic);
     return profile;
+  }
+
+  @override
+  Future<ColorimetryResult> analyzeSelfie(Uint8List bytes, String fileName) async {
+    calls.add('analyzeSelfie');
+    _throwIfQueued();
+    final result = colorimetry;
+    if (result == null) throw const StyleProfileFailure('Não encontramos o rosto no centro da foto.');
+    return result;
   }
 }

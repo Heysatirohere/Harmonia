@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import '../../models/user_style_profile.dart';
+import '../models/colorimetry_result.dart';
 import '../models/style_profile.dart';
 
 /// Falha ao ler ou salvar o perfil, com mensagem pronta para exibição
@@ -21,4 +24,7 @@ abstract class StyleProfileRepository {
     SeasonalPaletteType? palette,
     bool? isPublic,
   });
+
+  /// Teste de colorimetria por selfie (RF02); a selfie não é guardada e a cartela não muda sozinha
+  Future<ColorimetryResult> analyzeSelfie(Uint8List bytes, String fileName);
 }

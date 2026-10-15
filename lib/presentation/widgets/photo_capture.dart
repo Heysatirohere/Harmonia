@@ -14,3 +14,15 @@ Future<CapturedPhoto?> pickPhotoWithSystem(ImageSource source) async {
   if (picked == null) return null;
   return (bytes: await picked.readAsBytes(), name: picked.name);
 }
+
+/// Selfie para o teste de colorimetria: abre a câmera frontal
+Future<CapturedPhoto?> pickSelfieWithSystem(ImageSource source) async {
+  final picked = await ImagePicker().pickImage(
+    source: source,
+    preferredCameraDevice: CameraDevice.front,
+    imageQuality: 90,
+    maxWidth: 1200,
+  );
+  if (picked == null) return null;
+  return (bytes: await picked.readAsBytes(), name: picked.name);
+}

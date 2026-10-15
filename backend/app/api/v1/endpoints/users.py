@@ -3,15 +3,22 @@ Endpoints do Perfil de Estilo do Usuário Autenticado (RF02, RF18, RN02)
 O perfil salvo (biótipo e cartela) alimenta os pilares S_bio e S_cor do IHE.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.config import settings
+from app.core.security import get_current_user, get_current_user_id
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
 from app.models.entities import ClothingItem, CommunityPost, LookFeedback, PostReaction, SavedPost, User
-from app.schemas.dtos import StyleProfileResponse, StyleProfileUpdate
+from app.schemas.dtos import ColorimetryResponse, StyleProfileResponse, StyleProfileUpdate
+from app.vision import colorimetry, segmentation
+
+ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 router = APIRouter()
 
@@ -88,3 +95,50 @@ async def delete_own_account(
             detail="Suas fotos foram apagadas, mas não foi possível concluir a exclusão. Tente novamente para terminar.",
         )
     await db.commit()
+
+
+@router.post("/me/colorimetry", response_model=ColorimetryResponse, status_code=status.HTTP_200_OK)
+async def analyze_colorimetry(
+    file: UploadFile = File(..., description="Selfie com o rosto no oval, sob luz natural"),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Teste assistido de colorimetria (RF02): subtom, profundidade, saturação e contraste da pele
+    e a cartela sugerida entre as 12 sazonais. A selfie é lida em memória e descartada (LGPD):
+    nada é gravado, e a cartela só muda quando a pessoa a confirma no PATCH /users/me.
+    """
+    if file.content_type not in ACCEPTED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Formato de imagem não suportado. Envie JPEG, PNG ou WebP.",
+        )
+    data = await file.read(settings.MAX_UPLOAD_BYTES + 1)
+    if len(data) > settings.MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Foto muito grande. O limite é de 10 MB.",
+        )
+
+    def analyze():
+        return colorimetry.analyze_selfie(segmentation.load_image(data))
+
+    try:
+        result = await run_in_threadpool(analyze)
+    except segmentation.InvalidImageError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+    except colorimetry.FaceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+    return ColorimetryResponse(
+        palette=result.palette,
+        skin_hex=result.hex,
+        L=result.L,
+        a=result.a,
+        b=result.b,
+        hue=result.hue,
+        chroma=result.chroma,
+        contrast=result.contrast,
+        undertone=result.undertone,
+        depth=result.depth,
+        intensity=result.intensity,
+    )

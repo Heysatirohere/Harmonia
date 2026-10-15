@@ -69,6 +69,7 @@ async def calculate_ihe_endpoint(
 
     # 1. Determinar cor representativa no espaço CIE L*a*b*
     garment_color: LabColor
+    piece_colors: List[LabColor] = []
     if payload.direct_garment_color:
         garment_color = payload.direct_garment_color
     elif payload.item_ids:
@@ -84,6 +85,7 @@ async def calculate_ihe_endpoint(
             avg_a = sum(item.dominant_a for item in items) / len(items)
             avg_b = sum(item.dominant_b for item in items) / len(items)
             garment_color = LabColor(L=avg_l, a=avg_a, b=avg_b)
+            piece_colors = [LabColor(L=i.dominant_l, a=i.dominant_a, b=i.dominant_b) for i in items]
         else:
             garment_color = LabColor(L=50.0, a=0.0, b=0.0)
     else:
@@ -92,6 +94,7 @@ async def calculate_ihe_endpoint(
     # 2. Montar estrutura de dados IHERequest para o motor determinístico
     ihe_req = IHERequest(
         garment_color=garment_color,
+        garment_colors=piece_colors,
         user_palette=payload.user_palette,
         user_biotype=payload.user_biotype,
         garment_cuts=payload.garment_cuts,

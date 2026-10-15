@@ -11,6 +11,7 @@ from app.engine.color_science import (
     calculate_s_cor,
     get_seasonal_palette_centroids,
     calculate_garment_s_cor,
+    calculate_look_s_cor,
     SEASONAL_PALETTES,
 )
 
@@ -101,3 +102,32 @@ def test_calculate_garment_s_cor_invalid_palette():
     """Garante exceção para cartela inexistente."""
     with pytest.raises(ValueError):
         calculate_garment_s_cor(LabColor(L=50, a=0, b=0), "CARTELA_INEXISTENTE")
+
+
+def test_look_s_cor_scores_each_piece_against_the_palette():
+    """Duas peças exatamente na cartela valem 1,0, mesmo que a média delas caia longe de tudo."""
+    terracota = LabColor(L=45.0, a=38.0, b=42.0)
+    oliva = LabColor(L=42.0, a=-18.0, b=28.0)
+    mixed = LabColor(L=43.5, a=10.0, b=35.0)
+
+    assert calculate_look_s_cor([terracota, oliva], "OUTONO_QUENTE") == pytest.approx(1.0)
+    assert calculate_garment_s_cor(mixed, "OUTONO_QUENTE") < 0.5
+
+
+def test_look_s_cor_is_the_mean_of_the_pieces():
+    on_palette = LabColor(L=45.0, a=38.0, b=42.0)
+    off_palette = LabColor(L=50.0, a=0.0, b=-40.0)
+    expected = (1.0 + calculate_garment_s_cor(off_palette, "OUTONO_QUENTE")) / 2
+
+    assert calculate_look_s_cor([on_palette, off_palette], "OUTONO_QUENTE") == pytest.approx(expected)
+
+
+def test_look_s_cor_of_a_single_piece_matches_the_garment_score():
+    color = LabColor(L=60.0, a=15.0, b=18.0)
+
+    assert calculate_look_s_cor([color], "OUTONO_QUENTE") == calculate_garment_s_cor(color, "OUTONO_QUENTE")
+
+
+def test_look_s_cor_requires_a_color():
+    with pytest.raises(ValueError):
+        calculate_look_s_cor([], "OUTONO_QUENTE")

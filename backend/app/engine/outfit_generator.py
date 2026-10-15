@@ -130,6 +130,7 @@ def _score_combo(
     avg_a = sum(i.dominant_a for i in combo) / len(combo)
     avg_b = sum(i.dominant_b for i in combo) / len(combo)
     garment_color = LabColor(L=avg_l, a=avg_a, b=avg_b)
+    piece_colors = [LabColor(L=i.dominant_l, a=i.dominant_a, b=i.dominant_b) for i in combo]
 
     avg_formality = sum(i.formality_score for i in combo) / len(combo)
     cuts = [i.cut_type for i in combo if i.cut_type]
@@ -148,6 +149,7 @@ def _score_combo(
 
     ihe_res = calculate_ihe(IHERequest(
         garment_color=garment_color,
+        garment_colors=piece_colors,
         user_palette=user_palette,
         user_biotype=user_biotype,
         garment_cuts=cuts,

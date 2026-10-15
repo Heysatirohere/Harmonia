@@ -4,7 +4,7 @@ Conforme Seção 5.3 da Documentação do HarmonIA (FECAP - Ciência da Computa�
 """
 
 import math
-from typing import List, Dict
+from typing import List, Dict, Sequence
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -145,3 +145,15 @@ def calculate_garment_s_cor(garment_color: LabColor, palette_name: str, sigma_c:
     centroids = get_seasonal_palette_centroids(palette_name)
     min_delta_e = min(calculate_delta_e(garment_color, centroid) for centroid in centroids)
     return calculate_s_cor(min_delta_e, sigma_c=sigma_c)
+
+
+def calculate_look_s_cor(garment_colors: Sequence[LabColor], palette_name: str, sigma_c: float = 18.0) -> float:
+    """
+    S_cor de um look: média do S_cor de cada peça contra a cartela do usuário.
+    Cada peça é medida pela própria cor (ΔE*ab da peça i ao centróide k mais próximo, Seção 5.3);
+    a média das cores do look não serve, porque misturar tons gera uma cor que nenhuma peça tem.
+    """
+    if not garment_colors:
+        raise ValueError("O look precisa de ao menos uma cor de peça.")
+    scores = [calculate_garment_s_cor(color, palette_name, sigma_c=sigma_c) for color in garment_colors]
+    return sum(scores) / len(scores)

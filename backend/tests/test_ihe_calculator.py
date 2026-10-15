@@ -168,3 +168,27 @@ def test_rnf03_performance_execution_time_under_10ms():
 
     print(f"\nTempo medio de execucao do IHE: {avg_time_ms:.4f} ms")
     assert avg_time_ms < 10.0, f"Tempo de execucao ({avg_time_ms:.4f} ms) excedeu o limite de 10ms!"
+
+
+def test_ihe_uses_each_piece_color_when_the_look_has_several():
+    """Com as cores das peças, o S_cor ignora a cor média do look (que nenhuma peça tem)."""
+    base = dict(
+        garment_color=LabColor(L=43.5, a=10.0, b=35.0),  # média de terracota e oliva
+        user_palette="OUTONO_QUENTE",
+        user_biotype="AMPULHETA",
+        garment_cuts=["ACINTURADO"],
+        garment_formality=0.25,
+        occasion="CASUAL",
+        temperature_celsius=22.0,
+        user_style_vector=[0.0] * 4,
+        look_style_vector=[0.0] * 4,
+    )
+    by_mean = calculate_ihe(IHERequest(**base))
+    by_piece = calculate_ihe(IHERequest(**base, garment_colors=[
+        LabColor(L=45.0, a=38.0, b=42.0),
+        LabColor(L=42.0, a=-18.0, b=28.0),
+    ]))
+
+    assert by_piece.s_cor == pytest.approx(1.0)
+    assert by_piece.s_cor > by_mean.s_cor
+    assert by_piece.is_strongly_recommended

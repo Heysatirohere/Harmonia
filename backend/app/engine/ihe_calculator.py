@@ -15,7 +15,7 @@ from typing import List, Optional, Dict
 import numpy as np
 from pydantic import BaseModel, Field, field_validator
 
-from .color_science import LabColor, calculate_garment_s_cor
+from .color_science import LabColor, calculate_garment_s_cor, calculate_look_s_cor
 from .morphology import calculate_s_bio
 from .context_rules import calculate_s_ocasion
 
@@ -59,6 +59,10 @@ def calculate_s_cos(u: List[float], v: List[float]) -> float:
 class IHERequest(BaseModel):
     """Modelo de Entrada para o Cálculo do IHE."""
     garment_color: LabColor = Field(..., description="Cor representativa no espaço CIE L*a*b*")
+    garment_colors: List[LabColor] = Field(
+        default_factory=list,
+        description="Cor de cada peça do look; quando presente, o S_cor é a média do S_cor das peças",
+    )
     user_palette: str = Field(..., description="Nome da cartela sazonal do usuário (ex: OUTONO_QUENTE)")
     user_biotype: str = Field(..., description="Biótipo corporal (ex: AMPULHETA)")
     garment_cuts: List[str] = Field(default_factory=list, description="Lista de modelagens/cortes do look")
@@ -103,10 +107,13 @@ def calculate_ihe(request: IHERequest) -> IHEResponse:
     Executa em tempo real em alta performance (< 10ms).
     """
     # 1. Variável S_cor (Harmonia Cromática CIE L*a*b*)
-    s_cor = calculate_garment_s_cor(
-        garment_color=request.garment_color,
-        palette_name=request.user_palette,
-    )
+    if request.garment_colors:
+        s_cor = calculate_look_s_cor(request.garment_colors, request.user_palette)
+    else:
+        s_cor = calculate_garment_s_cor(
+            garment_color=request.garment_color,
+            palette_name=request.user_palette,
+        )
 
     # 2. Variável S_bio (Compensação Morfológica)
     s_bio = calculate_s_bio(

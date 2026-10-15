@@ -184,6 +184,15 @@ class ExtractedColorResponse(BaseModel):
     name: str = Field(..., description="Nome curatorial aproximado do tom")
 
 
+class GarmentSuggestionResponse(BaseModel):
+    """Atributos sugeridos pelo CLIP para o app pré-preencher; a pessoa confirma ou corrige (RF05)."""
+    category: Optional[str] = Field(default=None, description="Categoria do app; nula sem confiança suficiente")
+    name: Optional[str] = Field(default=None, description="Nome com a estampa, ex: 'Camisa com listras'")
+    pattern: Optional[str] = Field(default=None, description="Estampa: solid, striped, plaid, floral, polka, animal, graphic")
+    formality: float = Field(..., ge=0.0, le=1.0)
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Probabilidade da categoria sugerida")
+
+
 class SegmentationResponse(BaseModel):
     """Resultado do pipeline de recorte de fundo e extração cromática (RF04, RF05)."""
     image_png_base64: str = Field(..., description="Peça recortada em PNG com canal alfa (base64)")
@@ -194,6 +203,9 @@ class SegmentationResponse(BaseModel):
         default=None, description="Vetor de estilo da peça (512d, norma 1); nulo se o modelo estiver indisponível"
     )
     processing_ms: int = Field(..., description="Tempo de processamento no servidor (RNF03: ≤ 3500 ms)")
+    suggestion: Optional[GarmentSuggestionResponse] = Field(
+        default=None, description="Categoria, nome e formalidade sugeridos; nulo sem vetor de estilo"
+    )
 
 
 class ClothingItemResponse(BaseModel):

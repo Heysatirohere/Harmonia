@@ -58,6 +58,27 @@ void main() {
       expect(seg.styleEmbedding, hasLength(512));
       expect(seg.styleEmbedding!.first, 0.044);
     });
+
+    test('lê a sugestão de categoria, nome e formalidade da IA (RF05)', () {
+      final seg = GarmentSegmentation.fromJson({
+        'image_png_base64': base64Encode(_pngBytes),
+        'width': 1,
+        'height': 1,
+        'processing_ms': 900,
+        'colors': const [],
+        'suggestion': {
+          'category': 'Partes de cima',
+          'name': 'Camisa com listras',
+          'pattern': 'striped',
+          'formality': 0.6,
+          'confidence': 0.97,
+        },
+      });
+
+      final suggestion = seg.suggestion!;
+      expect((suggestion.category, suggestion.name, suggestion.pattern), ('Partes de cima', 'Camisa com listras', 'striped'));
+      expect((suggestion.formality, suggestion.confidence), (0.6, 0.97));
+    });
   });
 
   group('ClothingItem.toApiJson', () {

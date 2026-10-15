@@ -12,6 +12,7 @@ import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
 import '../widgets/color_extractor_chips.dart';
+import '../widgets/photo_capture.dart';
 import '../widgets/segmentation_preview.dart';
 
 /// Tela do Fluxo de Digitalização e Cadastro Rápido de Peças (Scanner / Upload)
@@ -22,16 +23,24 @@ import '../widgets/segmentation_preview.dart';
 /// Sala frescoBlue: fundo frio para a cor da peça recortada se destacar (AGENTS.md 4.2).
 class ScanItemScreen extends StatefulWidget {
   final ValueChanged<ClothingItem>? onItemCataloged;
+  final WardrobeApiService? service;
 
-  const ScanItemScreen({super.key, this.onItemCataloged});
+  /// Seletor de fotos; nos testes, substitui a câmera e a galeria do sistema
+  final PhotoCapture capturePhoto;
+
+  const ScanItemScreen({
+    super.key,
+    this.onItemCataloged,
+    this.service,
+    this.capturePhoto = pickPhotoWithSystem,
+  });
 
   @override
   State<ScanItemScreen> createState() => _ScanItemScreenState();
 }
 
 class _ScanItemScreenState extends State<ScanItemScreen> {
-  final WardrobeApiService _wardrobeService = WardrobeApiService();
-  final ImagePicker _picker = ImagePicker();
+  late final WardrobeApiService _wardrobeService = widget.service ?? WardrobeApiService();
 
   // Foto capturada pelo usuário e resultado do recorte/extração cromática (RF04, RF05)
   Uint8List? _capturedBytes;
@@ -42,7 +51,13 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
   bool _isUploading = false;
 
   // Dados da inferência da IA / edição do usuário
-  final TextEditingController _nameController = TextEditingController(text: 'Sobrecamisa Terracota Ateliê');
+  final TextEditingController _nameController = TextEditingController();
+
+  /// Nome digitado pela pessoa: a sugestão da IA nunca o sobrescreve
+  bool _nameEditedByUser = false;
+
+  /// Campos preenchidos pela IA nesta foto, para avisar que vale conferir
+  bool _filledBySuggestion = false;
   final TextEditingController _provenanceController = TextEditingController(text: 'Linho Italiano • Segundas Mãos');
   final TextEditingController _esgNoteController = TextEditingController(text: '100% Linho Reciclado Certificado');
 
@@ -79,13 +94,13 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: AppColors.paperBone,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
+      // Material (e não Container colorido) para o toque dos ListTiles aparecer sobre o papel
+      builder: (ctx) => Material(
+        color: AppColors.paperBone,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -127,22 +142,19 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1400);
+      final picked = await widget.capturePhoto(source);
 
       if (picked != null) {
-        final bytes = await picked.readAsBytes();
         setState(() {
-          _capturedBytes = bytes;
+          _capturedBytes = picked.bytes;
           _capturedFileName = picked.name;
-          if (_nameController.text == 'Sobrecamisa Terracota Ateliê') {
-            _nameController.text = 'Nova Peça do Acervo';
-          }
         });
         HapticFeedback.mediumImpact();
         await _analyzePhoto();
@@ -150,6 +162,22 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     } catch (e) {
       debugPrint('[ScanItemScreen] Erro ao selecionar imagem: $e');
     }
+  }
+
+  /// Pré-preenche categoria, nome e formalidade com a sugestão da IA (RF05); só o que ela sabe
+  void _applySuggestion(GarmentSuggestion? suggestion) {
+    _filledBySuggestion = false;
+    if (suggestion == null) return;
+    final categoryIndex = _categories.indexOf(suggestion.category ?? '');
+    if (categoryIndex >= 0) {
+      _selectedCategoryIndex = categoryIndex;
+      _filledBySuggestion = true;
+    }
+    if (suggestion.name case final String name when !_nameEditedByUser) {
+      _nameController.text = name;
+      _filledBySuggestion = true;
+    }
+    _formalityLevel = suggestion.formality;
   }
 
   /// Envia a foto ao pipeline de recorte de fundo e extração cromática
@@ -170,7 +198,10 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
         fileName: _capturedFileName ?? 'peca.jpg',
       );
       if (!mounted || !identical(bytes, _capturedBytes)) return;
-      setState(() => _segmentation = result);
+      setState(() {
+        _segmentation = result;
+        _applySuggestion(result.suggestion);
+      });
       HapticFeedback.selectionClick();
     } catch (e) {
       if (!mounted || !identical(bytes, _capturedBytes)) return;
@@ -374,9 +405,17 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                         'NOME DA PEÇA',
                         style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
                       ),
+                      if (_filledBySuggestion) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Nome, categoria e formalidade sugeridos pela IA. Confira antes de catalogar.',
+                          style: AppTypography.bodySmall(),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       TextField(
                         controller: _nameController,
+                        onChanged: (_) => _nameEditedByUser = true,
                         style: AppTypography.uiHeadline(color: AppColors.inkText),
                         decoration: InputDecoration(
                           filled: true,
@@ -446,9 +485,10 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Slider de Formalidade (0% a 100%)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // Slider de Formalidade (0% a 100%); quebra a linha com texto ampliado
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        runSpacing: 4,
                         children: [
                           Text(
                             'NÍVEL DE FORMALIDADE',

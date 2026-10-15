@@ -190,6 +190,11 @@ async def test_segment_returns_cutout_and_lab_colors(fake_background_removal):
     embedding = data["style_embedding"]
     assert len(embedding) == 512
     assert float(np.linalg.norm(embedding)) == pytest.approx(1.0, abs=1e-4)
+    # A sugestão vem do mesmo vetor: o falso CLIP não aponta para peça nenhuma, mas a resposta tem a forma certa
+    suggestion = data["suggestion"]
+    assert suggestion is not None
+    assert 0.0 <= suggestion["formality"] <= 1.0
+    assert 0.0 <= suggestion["confidence"] <= 1.0
 
 
 @pytest.mark.anyio
@@ -206,6 +211,7 @@ async def test_segment_still_works_without_the_style_model(fake_background_remov
     assert response.status_code == 200
     assert response.json()["style_embedding"] is None
     assert response.json()["colors"]
+    assert response.json()["suggestion"] is None
 
 
 def test_crop_ignores_faint_alpha_residue():

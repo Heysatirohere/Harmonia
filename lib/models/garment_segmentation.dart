@@ -46,6 +46,28 @@ class GarmentColor {
   }
 }
 
+/// Atributos que a IA sugere para a peça (RF05); a pessoa confirma ou corrige no formulário
+class GarmentSuggestion {
+  /// Categoria do app ('Partes de cima'…); nula quando a IA não tem confiança
+  final String? category;
+
+  /// Nome com a estampa, ex: 'Camisa com listras'; nulo sem confiança
+  final String? name;
+  final String? pattern;
+  final double formality;
+  final double confidence;
+
+  const GarmentSuggestion({this.category, this.name, this.pattern, required this.formality, required this.confidence});
+
+  factory GarmentSuggestion.fromJson(Map<String, dynamic> json) => GarmentSuggestion(
+        category: json['category'] as String?,
+        name: json['name'] as String?,
+        pattern: json['pattern'] as String?,
+        formality: (json['formality'] as num).toDouble(),
+        confidence: (json['confidence'] as num).toDouble(),
+      );
+}
+
 /// Resultado do pipeline de recorte de fundo e extração cromática (RF04, RF05)
 class GarmentSegmentation {
   final Uint8List cutoutPng;
@@ -57,6 +79,9 @@ class GarmentSegmentation {
   /// Vetor de estilo da peça (512d) para o pilar S_cos; nulo se o servidor estiver sem o modelo
   final List<double>? styleEmbedding;
 
+  /// Categoria, nome e formalidade sugeridos; nulo se o servidor estiver sem o modelo
+  final GarmentSuggestion? suggestion;
+
   const GarmentSegmentation({
     required this.cutoutPng,
     required this.width,
@@ -64,6 +89,7 @@ class GarmentSegmentation {
     required this.colors,
     required this.processingMs,
     this.styleEmbedding,
+    this.suggestion,
   });
 
   factory GarmentSegmentation.fromJson(Map<String, dynamic> json) {
@@ -76,6 +102,9 @@ class GarmentSegmentation {
           .toList(),
       processingMs: json['processing_ms'] as int,
       styleEmbedding: (json['style_embedding'] as List?)?.map((v) => (v as num).toDouble()).toList(),
+      suggestion: json['suggestion'] == null
+          ? null
+          : GarmentSuggestion.fromJson(json['suggestion'] as Map<String, dynamic>),
     );
   }
 }

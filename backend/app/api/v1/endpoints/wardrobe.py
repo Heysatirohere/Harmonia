@@ -24,12 +24,14 @@ from app.schemas.dtos import (
     ClothingItemUpdate,
     ColorShareResponse,
     ExtractedColorResponse,
+    GarmentSuggestionResponse,
     GarmentUsageResponse,
     SegmentationResponse,
     WardrobeAnalyticsResponse,
     WardrobeItemResponse,
 )
 from app import vision
+from app.vision import garment_attributes
 from app.engine.wardrobe_analytics import color_distribution, garment_usage, rotation_bucket
 
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -55,8 +57,9 @@ async def segment_garment_photo(
     current_user_id: UUID = Depends(get_current_user_id),
 ):
     """
-    Remove o fundo da foto (RF04) e extrai as cores dominantes em CIE L*a*b* (RF05).
-    Não persiste nada: o app confirma os atributos e envia o PNG ao Storage no cadastro.
+    Remove o fundo da foto (RF04), extrai as cores dominantes em CIE L*a*b* e sugere categoria,
+    nome com estampa e formalidade (RF05). Não persiste nada: o app confirma os atributos e
+    envia o PNG ao Storage no cadastro.
     """
     if file.content_type not in ACCEPTED_IMAGE_TYPES:
         raise HTTPException(
@@ -89,6 +92,20 @@ async def segment_garment_photo(
         colors=[ExtractedColorResponse(**vars(c)) for c in result.colors],
         style_embedding=result.style_embedding,
         processing_ms=result.processing_ms,
+        suggestion=_suggest(result.style_embedding),
+    )
+
+
+def _suggest(embedding: Optional[List[float]]) -> Optional[GarmentSuggestionResponse]:
+    attrs = garment_attributes.classify(embedding) if embedding else None
+    if attrs is None:
+        return None
+    return GarmentSuggestionResponse(
+        category=attrs.category,
+        name=attrs.name,
+        pattern=attrs.pattern,
+        formality=attrs.formality,
+        confidence=attrs.category_confidence,
     )
 
 

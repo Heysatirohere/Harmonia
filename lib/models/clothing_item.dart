@@ -23,6 +23,8 @@ class ClothingItem {
   final double? labB;
   final double? formalityScore; // 0.0 (casual) a 1.0 (formal)
   final List<double>? styleEmbedding; // Vetor de estilo (512d) do recorte, só no cadastro; a API não o devolve
+  final String? colorFamily; // Família cromática calculada pela API (ex: 'Azuis'), para o filtro por cor
+  final int? daysIdle; // Dias desde o último uso (ou desde o cadastro), calculados pela API
 
   const ClothingItem({
     required this.id,
@@ -43,6 +45,8 @@ class ClothingItem {
     this.labB,
     this.formalityScore,
     this.styleEmbedding,
+    this.colorFamily,
+    this.daysIdle,
   });
 
   String get title => name;
@@ -69,6 +73,8 @@ class ClothingItem {
     double? labB,
     double? formalityScore,
     List<double>? styleEmbedding,
+    String? colorFamily,
+    int? daysIdle,
   }) {
     return ClothingItem(
       id: id ?? this.id,
@@ -89,6 +95,8 @@ class ClothingItem {
       labB: labB ?? this.labB,
       formalityScore: formalityScore ?? this.formalityScore,
       styleEmbedding: styleEmbedding ?? this.styleEmbedding,
+      colorFamily: colorFamily ?? this.colorFamily,
+      daysIdle: daysIdle ?? this.daysIdle,
     );
   }
 
@@ -115,6 +123,8 @@ class ClothingItem {
       // A API ainda não registra origem ESG; nada é presumido
       isConsciousFashion: false,
       iheScore: (json['ihe_score'] as num?)?.toInt(),
+      colorFamily: json['color_family'] as String?,
+      daysIdle: (json['days_idle'] as num?)?.toInt(),
     );
   }
 

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator, model_validato
 from app.engine.color_science import LabColor, normalize_palette
 from app.engine.morphology import normalize_biotype
 from app.engine.context_rules import normalize_occasion
+from app.engine.wardrobe_analytics import color_family
 from app.core.config import settings
 
 
@@ -211,6 +212,19 @@ class ClothingItemResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def color_family(self) -> str:
+        """Família cromática da cor dominante, a mesma do dashboard (filtro por cor, RF06)."""
+        return color_family(self.dominant_l, self.dominant_a, self.dominant_b)
+
+
+class WardrobeItemResponse(ClothingItemResponse):
+    """Peça na listagem do acervo, com o uso vindo dos looks aprovados (filtro por frequência, RF06)."""
+    usage_rate: int = Field(default=0, description="Looks aprovados com a peça")
+    last_worn_at: Optional[datetime] = None
+    days_idle: int = Field(default=0, description="Dias desde o último uso, ou desde o cadastro se nunca usada")
 
 
 class GarmentUsageResponse(BaseModel):

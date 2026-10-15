@@ -1545,6 +1545,41 @@ async def test_analytics_of_an_empty_wardrobe():
 
 
 @pytest.mark.anyio
+async def test_item_list_carries_color_family_and_usage_for_filters():
+    """RF06: cada peça vem com a família cromática e o uso, para filtrar por cor e frequência."""
+    user_id = _seed_wardrobe_user()
+    _age_items(user_id, 120)
+    top = next(i for i in store.clothing_items.values() if i.user_id == user_id and i.category == "top")
+    _approve(user_id, [top.id], days_ago=10)
+    _approve(user_id, [top.id], days_ago=3)
+    _approve(user_id, [top.id], days_ago=1, action="DISCARDED")
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/items", headers=auth_headers(user_id))
+
+    assert response.status_code == 200
+    by_category = {item["category"]: item for item in response.json()}
+    assert (by_category["top"]["usage_rate"], by_category["top"]["days_idle"]) == (2, 3)
+    assert by_category["top"]["last_worn_at"] is not None
+    assert (by_category["bottom"]["usage_rate"], by_category["bottom"]["days_idle"]) == (0, 120)
+    assert by_category["bottom"]["last_worn_at"] is None
+    assert all(item["color_family"] for item in by_category.values())
+
+
+@pytest.mark.anyio
+async def test_item_usage_ignores_other_users_approvals():
+    """RN01: aprovações de outra conta não contam como uso."""
+    user_id = _seed_wardrobe_user()
+    other_id = _seed_wardrobe_user()
+    _approve(other_id, _wardrobe_ids(user_id), days_ago=1)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/wardrobe/items", headers=auth_headers(user_id))
+
+    assert {item["usage_rate"] for item in response.json()} == {0}
+
+
+@pytest.mark.anyio
 async def test_analytics_requires_authentication():
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/v1/wardrobe/analytics")

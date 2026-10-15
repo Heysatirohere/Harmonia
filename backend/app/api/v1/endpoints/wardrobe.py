@@ -27,6 +27,7 @@ from app.schemas.dtos import (
     GarmentUsageResponse,
     SegmentationResponse,
     WardrobeAnalyticsResponse,
+    WardrobeItemResponse,
 )
 from app import vision
 from app.engine.wardrobe_analytics import color_distribution, garment_usage, rotation_bucket
@@ -34,6 +35,18 @@ from app.engine.wardrobe_analytics import color_distribution, garment_usage, rot
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 router = APIRouter()
+
+
+async def _worn_on(db: AsyncSession, user_id: UUID) -> dict[str, list[datetime]]:
+    """Datas de uso de cada peça: um uso por look aprovado que a contém (RF13). Só do próprio usuário (RN01)."""
+    approved = (await db.execute(
+        select(LookFeedback).where(LookFeedback.user_id == user_id, LookFeedback.action == "APPROVED")
+    )).scalars().all()
+    worn_on: dict[str, list[datetime]] = {}
+    for look in approved:
+        for item_id in look.item_ids:
+            worn_on.setdefault(str(item_id), []).append(look.created_at)
+    return worn_on
 
 
 @router.post("/segment", response_model=SegmentationResponse, status_code=status.HTTP_200_OK)
@@ -79,7 +92,7 @@ async def segment_garment_photo(
     )
 
 
-@router.get("/items", response_model=List[ClothingItemResponse], status_code=status.HTTP_200_OK)
+@router.get("/items", response_model=List[WardrobeItemResponse], status_code=status.HTTP_200_OK)
 async def list_clothing_items(
     current_user_id: UUID = Depends(get_current_user_id),
     category: Optional[str] = Query(None, description="Filtrar por categoria"),
@@ -93,6 +106,7 @@ async def list_clothing_items(
 ):
     """
     Lista peças do guarda-roupa do usuário logado (RN01) com suporte a filtros multicritérios (RF06).
+    Cada peça traz a família cromática e o uso (looks aprovados), para filtrar por cor e frequência.
     """
     stmt = select(ClothingItem).where(ClothingItem.user_id == current_user_id)
 
@@ -126,7 +140,17 @@ async def list_clothing_items(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
-    return [ClothingItemResponse.model_validate(item) for item in items]
+    worn_on = await _worn_on(db, current_user_id)
+    now = datetime.now(timezone.utc)
+    responses = []
+    for item in items:
+        usage = garment_usage(item.created_at, worn_on.get(str(item.id), []), now)
+        responses.append(WardrobeItemResponse.model_validate(item).model_copy(update={
+            "usage_rate": usage.wear_count,
+            "last_worn_at": usage.last_worn_at,
+            "days_idle": usage.days_idle,
+        }))
+    return responses
 
 
 @router.post("/items", response_model=ClothingItemResponse, status_code=status.HTTP_201_CREATED)
@@ -271,14 +295,7 @@ async def wardrobe_analytics(
     items = (await db.execute(
         select(ClothingItem).where(ClothingItem.user_id == current_user_id, ClothingItem.is_archived == False)
     )).scalars().all()
-    approved = (await db.execute(
-        select(LookFeedback).where(LookFeedback.user_id == current_user_id, LookFeedback.action == "APPROVED")
-    )).scalars().all()
-
-    worn_on: dict[str, list[datetime]] = {}
-    for look in approved:
-        for item_id in look.item_ids:
-            worn_on.setdefault(str(item_id), []).append(look.created_at)
+    worn_on = await _worn_on(db, current_user_id)
 
     now = datetime.now(timezone.utc)
     usages = [(item, garment_usage(item.created_at, worn_on.get(str(item.id), []), now)) for item in items]

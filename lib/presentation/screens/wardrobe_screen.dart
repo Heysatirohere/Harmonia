@@ -4,6 +4,7 @@ import '../../core/demo/demo_mode.dart';
 import '../../data/services/wardrobe_api_service.dart';
 import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
+import '../../models/wardrobe_filters.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/atelier_room.dart';
@@ -11,6 +12,7 @@ import '../atelier/room_scene.dart';
 import '../widgets/clothing_card.dart';
 import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
+import '../widgets/wardrobe_filter_sheet.dart';
 import 'scan_item_screen.dart';
 import 'wardrobe_analytics_screen.dart';
 
@@ -43,6 +45,9 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   bool _loading = true;
   String? _loadError;
   int _selectedFilterIndex = 0;
+
+  /// Cor, formalidade e frequência de uso (RF06), aplicados sobre as peças carregadas
+  WardrobeFilters _filters = WardrobeFilters.none;
   final List<String> _categories = const [
     'Todos',
     'Partes de cima',
@@ -87,6 +92,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     final groups = <String, List<ClothingItem>>{};
     for (final item in _items) {
       if (selected != null && item.category != selected) continue;
+      if (!_filters.matches(item)) continue;
       groups.putIfAbsent(item.category, () => []).add(item);
     }
     int order(String category) {
@@ -169,6 +175,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                 },
               ),
             ),
+            if (_items.isNotEmpty) SliverToBoxAdapter(child: _buildRefineRow()),
             if (_loading && _items.isEmpty)
               const SliverToBoxAdapter(child: SizedBox.shrink())
             else if (sections.isEmpty)
@@ -342,11 +349,67 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     );
   }
 
+  void _openFilters() {
+    HapticFeedback.selectionClick();
+    WardrobeFilterSheet.show(
+      context,
+      items: _items,
+      filters: _filters,
+      onChanged: (filters) => setState(() => _filters = filters),
+    );
+  }
+
+  /// Refinar por cor, formalidade e uso (RF06); com filtro ativo, mostra quantos e permite limpar
+  Widget _buildRefineRow() {
+    final active = _filters.activeCount;
+    Widget action(String label, IconData? icon, VoidCallback onTap) => Semantics(
+          button: true,
+          label: label,
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 16, color: AppColors.ivoryText),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(label, style: AppTypography.atelierMeta(color: AppColors.ivoryText)),
+                ],
+              ),
+            ),
+          ),
+        );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 4, AppSpacing.pageMargin, 0),
+      child: Row(
+        children: [
+          action(active == 0 ? 'REFINAR' : 'REFINAR • $active', Icons.tune, _openFilters),
+          const Spacer(),
+          if (active > 0)
+            action('LIMPAR FILTROS', null, () {
+              HapticFeedback.selectionClick();
+              setState(() => _filters = WardrobeFilters.none);
+            }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     final error = _loadError;
     final (title, message) = switch ((error, _items.isEmpty)) {
       (final String error, _) => ('O acervo não respondeu', error),
       (null, true) => ('Sua arara está vazia', 'Digitalize a primeira peça para começar a montar looks.'),
+      (null, false) when !_filters.isEmpty => (
+          'Nenhuma peça com esses filtros',
+          'Ajuste ou limpe os filtros de cor, formalidade e uso para ver mais peças.',
+        ),
       (null, false) => ('Nenhuma peça nesta categoria', 'Digitalize novas peças em 1 toque para expandir sua arara virtual.'),
     };
 

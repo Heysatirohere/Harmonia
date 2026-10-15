@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../data/services/community_api_service.dart';
 import '../../models/community_post.dart';
 import '../../theme/app_theme.dart';
+import 'ink_chip.dart';
 import '../profile/style_profile_scope.dart';
 import 'editorial_form.dart';
 import 'photo_capture.dart';
@@ -195,7 +196,7 @@ class _ShareOutfitSheetState extends State<ShareOutfitSheet> {
                   runSpacing: 8,
                   children: [
                     for (final (label, key) in occasions)
-                      _InkChip(
+                      InkChip(
                         label: label,
                         selected: _occasion == key,
                         onTap: () => setState(() => _occasion = key),
@@ -305,43 +306,6 @@ class _PhotoPicker extends StatelessWidget {
         const SizedBox(height: 12),
         buttons,
       ],
-    );
-  }
-}
-
-/// Chip de escolha em tinta sobre o papel
-class _InkChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _InkChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        child: AnimatedContainer(
-          duration: AppMotion.fast,
-          curve: AppMotion.editorialDecel,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.inkText : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-            border: Border.all(color: selected ? AppColors.inkText : AppColors.inkSecondary, width: 1.0),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.uiHeadline(color: selected ? AppColors.paperBone : AppColors.inkText).copyWith(fontSize: 13),
-          ),
-        ),
-      ),
     );
   }
 }

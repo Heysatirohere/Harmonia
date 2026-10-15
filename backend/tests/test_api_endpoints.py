@@ -1317,6 +1317,41 @@ async def test_deleting_a_garment_removes_its_photo():
 
 
 @pytest.mark.anyio
+async def test_duplicate_garments_keep_the_shared_photo_until_the_last_one():
+    """Cadastros repetidos dividem a foto: apagar uma cópia não pode deixar a outra sem imagem."""
+    user_id = _seed_wardrobe_user()
+    first, second = [i for i in store.clothing_items.values() if i.user_id == user_id]
+    first.image_url = second.image_url = _photo_url(f"{user_id}/top.png")
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        copy = await client.delete(f"/api/v1/wardrobe/items/{first.id}", headers=headers)
+        assert copy.status_code == 204
+        assert supabase_admin.deleted_objects == []
+
+        last = await client.delete(f"/api/v1/wardrobe/items/{second.id}", headers=headers)
+
+    assert last.status_code == 204
+    assert supabase_admin.deleted_objects == [f"{user_id}/top.png"]
+
+
+@pytest.mark.anyio
+async def test_another_users_copy_does_not_protect_the_photo():
+    """RN01: só peças do próprio usuário contam como donas da foto."""
+    user_id = _seed_wardrobe_user()
+    other_id = _seed_wardrobe_user()
+    item = next(i for i in store.clothing_items.values() if i.user_id == user_id)
+    stranger = next(i for i in store.clothing_items.values() if i.user_id == other_id)
+    item.image_url = stranger.image_url = _photo_url(f"{user_id}/top.png")
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.delete(f"/api/v1/wardrobe/items/{item.id}", headers=auth_headers(user_id))
+
+    assert response.status_code == 204
+    assert supabase_admin.deleted_objects == [f"{user_id}/top.png"]
+
+
+@pytest.mark.anyio
 async def test_garment_stays_when_its_photo_cannot_be_removed():
     user_id = _seed_wardrobe_user()
     item = next(i for i in store.clothing_items.values() if i.user_id == user_id)

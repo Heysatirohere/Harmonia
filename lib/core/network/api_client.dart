@@ -47,7 +47,10 @@ class ApiClient {
     return headers;
   }
 
-  Duration timeoutDuration = const Duration(seconds: 4);
+  /// O banco fica no Supabase, longe da API local (~0,5 s por consulta): uma escrita com
+  /// várias consultas passa fácil de 4 s. Desistir cedo demais faz o app relatar falha
+  /// de algo que o servidor concluiu.
+  Duration timeoutDuration = const Duration(seconds: 20);
 
   Future<http.Response> get(String endpoint, {Map<String, String>? queryParams}) async {
     final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);

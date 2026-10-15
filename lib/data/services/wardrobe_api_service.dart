@@ -7,7 +7,6 @@ import '../../core/supabase/supabase_config.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
 import '../../models/wardrobe_analytics.dart';
-import 'supabase_auth_service.dart';
 import 'supabase_storage_service.dart';
 
 /// Falha ao ler ou salvar o acervo, com mensagem pronta para o usuário
@@ -91,7 +90,6 @@ class WardrobeApiService {
 
   /// Cadastra nova peça de vestuário no backend. Retorna null se nada foi salvo.
   Future<ClothingItem?> createClothingItem(ClothingItem item) async {
-    // 1. Tenta cadastrar via API FastAPI
     try {
       final response = await _client.post(
         '/wardrobe/items',
@@ -105,25 +103,10 @@ class WardrobeApiService {
         debugPrint('[WardrobeApiService] Erro ao cadastrar peça via API: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      debugPrint('[WardrobeApiService] Backend API offline ($e). Tentando persistência direta no Supabase...');
+      // Sem segunda via direta no Supabase: com a API lenta, o servidor ainda salvava a peça
+      // e a segunda via criava uma cópia, além de pular a cota de peças (RN02)
+      debugPrint('[WardrobeApiService] Falha ao cadastrar peça via API: $e');
     }
-
-    // 2. Fallback de persistência direta no Supabase PostgreSQL
-    try {
-      final supabase = SupabaseConfig.client;
-      final userId = SupabaseAuthService().currentUserId;
-      if (supabase != null && userId != null) {
-        final res = await supabase.from('clothing_items').insert({
-          ...item.toApiJson(),
-          'user_id': userId,
-          'is_archived': false,
-        }).select().single();
-        return ClothingItem.fromJson(res);
-      }
-    } catch (e) {
-      debugPrint('[WardrobeApiService] Falha ao persistir no Supabase: $e');
-    }
-
     return null;
   }
 

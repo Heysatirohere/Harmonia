@@ -223,7 +223,12 @@ async def delete_clothing_item(
             detail="Acesso negado. Esta peça não pertence ao usuário autenticado."
         )
 
-    photo = admin.object_path(item.image_url)
+    # Cópias da mesma peça (cadastros repetidos) dividem a foto: ela só sai com a última
+    own_items = (await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == current_user_id)
+    )).scalars().all()
+    shared = any(other.id != item.id and other.image_url == item.image_url for other in own_items)
+    photo = None if shared else admin.object_path(item.image_url)
     if photo:
         try:
             await admin.delete_objects([photo])

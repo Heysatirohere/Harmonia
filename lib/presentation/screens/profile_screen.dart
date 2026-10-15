@@ -509,7 +509,7 @@ class _PreferencesSheetState extends State<_PreferencesSheet> {
                       ),
                       Switch.adaptive(
                         value: _isPublic,
-                        activeColor: AppColors.accentCinnabar,
+                        activeThumbColor: AppColors.accentCinnabar,
                         onChanged: (val) {
                           HapticFeedback.selectionClick();
                           setState(() => _isPublic = val);
@@ -544,7 +544,7 @@ class _PreferencesSheetState extends State<_PreferencesSheet> {
                     title: Text('Lembretes Diários de Look', style: AppTypography.uiHeadline(color: AppColors.inkText).copyWith(fontSize: 13.5)),
                     subtitle: Text('Sugestões matinais ajustadas ao clima', style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
                     value: _dailyNotifications,
-                    activeColor: AppColors.accentCinnabar,
+                    activeThumbColor: AppColors.accentCinnabar,
                     onChanged: (val) {
                       HapticFeedback.selectionClick();
                       setState(() => _dailyNotifications = val);
@@ -556,7 +556,7 @@ class _PreferencesSheetState extends State<_PreferencesSheet> {
                     title: Text('Alertas de Rotação ESG', style: AppTypography.uiHeadline(color: AppColors.inkText).copyWith(fontSize: 13.5)),
                     subtitle: Text('Avisos sobre peças ociosas há mais de 60 dias', style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
                     value: _rotationAlerts,
-                    activeColor: AppColors.accentCinnabar,
+                    activeThumbColor: AppColors.accentCinnabar,
                     onChanged: (val) {
                       HapticFeedback.selectionClick();
                       setState(() => _rotationAlerts = val);

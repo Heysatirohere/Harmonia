@@ -528,7 +528,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                                 fit: BoxFit.contain,
                                 filterQuality: FilterQuality.medium,
                                 cacheWidth: cacheWidth,
-                                errorBuilder: (_, __, ___) =>
+                                errorBuilder: (_, _, _) =>
                                     const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),
                               )
                             : const Icon(Icons.checkroom, color: AppColors.inkSecondary, size: 32),

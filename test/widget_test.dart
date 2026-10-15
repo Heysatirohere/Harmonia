@@ -5,7 +5,6 @@ import 'package:harmonia_mvp/presentation/screens/daily_outfit_screen.dart';
 import 'package:harmonia_mvp/presentation/screens/onboarding_profile_screen.dart';
 import 'package:harmonia_mvp/presentation/screens/scan_item_screen.dart';
 import 'package:harmonia_mvp/presentation/widgets/color_extractor_chips.dart';
-import 'package:harmonia_mvp/presentation/widgets/color_palette_preview.dart';
 import 'package:harmonia_mvp/presentation/widgets/segmentation_preview.dart';
 
 void main() {

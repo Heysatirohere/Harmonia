@@ -25,9 +25,9 @@ class StyleProfileApiService implements StyleProfileRepository {
     bool? isPublic,
   }) {
     return _send(() => _client.patch('/users/me', body: {
-          if (silhouette != null) 'body_shape': silhouette.apiKey,
-          if (palette != null) 'seasonal_palette': palette.apiKey,
-          if (isPublic != null) 'is_public': isPublic,
+          'body_shape': ?silhouette?.apiKey,
+          'seasonal_palette': ?palette?.apiKey,
+          'is_public': ?isPublic,
         }));
   }
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 
-import 'dart:typed_data';
 
 /// Visualizador da Remoção de Fundo e Segmentação Semântica (Canal Alfa)
 /// Conforme AGENTS.md Seção 5.1 e RNF06:

@@ -61,7 +61,7 @@ class OutfitCombination {
         topItem,
         bottomItem,
         footwearItem,
-        if (accessoryItem != null) accessoryItem!,
+        ?accessoryItem,
       ];
 
   OutfitCombination copyWith({

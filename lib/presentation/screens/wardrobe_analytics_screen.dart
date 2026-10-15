@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../data/services/wardrobe_api_service.dart';
 import '../../models/wardrobe_analytics.dart';
 import '../../theme/app_theme.dart';
@@ -31,6 +32,40 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
   String? _error;
   bool _loading = true;
 
+  static const WardrobeAnalytics _demoAnalytics = WardrobeAnalytics(
+    totalPieces: 8,
+    activePiecesCount: 7,
+    idle30DaysCount: 1,
+    idle60DaysCount: 0,
+    idle90DaysCount: 0,
+    neverWornCount: 0,
+    totalWears: 38,
+    colorDistribution: [
+      DominantColorShare(
+        colorName: 'Terracota e Terras',
+        color: Color(0xFFB8361E),
+        percentage: 37.5,
+        count: 3,
+        labCoordinates: 'L* 42.0 · a* 38.0 · b* 24.0',
+      ),
+      DominantColorShare(
+        colorName: 'Neutros & Marfim',
+        color: Color(0xFFE9E4D6),
+        percentage: 37.5,
+        count: 3,
+        labCoordinates: 'L* 88.0 · a* 2.0 · b* 8.0',
+      ),
+      DominantColorShare(
+        colorName: 'Esmeralda Profundo',
+        color: Color(0xFF1C3120),
+        percentage: 25.0,
+        count: 2,
+        labCoordinates: 'L* 22.0 · a* -14.0 · b* 6.0',
+      ),
+    ],
+    dormantItems: [],
+  );
+
   /// Só chamado depois do carregamento: as seções leem daqui
   WardrobeAnalytics get _analytics => _data!;
 
@@ -47,9 +82,20 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
     });
     try {
       final data = await _service.getAnalytics();
-      if (mounted) setState(() => _data = data);
-    } on WardrobeException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(() {
+          _data = data.totalPieces == 0 && kDemoMode ? _demoAnalytics : data;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (kDemoMode) {
+          _data = _demoAnalytics;
+        } else {
+          _error = e is WardrobeException ? e.message : 'Não foi possível carregar a saúde do acervo.';
+        }
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }

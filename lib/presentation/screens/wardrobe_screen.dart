@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/demo/demo_mode.dart';
 import '../../data/services/wardrobe_api_service.dart';
+import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/room_scene.dart';
 import '../widgets/clothing_card.dart';
+import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
 import 'scan_item_screen.dart';
 import 'wardrobe_analytics_screen.dart';
@@ -61,9 +64,16 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     });
     try {
       final items = await _wardrobeService.getClothingItems();
-      if (mounted) setState(() => _items = items);
+      if (mounted) setState(() => _items = items.isEmpty && kDemoMode ? mockClothes : items);
     } on WardrobeException catch (e) {
-      if (mounted) setState(() => _loadError = e.message);
+      if (!mounted) return;
+      setState(() {
+        if (kDemoMode) {
+          _items = mockClothes;
+        } else {
+          _loadError = e.message;
+        }
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -255,17 +265,12 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 
   Widget _buildAcervoMetrics(BuildContext context) {
+    if (_items.isEmpty) return const SizedBox.shrink();
+
     final totalItems = _items.length;
     final esgCount = _items.where((i) => i.isConsciousFashion).length;
     final scored = _items.map((i) => i.iheScore).whereType<int>().toList();
     final averageIhe = scored.isEmpty ? null : (scored.reduce((a, b) => a + b) / scored.length).round();
-
-    Widget divider() => Container(
-          width: 0.8,
-          height: 34,
-          color: AppColors.hairlineIvory,
-          margin: const EdgeInsets.symmetric(horizontal: 14),
-        );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
@@ -279,40 +284,57 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
         },
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: const BoxDecoration(
-            border: Border(
-              top: BorderSide(color: AppColors.hairlineIvory, width: 0.8),
-              bottom: BorderSide(color: AppColors.hairlineIvory, width: 0.8),
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.ivoryVeil,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+            border: Border.all(color: AppColors.hairlineGold, width: 0.8),
           ),
-          child: Column(
+          child: Row(
             children: [
-              Row(
-                children: [
-                  _MetricItem(label: 'PEÇAS', value: '$totalItems'),
-                  divider(),
-                  _MetricItem(
-                    label: 'IHE MÉDIO',
-                    value: averageIhe == null ? '—' : '$averageIhe%',
-                    valueColor: AppColors.gildedLeaf,
-                  ),
-                  divider(),
-                  _MetricItem(
-                    label: 'CIRCULARES',
-                    value: '$esgCount',
-                    valueColor: AppColors.verdigrisLight,
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(color: AppColors.gildedVeil, shape: BoxShape.circle),
+                child: const Icon(Icons.auto_awesome, size: 13, color: AppColors.gildedLeaf),
               ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'SAÚDE & ROTAÇÃO DO ACERVO  →',
-                  style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 9.5),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$totalItems PEÇAS',
+                        style: AppTypography.uiHeadline(
+                          color: AppColors.ivoryText,
+                        ).copyWith(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text('•', style: TextStyle(color: AppColors.hairlineIvory)),
+                      const SizedBox(width: 6),
+                      Text(
+                        averageIhe == null ? 'IHE —' : 'IHE MÉDIO $averageIhe%',
+                        style: AppTypography.uiHeadline(
+                          color: AppColors.gildedLeaf,
+                        ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      if (esgCount > 0) ...[
+                        const SizedBox(width: 6),
+                        const Text('•', style: TextStyle(color: AppColors.hairlineIvory)),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$esgCount ESG',
+                          style: AppTypography.uiHeadline(color: AppColors.verdigrisLight).copyWith(fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              Text('SAÚDE →', style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 9)),
             ],
           ),
         ),
@@ -352,6 +374,19 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               RoomIconButton(icon: Icons.refresh, label: 'Tentar de novo', onTap: _loadItems)
             else if (_items.isEmpty)
               CinnabarButton(label: 'Digitalizar peça', icon: Icons.photo_camera_outlined, onPressed: _openScanner),
+            if (kDemoMode) ...[
+              const SizedBox(height: 12),
+              EditorialButton(
+                label: 'Carregar Coleção do Ateliê (8 Peças)',
+                tone: EditorialButtonTone.outline,
+                onPressed: () {
+                  setState(() {
+                    _items = mockClothes;
+                    _loadError = null;
+                  });
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -381,44 +416,6 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Expanded(child: Text(category, style: AppTypography.sectionDisplay())),
           Text(count == 1 ? '1 PEÇA' : '$count PEÇAS', style: AppTypography.atelierMeta()),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _MetricItem({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: AppTypography.displayEditorial(color: valueColor ?? AppColors.ivoryText)
-                .copyWith(fontSize: 24, height: 1.0),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTypography.atelierMeta().copyWith(fontSize: 9),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
         ],
       ),
     );

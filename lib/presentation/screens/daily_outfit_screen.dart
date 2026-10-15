@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../data/services/community_api_service.dart';
 import '../../data/services/open_meteo_weather_service.dart';
 import '../../data/services/outfit_api_service.dart';
 import '../../domain/models/recommended_look.dart';
 import '../../domain/repositories/weather_repository.dart';
+import '../../mocks/mock_clothes.dart';
+import '../../models/clothing_item.dart';
 import '../../models/weather_context.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
+import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
 import '../widgets/photo_capture.dart';
 import '../widgets/share_outfit_sheet.dart';
@@ -53,6 +57,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   static const _neutralTemperature = 22.0;
   late final OutfitApiService _service = widget.service ?? OutfitApiService();
   late final CommunityApiService _communityService = widget.communityService ?? CommunityApiService();
+
   /// Aprovações registradas (RF13), por look exibido: id do registro para desfazer
   final Map<RecommendedLook, String> _approvals = {};
   bool _sendingFeedback = false;
@@ -112,6 +117,33 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
     if (mounted) await _loadWeatherThenLooks();
   }
 
+  static List<RecommendedLook> get _demoLooks => [
+    RecommendedLook(
+      items: [mockClothes[0], mockClothes[2], mockClothes[5]],
+      ihePercentage: 94,
+      sCor: 0.95,
+      sBio: 0.92,
+      sOcasion: 0.94,
+      sCos: 0.95,
+      isStronglyRecommended: true,
+      stylingAdvice:
+          'Blazer de linho terracota com pantalona off-white e mocassim artesanal: harmonia primorosa para o seu biótipo e cartela.',
+      occasion: 'CASUAL',
+    ),
+    RecommendedLook(
+      items: [mockClothes[1], mockClothes[4], mockClothes[7]],
+      ihePercentage: 88,
+      sCor: 0.88,
+      sBio: 0.85,
+      sOcasion: 0.90,
+      sCos: 0.89,
+      isStronglyRecommended: true,
+      stylingAdvice:
+          'Camisa regata de seda areia combinada com calça de lã fria: contraste tonal moderado para trabalho.',
+      occasion: 'TRABALHO',
+    ),
+  ];
+
   Future<void> _loadLooks() async {
     final requestId = ++_requestId;
     setState(() {
@@ -128,14 +160,15 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
       );
       if (!mounted || requestId != _requestId) return;
       setState(() {
-        _looks = looks;
+        _looks = looks.isEmpty && kDemoMode ? _demoLooks : looks;
         _lookIndex = 0;
       });
     } on OutfitException catch (e) {
       if (!mounted || requestId != _requestId) return;
       setState(() {
-        _looks = const [];
-        _error = e;
+        _looks = kDemoMode ? _demoLooks : const [];
+        _lookIndex = 0;
+        if (!kDemoMode) _error = e;
       });
     } finally {
       if (mounted && requestId == _requestId) setState(() => _loading = false);
@@ -426,6 +459,20 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                 label: _discardedAll ? 'Gerar novas sugestões' : 'Tentar de novo',
                 onTap: _loadLooks,
               ),
+              if (kDemoMode) ...[
+                const SizedBox(height: 12),
+                EditorialButton(
+                  label: 'Carregar Look de Demonstração',
+                  tone: EditorialButtonTone.outline,
+                  onPressed: () {
+                    setState(() {
+                      _looks = _demoLooks;
+                      _lookIndex = 0;
+                      _error = null;
+                    });
+                  },
+                ),
+              ],
             ],
           ],
         ),
@@ -435,7 +482,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
 
   List<Widget> _buildLook(RecommendedLook look) {
     return [
-      // 2. "The Floating Canvas": peças do look direto sobre o veludo
+      // 2. "The Floating Canvas": peças do look em cartões editoriais elegantes
       SliverToBoxAdapter(
         child: RoomSectionTitle(
           title: 'Composição',
@@ -448,100 +495,301 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
           delegate: SliverChildListDelegate([
             for (final (index, item) in look.items.indexed)
               _GarmentRow(
-                category: item.category,
-                title: item.name,
-                provenance: item.brandOrProvenance,
-                color: item.dominantColor,
-                tag: item.isConsciousFashion ? item.consciousNote : null,
+                item: item,
+                onTap: () => _showGarmentDetailsSheet(context, item),
                 isLast: index == look.items.length - 1,
               ),
           ]),
         ),
       ),
 
-      // 3. Medidor IHE: a Sala dissolve em ocre dourado
+      // 3. Medidor IHE: Sala dissolve em ocre dourado com painel de joalheria limpo
       const RoomMarker(room: AtelierRoom.gildedOchre),
       const SliverToBoxAdapter(child: RoomSectionTitle(title: 'Harmonia do look', meta: 'IHE')),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
         sliver: SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text.rich(
-                TextSpan(
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: AppColors.ivoryVeil,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+              border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    TextSpan(
-                      text: '${look.ihePercentage}',
-                      style: AppTypography.heroDisplay().copyWith(fontSize: 96, height: 0.9),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${look.ihePercentage}',
+                            style: AppTypography.heroDisplay().copyWith(fontSize: 76, height: 0.95),
+                          ),
+                          TextSpan(
+                            text: '%',
+                            style: AppTypography.heroDisplay(color: AppColors.gildedLeaf).copyWith(fontSize: 40),
+                          ),
+                        ],
+                      ),
                     ),
-                    TextSpan(
-                      text: '%',
-                      style: AppTypography.heroDisplay(color: AppColors.gildedLeaf).copyWith(fontSize: 48),
-                    ),
+                    const SizedBox(width: 16),
+                    if (look.isStronglyRecommended)
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.gildedVeil,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('✦ ', style: TextStyle(fontSize: 12, color: AppColors.gildedLeaf)),
+                              Expanded(
+                                child: Text(
+                                  'LOOK FORTEMENTE RECOMENDADO',
+                                  style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 8.5),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              if (look.isStronglyRecommended) ...[
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Text('✦ ', style: TextStyle(fontSize: 16, color: AppColors.gildedLeaf)),
-                    Text(
-                      'LOOK FORTEMENTE RECOMENDADO',
-                      style: AppTypography.atelierMeta(color: AppColors.ivoryText),
+                Text(
+                  look.stylingAdvice,
+                  style: AppTypography.bodyReading(color: AppColors.ivoryMuted).copyWith(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () => _showIheBreakdownSheet(context, look),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.analytics_outlined, size: 14, color: AppColors.gildedLeaf),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Ver análise dos 4 pilares científicos →',
+                          style: AppTypography.atelierMeta(color: AppColors.gildedLeaf).copyWith(fontSize: 10.5),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ],
-              const SizedBox(height: 14),
-              Text(
-                look.stylingAdvice,
-                style: AppTypography.bodyReading(color: AppColors.ivoryMuted).copyWith(fontSize: 14),
-              ),
-              const SizedBox(height: 32),
+            ),
+          ),
+        ),
+      ),
 
-              // 4. Ações de 3 toques (RNF06)
+      // 4. Ações de 3 toques com layout refinado e despoluído (RNF06)
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 20, AppSpacing.pageMargin, 0),
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            children: [
               CinnabarButton(
                 label: _approvals.containsKey(look) ? 'Look aprovado' : 'Aprovar look do dia',
                 icon: _approvals.containsKey(look) ? Icons.check_circle : Icons.favorite_border,
                 onPressed: () => _toggleApproval(look),
                 busy: _sendingFeedback,
               ),
-              const SizedBox(height: 12),
-              // Look aprovado pode ir para o feed com as peças e o IHE (RF14)
               if (_approvals[look] case final approvalId?) ...[
+                const SizedBox(height: 12),
                 _OutlineAction(
                   icon: Icons.ios_share,
                   label: 'Publicar na comunidade',
                   onPressed: () => _shareApproved(approvalId),
                 ),
-                const SizedBox(height: 12),
               ],
               if (_looks.length > 1) ...[
+                const SizedBox(height: 12),
                 _OutlineAction(
                   icon: Icons.autorenew,
                   label: 'Outra sugestão (${_lookIndex + 1}/${_looks.length})',
                   onPressed: _showNextLook,
                 ),
-                const SizedBox(height: 12),
               ],
-              _OutlineAction(
-                icon: Icons.remove_red_eye_outlined,
-                label: 'Simular no provador',
-                onPressed: _handleOpenMirrorSheet,
-              ),
               const SizedBox(height: 12),
-              _OutlineAction(
-                icon: Icons.close,
-                label: 'Descartar sugestão',
-                onPressed: _sendingFeedback ? null : () => _discard(look),
+              Row(
+                children: [
+                  Expanded(
+                    child: _OutlineAction(
+                      icon: Icons.remove_red_eye_outlined,
+                      label: 'Simular no provador',
+                      onPressed: _handleOpenMirrorSheet,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _OutlineAction(
+                      icon: Icons.close,
+                      label: 'Descartar sugestão',
+                      onPressed: _sendingFeedback ? null : () => _discard(look),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
     ];
+  }
+
+  void _showIheBreakdownSheet(BuildContext context, RecommendedLook look) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
+      isScrollControlled: true,
+      builder: (ctx) => AtelierSheet(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('DECOMPOSIÇÃO DO IHE', style: AppTypography.atelierMeta(color: AppColors.gildedInk)),
+                Text(
+                  '${look.ihePercentage}%',
+                  style: AppTypography.displayEditorial(color: AppColors.inkText).copyWith(fontSize: 24),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Índice de Harmonia Estética Multivariado',
+              style: AppTypography.editorialTitleMedium(color: AppColors.inkText),
+            ),
+            const SizedBox(height: 16),
+            const Divider(color: AppColors.hairlineInk, height: 1),
+            const SizedBox(height: 16),
+            _PillarProgress(
+              label: 'Harmonia Cromática (S_cor • 35%)',
+              percentage: (look.sCor * 100).round(),
+              description: 'Distância euclidiana ΔE no espaço perceptual CIE L*a*b* com sua cartela.',
+            ),
+            const SizedBox(height: 14),
+            _PillarProgress(
+              label: 'Compensação Morfológica (S_bio • 25%)',
+              percentage: (look.sBio * 100).round(),
+              description: 'Matriz de equilíbrio de corte para valorização do seu biótipo.',
+            ),
+            const SizedBox(height: 14),
+            _PillarProgress(
+              label: 'Contexto e Clima (S_ocasion • 20%)',
+              percentage: (look.sOcasion * 100).round(),
+              description: 'Adequação à ocasião e condições térmicas em tempo real.',
+            ),
+            const SizedBox(height: 14),
+            _PillarProgress(
+              label: 'Similaridade de Estilo (S_cos • 20%)',
+              percentage: (look.sCos * 100).round(),
+              description: 'Similaridade de cosseno vetorial calculada pelo pgvector.',
+            ),
+            const SizedBox(height: 24),
+            EditorialButton(label: 'Entendido', tone: EditorialButtonTone.primary, onPressed: () => Navigator.pop(ctx)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showGarmentDetailsSheet(BuildContext context, ClothingItem item) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: AppColors.tapestryNoir.withValues(alpha: 0.55),
+      isScrollControlled: true,
+      builder: (ctx) => AtelierSheet(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(item.category.toUpperCase(), style: AppTypography.atelierMeta(color: AppColors.gildedInk)),
+            const SizedBox(height: 4),
+            Text(item.name, style: AppTypography.editorialTitleMedium(color: AppColors.inkText)),
+            const SizedBox(height: 4),
+            Text(item.brandOrProvenance, style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
+            const SizedBox(height: 16),
+            if (item.imageUrl.isNotEmpty) ...[
+              Center(
+                child: Container(
+                  height: 180,
+                  padding: const EdgeInsets.all(8),
+                  child: Image.network(
+                    item.imageUrl,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.checkroom_outlined, size: 64, color: AppColors.inkSecondary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: item.dominantColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.hairlineInk, width: 1.0),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  item.labColorSpace.isNotEmpty ? item.labColorSpace : 'Espaço Cromático CIE L*a*b*',
+                  style: AppTypography.bodySmall(color: AppColors.inkText).copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            if (item.isConsciousFashion) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.paperBoneRaised,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.hairlineInk, width: 0.8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.eco_outlined, size: 14, color: AppColors.accentCinnabar),
+                    const SizedBox(width: 6),
+                    Text(
+                      item.consciousNote ?? 'Moda Circular Certificada',
+                      style: AppTypography.bodySmall(color: AppColors.inkText).copyWith(fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            EditorialButton(label: 'Fechar', tone: EditorialButtonTone.outline, onPressed: () => Navigator.pop(ctx)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -612,85 +860,178 @@ class _OutlineAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: double.infinity,
-      height: 52,
+      height: 48,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18, color: AppColors.ivoryText),
-        label: Text(label, style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 14)),
+        icon: Icon(icon, size: 16, color: AppColors.ivoryText),
+        label: Text(
+          label,
+          style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 13),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppColors.hairlineIvory, width: 1.0),
+          side: const BorderSide(color: AppColors.hairlineIvory, width: 0.9),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
         ),
       ),
     );
   }
 }
 
-/// Peça do look direto sobre a Sala: amostra tonal, nome em Bodoni e proveniência
+/// Peça do look em cartão editorial refinado sobre a Sala
 class _GarmentRow extends StatelessWidget {
-  final String category;
-  final String title;
-  final String provenance;
-  final Color color;
-  final String? tag;
+  final ClothingItem item;
+  final VoidCallback? onTap;
   final bool isLast;
 
-  const _GarmentRow({
-    required this.category,
-    required this.title,
-    required this.provenance,
-    required this.color,
-    this.tag,
-    this.isLast = false,
-  });
+  const _GarmentRow({required this.item, this.onTap, this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.hairlineIvory, width: 0.6)),
+        color: AppColors.ivoryVeil,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.hairlineIvory, width: 1.0),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                Text(category.toUpperCase(), style: AppTypography.atelierMeta().copyWith(fontSize: 9.5)),
-                const SizedBox(height: 3),
-                Text(
-                  title,
-                  style: AppTypography.displayEditorial(color: AppColors.ivoryText).copyWith(fontSize: 18, height: 1.2),
+                // Prévia da peça recortada ou indicador tonal elegante
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.tapestryNoir.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+                  ),
+                  child: item.imageUrl.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            item.imageUrl,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (context, error, stackTrace) => Center(
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(color: item.dominantColor, shape: BoxShape.circle),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: item.dominantColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.hairlineIvory, width: 1.0),
+                            ),
+                          ),
+                        ),
                 ),
-                const SizedBox(height: 3),
-                Text(provenance, style: AppTypography.bodySmall(color: AppColors.ivoryMuted)),
-                if (tag case final String tag) ...[
-                  const SizedBox(height: 6),
-                  Row(
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.eco_outlined, size: 12, color: AppColors.verdigrisLight),
-                      const SizedBox(width: 5),
-                      Text(tag, style: AppTypography.bodySmall(color: AppColors.verdigrisLight).copyWith(fontSize: 11.5)),
+                      Row(
+                        children: [
+                          Text(item.category.toUpperCase(), style: AppTypography.atelierMeta().copyWith(fontSize: 8.5)),
+                          if (item.isConsciousFashion) ...[
+                            const SizedBox(width: 6),
+                            const Text('•', style: TextStyle(color: AppColors.verdigrisLight, fontSize: 10)),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                item.consciousNote ?? 'ESG',
+                                style: AppTypography.bodySmall(color: AppColors.verdigrisLight).copyWith(fontSize: 10),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.name,
+                        style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 14.5),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.brandOrProvenance,
+                        style: AppTypography.bodySmall(color: AppColors.ivoryMuted).copyWith(fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
-                ],
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.ivoryMuted),
               ],
             ),
           ),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+/// Progresso visual do pilar do IHE
+class _PillarProgress extends StatelessWidget {
+  final String label;
+  final int percentage;
+  final String description;
+
+  const _PillarProgress({required this.label, required this.percentage, required this.description});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: AppTypography.uiHeadline(color: AppColors.inkText).copyWith(fontSize: 12)),
+            Text(
+              '$percentage%',
+              style: AppTypography.uiHeadline(
+                color: AppColors.gildedInk,
+              ).copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: percentage / 100.0,
+            backgroundColor: AppColors.hairlineInk,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gildedInk),
+            minHeight: 4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(description, style: AppTypography.bodySmall(color: AppColors.inkSecondary).copyWith(fontSize: 11)),
+      ],
     );
   }
 }

@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/services/outfit_api_service.dart';
 import '../../data/services/wardrobe_api_service.dart';
+import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
+import '../../models/store_parity_result.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
@@ -41,6 +44,37 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
   Uint8List? _photo;
   bool _analyzing = false;
 
+  StoreParityResult get _demoParityResult => StoreParityResult(
+    storeGarment: _storeGarment(
+      const GarmentColor(l: 54, a: 32, b: 28, hex: '#C86D51', percentage: 85, name: 'Terracota'),
+      null,
+    ),
+    ihePercentage: 92,
+    isStronglyRecommended: true,
+    paletteHarmony: 0.94,
+    stylingAdvice: 'Alta sinergia estética: o tom terracota dialoga com a base neutra e terrosa do seu acervo atual.',
+    looksEvaluated: 8,
+    strongLooks: 3,
+    matches: [
+      ParityMatchItem(
+        closetItem: mockClothes[2],
+        ihePercentage: 94,
+        chromaticScore: 0.95,
+        morphologicalScore: 0.92,
+        isStronglyRecommended: true,
+        rationale: 'Contraste tonal equilibrado entre terracota e off-white.',
+      ),
+      ParityMatchItem(
+        closetItem: mockClothes[5],
+        ihePercentage: 89,
+        chromaticScore: 0.90,
+        morphologicalScore: 0.88,
+        isStronglyRecommended: true,
+        rationale: 'Harmonia análoga em tons de couro e terra.',
+      ),
+    ],
+  );
+
   Future<void> _capture(ImageSource source) async {
     if (_analyzing) return;
     HapticFeedback.mediumImpact();
@@ -71,10 +105,18 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
       setState(() => _analyzing = false);
       HapticFeedback.selectionClick();
       await StoreParitySheet.show(context, parityResult: result);
-    } on SegmentationException catch (e) {
-      _showMessage(e.message);
-    } on OutfitException catch (e) {
-      _showMessage(e.message);
+    } catch (e) {
+      if (kDemoMode) {
+        if (!mounted) return;
+        setState(() => _analyzing = false);
+        HapticFeedback.selectionClick();
+        await StoreParitySheet.show(context, parityResult: _demoParityResult);
+      } else {
+        _showMessage(switch (e) {
+          SegmentationException(:final message) || OutfitException(:final message) => message,
+          _ => 'Não foi possível conectar ao motor do provador.',
+        });
+      }
     } finally {
       if (mounted && _analyzing) setState(() => _analyzing = false);
     }

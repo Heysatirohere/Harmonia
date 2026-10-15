@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../data/services/community_api_service.dart';
 import '../../models/community_post.dart';
+import '../../models/user_style_profile.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
@@ -55,6 +57,72 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   /// Cada carga ganha um número; respostas de uma carga antiga (filtro trocado no meio) são ignoradas
   int _generation = 0;
 
+  static List<CommunityPost> get _demoPosts => [
+    CommunityPost(
+      id: 'demo-feed-1',
+      authorName: 'Camila Rossi',
+      authorBodyShape: BodySilhouetteType.ampulheta,
+      authorPalette: SeasonalPaletteType.outonoQuente,
+      imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1080&q=80',
+      caption:
+          'Composição de alfaiataria em linho terracota com pantalona fluida. Silhueta estruturada para reunião de conselho.',
+      occasion: 'TRABALHO',
+      styleTags: const ['Alfaiataria', 'ESG', 'Terracota'],
+      ihePercentage: 94.0,
+      pieces: const [
+        PostPiece(
+          id: 'p1',
+          category: 'Partes de cima',
+          name: 'Blazer de linho terracota',
+          imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600&q=80',
+          color: Color(0xFFC86D51),
+          labLabel: 'L* 54 · a* 32 · b* 28',
+        ),
+        PostPiece(
+          id: 'p2',
+          category: 'Partes de baixo',
+          name: 'Pantalona fluida off-white',
+          imageUrl: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=600&q=80',
+          color: Color(0xFFE9E4D6),
+          labLabel: 'L* 90 · a* 1 · b* 7',
+        ),
+      ],
+      likeCount: 42,
+      likedByMe: true,
+      savedByMe: true,
+      isPublic: true,
+      isMine: false,
+      createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+    ),
+    CommunityPost(
+      id: 'demo-feed-2',
+      authorName: 'Helena Duarte',
+      authorBodyShape: BodySilhouetteType.retangulo,
+      authorPalette: SeasonalPaletteType.veraoFrio,
+      imageUrl: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=1080&q=80',
+      caption: 'Seda esmeralda e lã fria. Contraste tonal sutil para a vernissage da Bienal.',
+      occasion: 'FESTA',
+      styleTags: const ['Seda', 'Esmeralda', 'Editorial'],
+      ihePercentage: 91.0,
+      pieces: const [
+        PostPiece(
+          id: 'p3',
+          category: 'Partes de cima',
+          name: 'Regata de seda esmeralda',
+          imageUrl: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=600&q=80',
+          color: Color(0xFF1C3120),
+          labLabel: 'L* 20 · a* -15 · b* 8',
+        ),
+      ],
+      likeCount: 28,
+      likedByMe: false,
+      savedByMe: false,
+      isPublic: true,
+      isMine: false,
+      createdAt: DateTime.now().subtract(const Duration(hours: 7)),
+    ),
+  ];
+
   _FeedChip get _chip => _chips[_chipIndex];
 
   @override
@@ -79,11 +147,18 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       final page = await _service.fetchFeed(filter: _chip.filter, occasion: _chip.occasion, query: _search.text);
       if (!mounted || generation != _generation) return;
       setState(() {
-        _posts = page.posts;
+        _posts = page.posts.isEmpty && kDemoMode ? _demoPosts : page.posts;
         _nextBefore = page.nextBefore;
       });
-    } on CommunityException catch (e) {
-      if (mounted && generation == _generation) setState(() => _error = e.message);
+    } catch (e) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        if (kDemoMode) {
+          _posts = _demoPosts;
+        } else {
+          _error = e is CommunityException ? e.message : 'Não foi possível carregar o feed.';
+        }
+      });
     } finally {
       if (mounted && generation == _generation) setState(() => _loading = false);
     }

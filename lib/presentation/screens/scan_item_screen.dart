@@ -2,7 +2,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/demo/demo_mode.dart';
 import '../../data/services/wardrobe_api_service.dart';
+import '../../mocks/mock_clothes.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
 import '../../theme/app_theme.dart';
@@ -170,9 +172,27 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       if (!mounted || !identical(bytes, _capturedBytes)) return;
       setState(() => _segmentation = result);
       HapticFeedback.selectionClick();
-    } on SegmentationException catch (e) {
+    } catch (e) {
       if (!mounted || !identical(bytes, _capturedBytes)) return;
-      setState(() => _segmentationError = e.message);
+      if (kDemoMode) {
+        final demo = GarmentSegmentation(
+          cutoutPng: bytes,
+          width: 600,
+          height: 800,
+          colors: const [
+            GarmentColor(l: 54, a: 32, b: 28, hex: '#C86D51', percentage: 70, name: 'Terracota'),
+            GarmentColor(l: 90, a: 1, b: 7, hex: '#E9E4D6', percentage: 30, name: 'Marfim'),
+          ],
+          processingMs: 650,
+          styleEmbedding: List.filled(512, 0.05),
+        );
+        setState(() => _segmentation = demo);
+        HapticFeedback.selectionClick();
+      } else {
+        setState(
+          () => _segmentationError = e is SegmentationException ? e.message : 'Não foi possível analisar a peça.',
+        );
+      }
     } finally {
       if (mounted && identical(bytes, _capturedBytes)) {
         setState(() => _isSegmenting = false);
@@ -212,7 +232,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     );
 
     // Upload no Supabase Storage e persistência no banco
-    final ClothingItem catalogedItem;
+    ClothingItem catalogedItem;
     try {
       // Envia o recorte PNG com canal alfa, não a foto original
       catalogedItem = await _wardrobeService.uploadAndCatalogGarment(
@@ -220,18 +240,25 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
         fileName: 'garment_${DateTime.now().microsecondsSinceEpoch}.png',
         item: newItem,
       );
-    } on WardrobeException catch (e) {
-      // A peça continua na tela para uma nova tentativa, sem perder a análise
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.tapestryNoir,
-            behavior: SnackBarBehavior.floating,
-            content: Text(e.message, style: AppTypography.bodyReading(color: AppColors.ivoryText)),
-          ),
-        );
+    } catch (e) {
+      // Fora do modo demo, a peça continua na tela para uma nova tentativa, sem perder a análise
+      if (kDemoMode) {
+        catalogedItem = newItem.copyWith(imageUrl: mockClothes.first.imageUrl);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.tapestryNoir,
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                e is WardrobeException ? e.message : 'Não foi possível salvar a peça.',
+                style: AppTypography.bodyReading(color: AppColors.ivoryText),
+              ),
+            ),
+          );
+        }
+        return;
       }
-      return;
     } finally {
       if (mounted) {
         setState(() {

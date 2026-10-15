@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../domain/models/style_profile.dart';
 import '../../domain/repositories/style_profile_repository.dart';
 import '../../models/user_style_profile.dart';
@@ -30,6 +31,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   StyleProfile? _profile;
   String? _loadError;
 
+  static const _demoProfile = StyleProfile(
+    silhouette: BodySilhouetteType.ampulheta,
+    palette: SeasonalPaletteType.outonoQuente,
+    itemsCount: 8,
+    maxItems: 30,
+    looksToday: 1,
+    maxDailyLooks: 5,
+    isPremium: false,
+    isPublic: true,
+  );
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -42,7 +54,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _load() async {
     final repository = _repository;
     if (repository == null) {
-      setState(() => _loadError = 'Perfil de estilo indisponível neste modo.');
+      setState(() {
+        if (kDemoMode) {
+          _profile = _demoProfile;
+        } else {
+          _loadError = 'Perfil de estilo indisponível neste modo.';
+        }
+      });
       return;
     }
     setState(() => _loadError = null);
@@ -50,7 +68,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final profile = await repository.fetch();
       if (mounted) setState(() => _profile = profile);
     } on StyleProfileFailure catch (failure) {
-      if (mounted) setState(() => _loadError = failure.message);
+      if (!mounted) return;
+      setState(() {
+        if (kDemoMode) {
+          _profile = _demoProfile;
+        } else {
+          _loadError = failure.message;
+        }
+      });
     }
   }
 
@@ -564,4 +589,3 @@ class _PreferencesSheetState extends State<_PreferencesSheet> {
     );
   }
 }
-

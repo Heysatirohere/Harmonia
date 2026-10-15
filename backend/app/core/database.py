@@ -10,11 +10,14 @@ from .config import settings
 
 
 # Criar engine assíncrono para PostgreSQL
+# Sem pre_ping: com o banco no Supabase, o teste de conexão a cada requisição custava
+# 0,5–0,7 s (medido). Conexões com mais de 5 minutos são trocadas antes do uso, o que
+# cobre a queda de conexões paradas que o pre_ping evitava.
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
     future=True,
-    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 # Fábrica de sessões assíncronas do SQLAlchemy 2.0

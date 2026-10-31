@@ -747,10 +747,15 @@ class _PillarRow extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      title,
-                      style: AppTypography.uiHeadline().copyWith(fontSize: 13),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppTypography.uiHeadline().copyWith(fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '$percentage%',
                       style: AppTypography.uiHeadline(color: AppColors.gildedInk)

@@ -1834,3 +1834,82 @@ async def test_morphology_quiz_and_weather_endpoint(monkeypatch):
         assert w_data["thermal_recommendation"] == "IMPERMEAVEL"
         assert w_data["location_name"] == "São Paulo"
 
+        # Cache hit
+        w_cached = await client.get("/api/v1/weather?latitude=-23.55&longitude=-46.63")
+        assert w_cached.status_code == 200
+        assert w_cached.json()["temperature_celsius"] == 14.5
+
+
+@pytest.mark.anyio
+async def test_weather_helpers_and_fallback(monkeypatch):
+    from app.api.v1.endpoints import weather as weather_ep
+
+    assert weather_ep._thermal_recommendation(18.0, True) == "IMPERMEAVEL"
+    assert weather_ep._thermal_recommendation(12.0, False) == "PESADO"
+    assert weather_ep._thermal_recommendation(28.0, False) == "LEVE"
+    assert weather_ep._thermal_recommendation(21.0, False) == "MEDIO"
+
+    weather_ep._WEATHER_CACHE.clear()
+
+    async def fail_fetch(lat, lon):
+        return None
+
+    monkeypatch.setattr(weather_ep, "_fetch_open_meteo", fail_fetch)
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/v1/weather?latitude=-12.97&longitude=-38.50")
+        assert res.status_code == 200
+        assert res.json()["temperature_celsius"] == 22.0
+        assert res.json()["thermal_recommendation"] == "MEDIO"
+
+
+@pytest.mark.anyio
+async def test_circular_marketplace_and_b2b_trends():
+    seller_id = uuid.uuid4()
+    buyer_id = uuid.uuid4()
+    store.users[seller_id] = User(
+        id=seller_id, email="seller@harmonia.app", hashed_password="pw",
+        seasonal_palette="OUTONO_QUENTE", is_premium=True, created_at=datetime.now(timezone.utc),
+    )
+    store.users[buyer_id] = User(
+        id=buyer_id, email="buyer@harmonia.app", hashed_password="pw",
+        seasonal_palette="OUTONO_QUENTE", is_premium=True, created_at=datetime.now(timezone.utc),
+    )
+
+    sell_item = ClothingItem(
+        id=uuid.uuid4(),
+        user_id=seller_id,
+        category="Partes de cima",
+        subcategory="Blazer Terracota Seminovo",
+        image_url="https://example.com/blazer.png",
+        dominant_l=50.0,
+        dominant_a=30.0,
+        dominant_b=28.0,
+        formality_score=0.75,
+        cut_type="ACINTURADO",
+        purchase_price=300.0,
+        disposal_status="SELL",
+        is_conscious_fashion=True,
+        is_archived=False,
+        created_at=datetime.now(timezone.utc),
+    )
+    store.clothing_items[sell_item.id] = sell_item
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        circ_res = await client.get("/api/v1/wardrobe/circular-marketplace", headers=auth_headers(buyer_id))
+        assert circ_res.status_code == 200
+        listings = circ_res.json()
+        assert len(listings) == 1
+        assert listings[0]["title"] == "Blazer Terracota Seminovo"
+        assert listings[0]["suggested_price_brl"] == 180.0
+        assert listings[0]["is_own_listing"] is False
+        assert 0.0 <= listings[0]["palette_compatibility"] <= 1.0
+
+        b2b_res = await client.get("/api/v1/wardrobe/b2b-trends", headers=auth_headers(buyer_id))
+        assert b2b_res.status_code == 200
+        trends = b2b_res.json()
+        assert trends["total_cataloged_items"] == 1
+        assert trends["circular_supply_count"] == 1
+        assert "LGPD" in trends["lgpd_anonymization_seal"] or "13.709/2018" in trends["lgpd_anonymization_seal"]
+        assert len(trends["categories_by_retention"]) == 1
+
+

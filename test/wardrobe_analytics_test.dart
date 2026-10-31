@@ -141,5 +141,23 @@ void main() {
       expect(find.text('O ateliê não respondeu'), findsNothing);
       expect(find.text('50% ATIVO'), findsOneWidget);
     });
+
+    testWidgets('permite anunciar peça adormecida no Brechó Circular C2C e exibe Custo por Uso quando precificado', (tester) async {
+      final json = analyticsJson();
+      json['total_wardrobe_value'] = 640.0;
+      json['average_cost_per_use'] = 45.5;
+      await pumpScreen(tester, analytics: WardrobeAnalytics.fromJson(json));
+
+      expect(find.text('INTELIGÊNCIA PATRIMONIAL & CUSTO POR USO'), findsOneWidget);
+      expect(find.text('R\$ 45,50'), findsOneWidget);
+      expect(find.text('R\$ 640,00'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Anunciar no Brechó'));
+      await tester.tap(find.text('Anunciar no Brechó'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('✦ No Brechó Circular'), findsOneWidget);
+      expect(find.textContaining('anunciada no Brechó Circular C2C'), findsOneWidget);
+    });
   });
 }

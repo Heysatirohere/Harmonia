@@ -25,6 +25,9 @@ class MockGapAnalysis {
           name: 'Camisa de linho manga longa off-white',
           color: Color(0xFFEBE6DA),
           affiliateUrl: 'https://www.lojasrenner.com.br/b?Ntt=camisa+linho+off+white&utm_source=harmonia',
+          price: 199.90,
+          fabric: '55% Linho, 45% Viscose',
+          imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=400&auto=format&fit=crop&q=80',
         ),
         AffiliatedProduct(
           id: 'cea-camisa-linho-off',
@@ -32,6 +35,9 @@ class MockGapAnalysis {
           name: 'Camisa de linho off-white',
           color: Color(0xFFE8E3D9),
           affiliateUrl: 'https://www.cea.com.br/camisa%20linho%20off%20white?_q=camisa+linho+off+white&map=ft&utm_source=harmonia',
+          price: 179.90,
+          fabric: '55% Linho, 45% Algodão',
+          imageUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&auto=format&fit=crop&q=80',
         ),
         AffiliatedProduct(
           id: 'renner-camisa-linho-esgotada',
@@ -40,6 +46,8 @@ class MockGapAnalysis {
           color: Color(0xFFEBE6DA),
           affiliateUrl: 'https://www.lojasrenner.com.br/b?Ntt=camisa+linho&utm_source=harmonia',
           inStock: false, // RN03: nunca aparece
+          price: 219.90,
+          fabric: '100% Linho Puro',
         ),
       ],
     ),
@@ -60,6 +68,9 @@ class MockGapAnalysis {
           name: 'Mocassim caramelo',
           color: Color(0xFF8E5F39),
           affiliateUrl: 'https://www.cea.com.br/mocassim%20caramelo?_q=mocassim+caramelo&map=ft&utm_source=harmonia',
+          price: 219.90,
+          fabric: 'Camurça Ecológica',
+          imageUrl: 'https://images.unsplash.com/photo-1560343776-97e7d202ff0e?w=400&auto=format&fit=crop&q=80',
         ),
       ],
     ),

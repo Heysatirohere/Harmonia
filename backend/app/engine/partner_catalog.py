@@ -76,92 +76,140 @@ _ARCHETYPES: List[GapArchetype] = [
         id="camisa-linho-off-white", title="Camisa de linho off-white", category="top",
         L=92.0, a=0.5, b=6.0, formality=0.6, cut_type="RETO",
         products=[
-            PartnerProduct("renner-camisa-linho-off", "RENNER", "Camisa de linho manga longa off-white",
-                           "camisa linho off white", 92.0, 0.5, 7.0, price=199.90, fabric="55% Linho, 45% Viscose"),
-            PartnerProduct("cea-camisa-linho-off", "CEA", "Camisa de linho off-white",
-                           "camisa linho off white", 91.0, 1.0, 6.0, price=179.90, fabric="55% Linho, 45% Algodão"),
+            PartnerProduct(
+                "renner-camisa-linho-off", "RENNER", "Camisa de linho manga longa off-white",
+                "camisa linho off white", 92.0, 0.5, 7.0, price=199.90, fabric="55% Linho, 45% Viscose",
+                image_url="https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=400&auto=format&fit=crop&q=80",
+            ),
+            PartnerProduct(
+                "cea-camisa-linho-off", "CEA", "Camisa de linho off-white",
+                "camisa linho off white", 91.0, 1.0, 6.0, price=179.90, fabric="55% Linho, 45% Algodão",
+                image_url="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="camiseta-preta-basica", title="Camiseta preta básica", category="top",
         L=12.0, a=0.0, b=0.0, formality=0.2, cut_type="RETO",
         products=[
-            PartnerProduct("cea-camiseta-preta", "CEA", "Camiseta básica preta de algodão",
-                           "camiseta basica preta", 12.0, 0.0, 0.0, price=69.90, fabric="100% Algodão Egípcio"),
-            PartnerProduct("renner-camiseta-preta", "RENNER", "Camiseta básica preta",
-                           "camiseta basica preta", 13.0, 0.0, -1.0, in_stock=False, price=79.90, fabric="100% Algodão Peruano"),
+            PartnerProduct(
+                "cea-camiseta-preta", "CEA", "Camiseta básica preta de algodão",
+                "camiseta basica preta", 12.0, 0.0, 0.0, price=69.90, fabric="100% Algodão Egípcio",
+                image_url="https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400&auto=format&fit=crop&q=80",
+            ),
+            PartnerProduct(
+                "renner-camiseta-preta", "RENNER", "Camiseta básica preta",
+                "camiseta basica preta", 13.0, 0.0, -1.0, in_stock=False, price=79.90, fabric="100% Algodão Peruano",
+                image_url="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="blusa-terracota", title="Blusa terracota", category="top",
         L=48.0, a=34.0, b=36.0, formality=0.45, cut_type="ACINTURADO",
         products=[
-            PartnerProduct("renner-blusa-terracota", "RENNER", "Blusa de viscose terracota",
-                           "blusa terracota", 48.0, 35.0, 36.0, price=139.90, fabric="100% Viscose Ecovero"),
+            PartnerProduct(
+                "renner-blusa-terracota", "RENNER", "Blusa de viscose terracota",
+                "blusa terracota", 48.0, 35.0, 36.0, price=139.90, fabric="100% Viscose Ecovero",
+                image_url="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="calca-alfaiataria-marinho", title="Calça de alfaiataria marinho", category="bottom",
         L=22.0, a=2.0, b=-18.0, formality=0.75, cut_type="CINTURA_ALTA",
         products=[
-            PartnerProduct("renner-calca-alfaiataria-marinho", "RENNER", "Calça de alfaiataria cintura alta marinho",
-                           "calca alfaiataria marinho", 22.0, 2.0, -18.0, price=259.90, fabric="78% Poliéster Reciclado, 22% Viscose"),
-            PartnerProduct("cea-calca-alfaiataria-marinho", "CEA", "Calça reta de alfaiataria azul-marinho",
-                           "calca alfaiataria azul marinho", 23.0, 1.0, -17.0, price=239.90, fabric="Alfaiataria 80% Poliéster, 20% Viscose"),
+            PartnerProduct(
+                "renner-calca-alfaiataria-marinho", "RENNER", "Calça de alfaiataria cintura alta marinho",
+                "calca alfaiataria marinho", 22.0, 2.0, -18.0, price=259.90, fabric="78% Poliéster Reciclado, 22% Viscose",
+                image_url="https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&auto=format&fit=crop&q=80",
+            ),
+            PartnerProduct(
+                "cea-calca-alfaiataria-marinho", "CEA", "Calça reta de alfaiataria azul-marinho",
+                "calca alfaiataria azul marinho", 23.0, 1.0, -17.0, price=239.90, fabric="Alfaiataria 80% Poliéster, 20% Viscose",
+                image_url="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="jeans-reto-medio", title="Jeans reto azul médio", category="bottom",
         L=45.0, a=-2.0, b=-22.0, formality=0.3, cut_type="RETO",
         products=[
-            PartnerProduct("cea-jeans-reto", "CEA", "Calça jeans reta lavagem média",
-                           "calca jeans reta", 45.0, -2.0, -22.0, price=189.90, fabric="Denim 100% Algodão BCI"),
-            PartnerProduct("renner-jeans-reto", "RENNER", "Calça jeans reta azul médio",
-                           "calca jeans reta", 44.0, -1.0, -23.0, price=199.90, fabric="Denim 98% Algodão, 2% Elastano"),
+            PartnerProduct(
+                "cea-jeans-reto", "CEA", "Calça jeans reta lavagem média",
+                "calca jeans reta", 45.0, -2.0, -22.0, price=189.90, fabric="Denim 100% Algodão BCI",
+                image_url="https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&auto=format&fit=crop&q=80",
+            ),
+            PartnerProduct(
+                "renner-jeans-reto", "RENNER", "Calça jeans reta azul médio",
+                "calca jeans reta", 44.0, -1.0, -23.0, price=199.90, fabric="Denim 98% Algodão, 2% Elastano",
+                image_url="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="pantalona-caramelo", title="Pantalona caramelo", category="bottom",
         L=55.0, a=14.0, b=34.0, formality=0.55, cut_type="PANTALONA",
         products=[
-            PartnerProduct("renner-pantalona-caramelo", "RENNER", "Calça pantalona caramelo",
-                           "calca pantalona caramelo", 55.0, 14.0, 34.0, price=229.90, fabric="Linho Misto 55% Linho, 45% Viscose"),
+            PartnerProduct(
+                "renner-pantalona-caramelo", "RENNER", "Calça pantalona caramelo",
+                "calca pantalona caramelo", 55.0, 14.0, 34.0, price=229.90, fabric="Linho Misto 55% Linho, 45% Viscose",
+                image_url="https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="saia-midi-oliva", title="Saia midi oliva", category="bottom",
         L=42.0, a=-14.0, b=26.0, formality=0.5, cut_type="EVASE",
         products=[
-            PartnerProduct("cea-saia-midi-oliva", "CEA", "Saia midi evasê verde oliva",
-                           "saia midi verde oliva", 42.0, -14.0, 26.0, price=169.90, fabric="Sarja Leve 100% Liocel"),
+            PartnerProduct(
+                "cea-saia-midi-oliva", "CEA", "Saia midi evasê verde oliva",
+                "saia midi verde oliva", 42.0, -14.0, 26.0, price=169.90, fabric="Sarja Leve 100% Liocel",
+                image_url="https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="mocassim-couro-caramelo", title="Mocassim de couro caramelo", category="shoes",
         L=45.0, a=16.0, b=32.0, formality=0.6, cut_type="RETO",
         products=[
-            PartnerProduct("renner-mocassim-caramelo", "RENNER", "Mocassim de couro caramelo",
-                           "mocassim couro caramelo", 45.0, 16.0, 32.0, price=279.90, fabric="100% Couro Bovino Certificado"),
-            PartnerProduct("cea-mocassim-caramelo", "CEA", "Mocassim caramelo",
-                           "mocassim caramelo", 46.0, 15.0, 31.0, price=219.90, fabric="Camurça Ecológica"),
+            PartnerProduct(
+                "renner-mocassim-caramelo", "RENNER", "Mocassim de couro caramelo",
+                "mocassim couro caramelo", 45.0, 16.0, 32.0, price=279.90, fabric="100% Couro Bovino Certificado",
+                image_url="https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&auto=format&fit=crop&q=80",
+            ),
+            PartnerProduct(
+                "cea-mocassim-caramelo", "CEA", "Mocassim caramelo",
+                "mocassim caramelo", 46.0, 15.0, 31.0, price=219.90, fabric="Camurça Ecológica",
+                image_url="https://images.unsplash.com/photo-1560343776-97e7d202ff0e?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="tenis-branco-minimalista", title="Tênis branco minimalista", category="shoes",
         L=95.0, a=0.0, b=1.0, formality=0.2, cut_type="RETO",
         products=[
-            PartnerProduct("cea-tenis-branco", "CEA", "Tênis branco casual",
-                           "tenis branco casual", 95.0, 0.0, 1.0, price=159.90, fabric="Lona 100% Algodão Reciclado"),
-            PartnerProduct("renner-tenis-branco", "RENNER", "Tênis branco minimalista",
-                           "tenis branco", 94.0, 0.0, 2.0, price=179.90, fabric="Couro Vegano Minimalista"),
+            PartnerProduct(
+                "cea-tenis-branco", "CEA", "Tênis branco casual",
+                "tenis branco casual", 95.0, 0.0, 1.0, price=159.90, fabric="Lona 100% Algodão Reciclado",
+                image_url="https://images.unsplash.com/photo-1560343776-97e7d202ff0e?w=400&auto=format&fit=crop&q=80",
+            ),
+            PartnerProduct(
+                "renner-tenis-branco", "RENNER", "Tênis branco minimalista",
+                "tenis branco", 94.0, 0.0, 2.0, price=179.90, fabric="Couro Vegano Minimalista",
+                image_url="https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
     GapArchetype(
         id="vestido-envelope-vinho", title="Vestido envelope vinho", category="one_piece",
         L=28.0, a=36.0, b=12.0, formality=0.7, cut_type="VESTIDO_ENVELOPE",
         products=[
-            PartnerProduct("renner-vestido-envelope-vinho", "RENNER", "Vestido midi envelope vinho",
-                           "vestido envelope vinho", 28.0, 36.0, 12.0, price=249.90, fabric="Crepe de Viscose Certificada"),
+            PartnerProduct(
+                "renner-vestido-envelope-vinho", "RENNER", "Vestido midi envelope vinho",
+                "vestido envelope vinho", 28.0, 36.0, 12.0, price=249.90, fabric="Crepe de Viscose Certificada",
+                image_url="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&auto=format&fit=crop&q=80",
+            ),
         ],
     ),
 ]

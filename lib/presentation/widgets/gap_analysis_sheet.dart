@@ -108,6 +108,9 @@ class _ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final hasImage = product.imageUrl != null && product.imageUrl!.trim().isNotEmpty;
+
     return InkWell(
       onTap: () => _open(context),
       borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
@@ -115,7 +118,36 @@ class _ProductRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
-            _Swatch(color: product.color, size: 28),
+            if (hasImage)
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      color: AppColors.paperBoneRaised,
+                      child: Image.network(
+                        product.imageUrl!,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.medium,
+                        cacheWidth: (44 * dpr).round(),
+                        errorBuilder: (_, _, _) => Center(
+                          child: _Swatch(color: product.color, size: 28),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: -3,
+                    bottom: -3,
+                    child: _Swatch(color: product.color, size: 14),
+                  ),
+                ],
+              )
+            else
+              _Swatch(color: product.color, size: 28),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

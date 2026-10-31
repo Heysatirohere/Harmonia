@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/demo/demo_mode.dart';
 import '../../data/services/wardrobe_api_service.dart';
+import '../../models/clothing_item.dart';
 import '../../models/wardrobe_analytics.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
@@ -33,6 +34,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
   WardrobeAnalytics? _data;
   String? _error;
   bool _loading = true;
+  final Set<String> _circularListedIds = <String>{};
 
   static const WardrobeAnalytics _demoAnalytics = WardrobeAnalytics(
     totalPieces: 8,
@@ -569,7 +571,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 224,
+          height: 264,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -577,8 +579,9 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
             itemBuilder: (context, index) {
               final garment = dormant[index];
               final piece = garment.item;
+              final isListed = piece.disposalStatus == 'SELL' || _circularListedIds.contains(piece.id);
               return Container(
-                width: 158,
+                width: 164,
                 margin: const EdgeInsets.only(right: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -649,6 +652,33 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 5),
+                    GestureDetector(
+                      key: ValueKey('circular_sell_${piece.id}'),
+                      onTap: isListed ? null : () => _announceInCircularBrecho(piece),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isListed
+                              ? AppColors.verdigrisInk.withValues(alpha: 0.14)
+                              : AppColors.paperBone,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                          border: Border.all(
+                            color: isListed ? AppColors.verdigrisInk : AppColors.hairlineInk,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          isListed ? '✦ No Brechó Circular' : 'Anunciar no Brechó',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.atelierMeta(
+                            color: isListed ? AppColors.verdigrisInk : AppColors.inkText,
+                          ).copyWith(fontSize: 8.5),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -656,6 +686,25 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _announceInCircularBrecho(ClothingItem piece) async {
+    HapticFeedback.mediumImpact();
+    setState(() => _circularListedIds.add(piece.id));
+    await _service.updateClothingItem(
+      piece.copyWith(disposalStatus: 'SELL', isConsciousFashion: true),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.tapestryNoir,
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          'Peça "${piece.name}" anunciada no Brechó Circular C2C!',
+          style: AppTypography.bodyReading(color: AppColors.ivoryText),
+        ),
+      ),
     );
   }
 }

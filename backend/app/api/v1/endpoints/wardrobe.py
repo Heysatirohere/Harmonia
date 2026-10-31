@@ -19,7 +19,10 @@ from app.core.security import get_current_user, get_current_user_id
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
 from app.models.entities import User, ClothingItem, LookFeedback
 from app.schemas.dtos import (
+    B2BMarketTrendsResponse,
     CapsuleSummaryResponse,
+    CategoryRetentionStat,
+    CircularListingResponse,
     ClothingItemCreate,
     ClothingItemResponse,
     ClothingItemUpdate,
@@ -33,6 +36,8 @@ from app.schemas.dtos import (
 )
 from app import vision
 from app.vision import garment_attributes
+from app.vision.color_extraction import lab_to_hex
+from app.engine.color_science import LabColor, calculate_garment_s_cor
 from app.engine.wardrobe_analytics import color_distribution, color_family as calc_color_family, garment_usage, rotation_bucket
 
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -403,6 +408,9 @@ async def wardrobe_analytics(
     discarded_count = sum(
         1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") in ("DISCARDED", "RECYCLE")
     )
+    circular_count = sum(
+        1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") == "SELL"
+    )
     items = [i for i in all_items if not getattr(i, "is_archived", False)]
     worn_on = await _worn_on(db, current_user_id)
 
@@ -447,6 +455,7 @@ async def wardrobe_analytics(
         conscious_items_count=conscious_count,
         donated_items=donated_count,
         discarded_items=discarded_count,
+        circular_items=circular_count,
         capsules_count=len(capsules_set),
         color_distribution=[
             ColorShareResponse(
@@ -465,4 +474,121 @@ async def wardrobe_analytics(
             )
             for item, usage in dormant
         ],
+    )
+
+
+@router.get("/circular-marketplace", response_model=List[CircularListingResponse], status_code=status.HTTP_200_OK)
+async def list_circular_marketplace(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Brechó Integrado e Marketplace Circular C2C (Seção 3.5.4).
+    Lista peças seminovas marcadas com disposal_status='SELL' e calcula a compatibilidade
+    cromática (S_cor no espaço CIE L*a*b*) com a cartela sazonal do comprador autenticado.
+    """
+    all_items = list((await db.execute(select(ClothingItem))).scalars().all())
+    sell_items = [
+        item for item in all_items
+        if (getattr(item, "disposal_status", None) or "ACTIVE") == "SELL"
+    ]
+
+    palette = getattr(user, "seasonal_palette", None) or "OUTONO_QUENTE"
+    listings: List[CircularListingResponse] = []
+    for item in sell_items:
+        s_cor = round(
+            calculate_garment_s_cor(
+                LabColor(L=item.dominant_l, a=item.dominant_a, b=item.dominant_b),
+                palette,
+            ),
+            4,
+        )
+        raw_price = getattr(item, "purchase_price", None)
+        suggested_price = round(float(raw_price) * 0.6, 2) if (raw_price is not None and raw_price > 0) else 89.90
+        listings.append(
+            CircularListingResponse(
+                item_id=item.id,
+                title=item.subcategory or item.category,
+                category=item.category,
+                image_url=item.image_url,
+                dominant_l=item.dominant_l,
+                dominant_a=item.dominant_a,
+                dominant_b=item.dominant_b,
+                color_hex=lab_to_hex(item.dominant_l, item.dominant_a, item.dominant_b),
+                color_family=calc_color_family(item.dominant_l, item.dominant_a, item.dominant_b),
+                cut_type=getattr(item, "cut_type", None),
+                suggested_price_brl=suggested_price,
+                palette_compatibility=s_cor,
+                is_own_listing=(item.user_id == user.id),
+            )
+        )
+
+    listings.sort(key=lambda entry: (-entry.palette_compatibility, entry.suggested_price_brl))
+    return listings
+
+
+@router.get("/b2b-trends", response_model=B2BMarketTrendsResponse, status_code=status.HTTP_200_OK)
+async def get_b2b_market_trends(
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Inteligência de Dados sobre Moda e Tendências B2B (Seção 3.5.3).
+    Retorna indicadores estritamente agregados e anonimizados em conformidade com a LGPD (RNF01),
+    sem expor qualquer identificador pessoal ou mídia privada.
+    """
+    all_items = list((await db.execute(select(ClothingItem))).scalars().all())
+    approved_looks = list((await db.execute(
+        select(LookFeedback).where(LookFeedback.action == "APPROVED")
+    )).scalars().all())
+
+    worn_on: dict[str, list[datetime]] = {}
+    for look in approved_looks:
+        for item_id in look.item_ids:
+            worn_on.setdefault(str(item_id), []).append(look.created_at)
+
+    now = datetime.now(timezone.utc)
+    active_items = [i for i in all_items if not getattr(i, "is_archived", False)]
+    total = len(active_items)
+
+    buckets = {"active": 0, "idle_30": 0, "idle_60": 0, "dormant": 0}
+    cat_counts: dict[str, int] = {}
+    cat_wears: dict[str, int] = {}
+
+    for item in active_items:
+        usage = garment_usage(item.created_at, worn_on.get(str(item.id), []), now)
+        buckets[rotation_bucket(usage.days_idle)] += 1
+        cat = item.category or "Outros"
+        cat_counts[cat] = cat_counts.get(cat, 0) + 1
+        cat_wears[cat] = cat_wears.get(cat, 0) + usage.wear_count
+
+    circular_supply = sum(
+        1 for i in all_items
+        if (getattr(i, "disposal_status", None) or "ACTIVE") in ("SELL", "DONATE", "DONATED")
+    )
+
+    colors = color_distribution([(i.dominant_l, i.dominant_a, i.dominant_b) for i in active_items])
+    retention_stats = [
+        CategoryRetentionStat(
+            category=cat,
+            items_count=count,
+            total_wears=cat_wears.get(cat, 0),
+            average_wears_per_item=round(cat_wears.get(cat, 0) / max(1, count), 2),
+        )
+        for cat, count in sorted(cat_counts.items(), key=lambda kv: (-cat_wears.get(kv[0], 0), -kv[1]))
+    ]
+
+    return B2BMarketTrendsResponse(
+        total_cataloged_items=total,
+        average_active_rate_pct=round((buckets["active"] / total) * 100.0, 1) if total > 0 else 0.0,
+        average_dormant_rate_pct=round((buckets["dormant"] / total) * 100.0, 1) if total > 0 else 0.0,
+        circular_supply_count=circular_supply,
+        top_color_families=[
+            ColorShareResponse(
+                family=c.family, count=c.count, percentage=c.percentage,
+                L=c.mean_lab[0], a=c.mean_lab[1], b=c.mean_lab[2],
+            )
+            for c in colors
+        ],
+        categories_by_retention=retention_stats,
     )

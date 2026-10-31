@@ -942,9 +942,9 @@ class _GarmentDetailSheetState extends State<_GarmentDetailSheet> {
   }
 
   static String _disposalLabel(String status) => switch (status) {
-        'DONATE' => 'Separada para Doação',
+        'DONATE' || 'DONATED' => 'Separada para Doação',
         'SELL' => 'Separada para Brechó / Venda',
-        'RECYCLE' => 'Separada para Reciclagem Têxtil',
+        'RECYCLE' || 'DISCARDED' => 'Separada para Reciclagem Têxtil',
         _ => 'Ativa no Acervo',
       };
 }

@@ -80,6 +80,8 @@ class WardrobeAnalytics {
   final int totalWears;
   final double? totalWardrobeValue;
   final double? averageCostPerUse;
+  final int circularItemsCount;
+  final int donatedItemsCount;
   final List<DominantColorShare> colorDistribution;
   final List<DormantGarment> dormantItems;
 
@@ -93,6 +95,8 @@ class WardrobeAnalytics {
     required this.totalWears,
     this.totalWardrobeValue,
     this.averageCostPerUse,
+    this.circularItemsCount = 0,
+    this.donatedItemsCount = 0,
     required this.colorDistribution,
     required this.dormantItems,
   });
@@ -108,6 +112,8 @@ class WardrobeAnalytics {
       totalWears: json['total_wears'] as int,
       totalWardrobeValue: (json['total_wardrobe_value'] as num?)?.toDouble(),
       averageCostPerUse: (json['average_cost_per_use'] as num?)?.toDouble(),
+      circularItemsCount: (json['circular_items'] as num?)?.toInt() ?? 0,
+      donatedItemsCount: (json['donated_items'] as num?)?.toInt() ?? 0,
       colorDistribution: (json['color_distribution'] as List<dynamic>)
           .map((c) => DominantColorShare.fromJson(c as Map<String, dynamic>))
           .toList(),

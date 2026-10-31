@@ -383,6 +383,7 @@ class WardrobeAnalyticsResponse(BaseModel):
     conscious_items_count: int = Field(default=0, description="Peças com selo de moda consciente / ESG")
     donated_items: int = Field(default=0, description="Peças encaminhadas para doação (ESG)")
     discarded_items: int = Field(default=0, description="Peças descartadas")
+    circular_items: int = Field(default=0, description="Peças anunciadas no Brechó Circular C2C (SELL)")
     capsules_count: int = Field(default=0, description="Total de cápsulas temáticas ativas")
     color_distribution: List[ColorShareResponse]
     dormant_items: List[GarmentUsageResponse] = Field(..., description="Peças adormecidas, da mais esquecida para a menos")
@@ -737,6 +738,46 @@ class CommunityPostResponse(BaseModel):
     is_public: bool
     is_mine: bool
     created_at: datetime
+
+
+# -----------------------------------------------------------------------------
+# Brechó Circular C2C (Seção 3.5.4) e Inteligência de Dados B2B (Seção 3.5.3)
+# -----------------------------------------------------------------------------
+
+class CircularListingResponse(BaseModel):
+    """Peça anunciada no Brechó Circular C2C com compatibilidade morfocromática (Seção 3.5.4)."""
+    item_id: UUID
+    title: str
+    category: str
+    image_url: str
+    dominant_l: float
+    dominant_a: float
+    dominant_b: float
+    color_hex: str
+    color_family: str
+    cut_type: Optional[str] = None
+    suggested_price_brl: float
+    palette_compatibility: float = Field(..., ge=0.0, le=1.0, description="Harmonia S_cor com a cartela do comprador")
+    is_own_listing: bool = False
+
+
+class CategoryRetentionStat(BaseModel):
+    """Retenção e giro médio por categoria para inteligência B2B agregada (Seção 3.5.3)."""
+    category: str
+    items_count: int
+    total_wears: int
+    average_wears_per_item: float
+
+
+class B2BMarketTrendsResponse(BaseModel):
+    """Relatório agregado e anonimizado de inteligência mercadológica B2B (Seção 3.5.3, RNF01/LGPD)."""
+    total_cataloged_items: int
+    average_active_rate_pct: float
+    average_dormant_rate_pct: float
+    circular_supply_count: int
+    top_color_families: List[ColorShareResponse]
+    categories_by_retention: List[CategoryRetentionStat]
+    lgpd_anonymization_seal: str = "100% Agregado & Anonimizado (Lei nº 13.709/2018 - RNF01)"
 
 
 class CommunityFeedResponse(BaseModel):

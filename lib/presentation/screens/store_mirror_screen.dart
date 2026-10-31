@@ -37,9 +37,10 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
   late final WardrobeApiService _wardrobeService = widget.wardrobeService ?? WardrobeApiService();
   late final OutfitApiService _outfitService = widget.outfitService ?? OutfitApiService();
 
-  /// A segmentação ainda não classifica a peça (RF05), então a categoria é escolhida aqui
+  /// Categorias para o provador: pré-selecionadas pela IA via CLIP (RF05) ou escolhidas em 1 toque
   static const _categories = ['Partes de cima', 'Partes de baixo', 'Calçados', 'Peças únicas'];
   String _category = _categories.first;
+  bool _categorySelectedByUser = false;
 
   Uint8List? _photo;
   bool _analyzing = false;
@@ -102,8 +103,16 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
       if (segmentation.colors.isEmpty) {
         throw const SegmentationException('Não encontramos a cor da peça. Tente outra foto.');
       }
+      final suggestedCategory = segmentation.suggestion?.category;
+      if (!_categorySelectedByUser && suggestedCategory != null && _categories.contains(suggestedCategory)) {
+        setState(() => _category = suggestedCategory);
+      }
       final result = await _outfitService.analyzeStoreParity(
-        storeGarment: _storeGarment(segmentation.colors.first, segmentation.styleEmbedding),
+        storeGarment: _storeGarment(
+          segmentation.colors.first,
+          segmentation.styleEmbedding,
+          suggestion: segmentation.suggestion,
+        ),
       );
       if (!mounted) return;
       setState(() => _analyzing = false);
@@ -140,16 +149,35 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
     }
   }
 
-  ClothingItem _storeGarment(GarmentColor color, List<double>? styleEmbedding) {
+  ClothingItem _storeGarment(
+    GarmentColor color,
+    List<double>? styleEmbedding, {
+    GarmentSuggestion? suggestion,
+  }) {
+    final resolvedCategory = (!_categorySelectedByUser &&
+            suggestion?.category != null &&
+            _categories.contains(suggestion!.category))
+        ? suggestion.category!
+        : _category;
+    final resolvedName = (suggestion?.name != null &&
+            suggestion!.name!.trim().isNotEmpty &&
+            (!_categorySelectedByUser || suggestion.category == resolvedCategory))
+        ? '${suggestion.name} (${color.name.toLowerCase()})'
+        : '${_singular(resolvedCategory)} ${color.name.toLowerCase()}';
     return ClothingItem(
       id: 'store-${DateTime.now().millisecondsSinceEpoch}',
-      name: '${_singular(_category)} ${color.name.toLowerCase()}',
-      category: _category,
+      name: resolvedName,
+      category: resolvedCategory,
       dominantColor: color.color,
       labColorSpace: color.labLabel,
       labL: color.l,
       labA: color.a,
       labB: color.b,
+      formalityScore: suggestion?.formality ?? 0.5,
+      cutType: suggestion?.cutType,
+      pattern: suggestion?.pattern,
+      thermalCategory: suggestion?.thermalCategory,
+      season: suggestion?.season,
       styleEmbedding: styleEmbedding,
       usageRate: 0,
       imageUrl: '',
@@ -443,7 +471,10 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        setState(() => _category = category);
+        setState(() {
+          _category = category;
+          _categorySelectedByUser = true;
+        });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

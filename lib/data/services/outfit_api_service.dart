@@ -137,6 +137,10 @@ class OutfitApiService implements OutfitRepository {
           'dominant_a': a,
           'dominant_b': b,
           'formality_score': storeGarment.formalityScore ?? 0.5,
+          if (storeGarment.cutType != null && storeGarment.cutType!.isNotEmpty) 'cut_type': storeGarment.cutType,
+          if (storeGarment.pattern != null && storeGarment.pattern!.isNotEmpty) 'pattern': storeGarment.pattern,
+          if (storeGarment.thermalCategory != null && storeGarment.thermalCategory!.isNotEmpty)
+            'thermal_category': storeGarment.thermalCategory,
           'occasion': occasion,
           // Com o vetor, a paridade também mede a proximidade com o estilo que o usuário aprova (S_cos)
           if (storeGarment.styleEmbedding != null) 'style_embedding': storeGarment.styleEmbedding,

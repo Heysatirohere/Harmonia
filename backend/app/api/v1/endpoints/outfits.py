@@ -242,6 +242,9 @@ async def analyze_store_parity(
         dominant_a=payload.dominant_a,
         dominant_b=payload.dominant_b,
         formality_score=payload.formality_score,
+        cut_type=payload.cut_type,
+        pattern=payload.pattern,
+        thermal_category=payload.thermal_category,
         style_embedding=payload.style_embedding,
     )
     approved, discarded = await _feedback_looks(db, user)

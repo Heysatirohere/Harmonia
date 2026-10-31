@@ -276,7 +276,7 @@ async def create_clothing_item(
         disposal_status=item_in.disposal_status,
         capsules=list(item_in.capsules or []),
         style_embedding=item_in.style_embedding,
-        is_archived=item_in.disposal_status in ("DONATED", "DISCARDED"),
+        is_archived=item_in.disposal_status in ("DONATED", "DISCARDED", "DONATE", "RECYCLE"),
         created_at=datetime.now(timezone.utc)
     )
 
@@ -375,8 +375,10 @@ async def update_clothing_item(
     changes = item_update.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in changes.items():
         setattr(item, field, value)
-    if changes.get("disposal_status") in ("DONATED", "DISCARDED") and "is_archived" not in changes:
+    if changes.get("disposal_status") in ("DONATED", "DISCARDED", "DONATE", "RECYCLE") and "is_archived" not in changes:
         item.is_archived = True
+    elif changes.get("disposal_status") in ("ACTIVE", "SELL") and "is_archived" not in changes:
+        item.is_archived = False
 
     await db.commit()
     await db.refresh(item)
@@ -395,8 +397,12 @@ async def wardrobe_analytics(
     all_items = list((await db.execute(
         select(ClothingItem).where(ClothingItem.user_id == current_user_id)
     )).scalars().all())
-    donated_count = sum(1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") == "DONATED")
-    discarded_count = sum(1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") == "DISCARDED")
+    donated_count = sum(
+        1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") in ("DONATED", "DONATE")
+    )
+    discarded_count = sum(
+        1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") in ("DISCARDED", "RECYCLE")
+    )
     items = [i for i in all_items if not getattr(i, "is_archived", False)]
     worn_on = await _worn_on(db, current_user_id)
 

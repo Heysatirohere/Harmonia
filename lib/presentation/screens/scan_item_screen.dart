@@ -59,6 +59,12 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
   bool _filledBySuggestion = false;
   final TextEditingController _provenanceController = TextEditingController(text: 'Linho Italiano • Segundas Mãos');
   final TextEditingController _esgNoteController = TextEditingController(text: '100% Linho Reciclado Certificado');
+  final TextEditingController _priceController = TextEditingController();
+
+  String? _suggestedPattern;
+  String? _suggestedCutType;
+  String? _suggestedThermalCategory;
+  String? _suggestedSeason;
 
   int _selectedCategoryIndex = 0;
   final List<String> _categories = const ['Partes de cima', 'Partes de baixo', 'Calçados', 'Peças únicas'];
@@ -85,6 +91,7 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     _nameController.dispose();
     _provenanceController.dispose();
     _esgNoteController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -166,6 +173,10 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
   /// Pré-preenche categoria, nome e formalidade com a sugestão da IA (RF05); só o que ela sabe
   void _applySuggestion(GarmentSuggestion? suggestion) {
     _filledBySuggestion = false;
+    _suggestedPattern = null;
+    _suggestedCutType = null;
+    _suggestedThermalCategory = null;
+    _suggestedSeason = null;
     if (suggestion == null) return;
     final categoryIndex = _categories.indexOf(suggestion.category ?? '');
     if (categoryIndex >= 0) {
@@ -177,6 +188,10 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       _filledBySuggestion = true;
     }
     _formalityLevel = suggestion.formality;
+    _suggestedPattern = suggestion.pattern;
+    _suggestedCutType = suggestion.cutType;
+    _suggestedThermalCategory = suggestion.thermalCategory;
+    _suggestedSeason = suggestion.season;
   }
 
   /// Envia a foto ao pipeline de recorte de fundo e extração cromática
@@ -240,6 +255,8 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     });
 
     final selectedColor = segmentation.colors[_selectedColorIndex];
+    final rawPrice = _priceController.text.trim().replaceAll(',', '.');
+    final parsedPrice = double.tryParse(rawPrice);
 
     final newItem = ClothingItem(
       id: 'scanned-${DateTime.now().millisecondsSinceEpoch}',
@@ -251,6 +268,11 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
       labA: selectedColor.a,
       labB: selectedColor.b,
       formalityScore: _formalityLevel,
+      price: (parsedPrice != null && parsedPrice > 0) ? parsedPrice : null,
+      pattern: _suggestedPattern,
+      cutType: _suggestedCutType,
+      thermalCategory: _suggestedThermalCategory,
+      season: _suggestedSeason,
       styleEmbedding: segmentation.styleEmbedding,
       usageRate: 1,
       imageUrl: '', // preenchida com a URL do recorte após o upload
@@ -518,6 +540,61 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
                         ),
                       ),
 
+                      if (_suggestedCutType != null ||
+                          _suggestedPattern != null ||
+                          _suggestedSeason != null ||
+                          _suggestedThermalCategory != null) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (_suggestedCutType != null)
+                              _buildTaxonomicTag('Corte: $_suggestedCutType'),
+                            if (_suggestedPattern != null)
+                              _buildTaxonomicTag('Padrão: $_suggestedPattern'),
+                            if (_suggestedSeason != null)
+                              _buildTaxonomicTag('Estação: $_suggestedSeason'),
+                            if (_suggestedThermalCategory != null)
+                              _buildTaxonomicTag('Térmica: $_suggestedThermalCategory'),
+                          ],
+                        ),
+                      ],
+
+                      const SizedBox(height: 16),
+
+                      // Valor de Aquisição (R$) para cálculo do Custo por Uso (CPU - Seção 5.2.2)
+                      Text(
+                        'VALOR DE AQUISIÇÃO (R\$) • CUSTO POR USO',
+                        style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        key: const Key('scan_price_field'),
+                        controller: _priceController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: AppTypography.bodyReading(color: AppColors.inkText),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppColors.paperBoneRaised,
+                          prefixText: 'R\$ ',
+                          hintText: 'Ex: 189,90 (opcional)',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.hairlineInk, width: 0.8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                            borderSide: const BorderSide(color: AppColors.accentCinnabar, width: 1.2),
+                          ),
+                        ),
+                      ),
+
                       const SizedBox(height: 16),
 
                       // Proveniência / Brechó
@@ -634,5 +711,20 @@ class _ScanItemScreenState extends State<ScanItemScreen> {
     if (value < 0.3) return 'Casual Descontraído';
     if (value < 0.7) return 'Casual Chic / Ateliê';
     return 'Formal / Eventos';
+  }
+
+  Widget _buildTaxonomicTag(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.paperBoneRaised,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+        border: Border.all(color: AppColors.hairlineInk, width: 0.8),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9.0),
+      ),
+    );
   }
 }

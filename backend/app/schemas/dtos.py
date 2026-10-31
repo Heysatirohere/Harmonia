@@ -220,7 +220,9 @@ class ClothingItemCreate(BaseModel):
     brand: Optional[str] = Field(default=None, max_length=100, description="Marca da peça")
     fabric_composition: Optional[str] = Field(default=None, max_length=160, description="Composição têxtil")
     is_conscious_fashion: bool = Field(default=False, description="Selo de moda consciente / ESG")
-    disposal_status: Literal["ACTIVE", "DONATED", "DISCARDED"] = Field(default="ACTIVE", description="Status da peça no acervo")
+    disposal_status: Literal["ACTIVE", "DONATED", "DISCARDED", "DONATE", "SELL", "RECYCLE"] = Field(
+        default="ACTIVE", description="Status da peça no acervo"
+    )
     capsules: List[str] = Field(default_factory=list, description="Cápsulas temáticas (ex: ['Mala de Viagem', 'Cápsula de Inverno'])")
     style_embedding: Optional[List[float]] = Field(default=None, description="Embedding de estilo (512d)")
 
@@ -400,8 +402,8 @@ class ClothingItemUpdate(BaseModel):
     fabric_composition: Optional[str] = Field(default=None, max_length=160, description="Composição têxtil")
     is_conscious_fashion: Optional[bool] = Field(default=None, description="Selo de moda consciente / ESG")
     is_archived: Optional[bool] = Field(default=None, description="Arquivada do motor de recomendação")
-    disposal_status: Optional[Literal["ACTIVE", "DONATED", "DISCARDED"]] = Field(
-        default=None, description="Destino ESG da peça (ACTIVE, DONATED, DISCARDED)"
+    disposal_status: Optional[Literal["ACTIVE", "DONATED", "DISCARDED", "DONATE", "SELL", "RECYCLE"]] = Field(
+        default=None, description="Destino ESG da peça (ACTIVE, DONATED, DISCARDED, DONATE, SELL, RECYCLE)"
     )
     capsules: Optional[List[str]] = Field(default=None, description="Lista de cápsulas temáticas da peça")
 
@@ -479,12 +481,15 @@ class RecommendedOutfitResponse(BaseModel):
 # -----------------------------------------------------------------------------
 
 class StoreParityRequest(BaseModel):
-    """Peça fotografada na loja: categoria escolhida pelo usuário e cor extraída do recorte."""
+    """Peça fotografada na loja: categoria inferida pela IA (ou escolhida pelo usuário) e cor extraída do recorte."""
     category: str = Field(..., min_length=1, description="Categoria da peça (ex: Partes de cima)")
     dominant_l: float = Field(..., ge=0.0, le=100.0)
     dominant_a: float = Field(..., ge=-128.0, le=127.0)
     dominant_b: float = Field(..., ge=-128.0, le=127.0)
     formality_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    cut_type: Optional[str] = Field(default=None, description="Corte/modelagem inferida da peça da loja para o pilar S_bio")
+    pattern: Optional[str] = Field(default=None, description="Estampa inferida da peça da loja")
+    thermal_category: Optional[str] = Field(default=None, description="Categoria térmica da peça da loja para o pilar S_ocasion")
     occasion: str = Field(default="CASUAL")
     temperature_celsius: float = Field(default=22.0)
     is_raining: bool = Field(default=False)

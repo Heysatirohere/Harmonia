@@ -29,6 +29,10 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS looks_signatures_today JSONB N
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT TRUE;
 -- Nome exibido no feed (RF14), espelhado pela API a partir do user_metadata.full_name
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS rotation_alerts_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS lgpd_consent_accepted BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS lgpd_consent_at TIMESTAMP WITH TIME ZONE;
 
 -- 3. Tabela de Peças do Acervo Virtual
 CREATE TABLE IF NOT EXISTS public.clothing_items (
@@ -42,10 +46,29 @@ CREATE TABLE IF NOT EXISTS public.clothing_items (
     dominant_b DOUBLE PRECISION NOT NULL,
     formality_score DOUBLE PRECISION NOT NULL,
     cut_type VARCHAR(100),
+    pattern VARCHAR(50),
+    season VARCHAR(30),
+    thermal_category VARCHAR(30),
+    purchase_price DOUBLE PRECISION,
+    brand VARCHAR(100),
+    fabric_composition VARCHAR(160),
+    is_conscious_fashion BOOLEAN NOT NULL DEFAULT FALSE,
+    disposal_status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+    capsules JSONB NOT NULL DEFAULT '[]'::jsonb,
     style_embedding vector(512),
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS pattern VARCHAR(50);
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS season VARCHAR(30);
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS thermal_category VARCHAR(30);
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS purchase_price DOUBLE PRECISION;
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS brand VARCHAR(100);
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS fabric_composition VARCHAR(160);
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS is_conscious_fashion BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS disposal_status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE public.clothing_items ADD COLUMN IF NOT EXISTS capsules JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 -- 4. Índices para Otimização de Consultas e Multi-Tenant (RN01)
 CREATE INDEX IF NOT EXISTS idx_clothing_items_user_id ON public.clothing_items(user_id);
@@ -97,9 +120,11 @@ CREATE INDEX IF NOT EXISTS idx_post_reactions_user_id ON public.post_reactions(u
 CREATE TABLE IF NOT EXISTS public.saved_posts (
     post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    board_name VARCHAR(80) NOT NULL DEFAULT 'Salvos',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     PRIMARY KEY (post_id, user_id)
 );
+ALTER TABLE public.saved_posts ADD COLUMN IF NOT EXISTS board_name VARCHAR(80) NOT NULL DEFAULT 'Salvos';
 CREATE INDEX IF NOT EXISTS idx_saved_posts_user_id ON public.saved_posts(user_id);
 
 -- 5. Row Level Security (RLS) para Blindagem Multi-Tenant no Supabase

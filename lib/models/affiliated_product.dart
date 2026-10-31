@@ -22,6 +22,9 @@ class AffiliatedProduct {
   final Color color;
   final String affiliateUrl;
   final bool inStock;
+  final double? price;
+  final String? imageUrl;
+  final String? fabric;
 
   const AffiliatedProduct({
     required this.id,
@@ -30,6 +33,9 @@ class AffiliatedProduct {
     required this.color,
     required this.affiliateUrl,
     this.inStock = true,
+    this.price,
+    this.imageUrl,
+    this.fabric,
   });
 
   /// A API só devolve produtos com estoque (RN03)
@@ -39,7 +45,13 @@ class AffiliatedProduct {
         name: json['name'] as String,
         color: hexToColor(json['color_hex'] as String),
         affiliateUrl: json['url'] as String,
+        price: (json['price'] as num?)?.toDouble(),
+        imageUrl: json['image_url'] as String?,
+        fabric: json['fabric'] as String?,
       );
+
+  String? get formattedPrice =>
+      price != null ? 'R\$ ${price!.toStringAsFixed(2).replaceAll('.', ',')}' : null;
 
   String get storeDisplayName => switch (store) {
         AffiliateStore.cea => 'C&A',

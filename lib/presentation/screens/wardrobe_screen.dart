@@ -13,6 +13,7 @@ import '../widgets/clothing_card.dart';
 import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
 import '../widgets/wardrobe_filter_sheet.dart';
+import 'daily_outfit_screen.dart';
 import 'scan_item_screen.dart';
 import 'wardrobe_analytics_screen.dart';
 
@@ -46,8 +47,13 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   String? _loadError;
   int _selectedFilterIndex = 0;
 
-  /// Cor, formalidade e frequência de uso (RF06), aplicados sobre as peças carregadas
+  /// Cor, formalidade, frequência de uso, estação e cápsula (RF06), aplicados sobre as peças carregadas
   WardrobeFilters _filters = WardrobeFilters.none;
+
+  /// Bancada de montagem magnética de look na arara (AGENTS.md 7.1)
+  bool _composerOpen = false;
+  final Map<String, ClothingItem> _composedSlots = {};
+
   final List<String> _categories = const [
     'Todos',
     'Partes de cima',
@@ -176,6 +182,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               ),
             ),
             if (_items.isNotEmpty) SliverToBoxAdapter(child: _buildRefineRow()),
+            if (_composerOpen) SliverToBoxAdapter(child: _buildLookComposerTray()),
             if (_loading && _items.isEmpty)
               const SliverToBoxAdapter(child: SizedBox.shrink())
             else if (sections.isEmpty)
@@ -199,7 +206,24 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = items[index];
-                        return ClothingCard(item: item, onTap: () => _onItemTap(item));
+                        final card = ClothingCard(item: item, onTap: () => _onItemTap(item));
+                        return LongPressDraggable<ClothingItem>(
+                          data: item,
+                          onDragStarted: () {
+                            HapticFeedback.selectionClick();
+                            if (!_composerOpen) setState(() => _composerOpen = true);
+                          },
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: SizedBox(
+                              width: 120,
+                              height: 160,
+                              child: Opacity(opacity: 0.9, child: card),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(opacity: 0.35, child: card),
+                          child: card,
+                        );
                       },
                       childCount: items.length,
                     ),
@@ -387,16 +411,185 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 4, AppSpacing.pageMargin, 0),
-      child: Row(
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           action(active == 0 ? 'REFINAR' : 'REFINAR • $active', Icons.tune, _openFilters),
-          const Spacer(),
+          action(
+            _composerOpen ? 'FECHAR ARARA' : 'MONTAR LOOK',
+            Icons.dry_cleaning_outlined,
+            () {
+              HapticFeedback.selectionClick();
+              setState(() => _composerOpen = !_composerOpen);
+            },
+          ),
           if (active > 0)
             action('LIMPAR FILTROS', null, () {
               HapticFeedback.selectionClick();
               setState(() => _filters = WardrobeFilters.none);
             }),
         ],
+      ),
+    );
+  }
+
+  void _snapItemToComposer(ClothingItem item) {
+    // Encaixe magnético na arara (AGENTS.md 7.1)
+    HapticFeedback.selectionClick();
+    setState(() {
+      _composerOpen = true;
+      _composedSlots[item.category] = item;
+    });
+  }
+
+  int get _composedIheScore {
+    if (_composedSlots.isEmpty) return 0;
+    final scores = _composedSlots.values.map((i) => i.iheScore ?? 84).toList();
+    return (scores.reduce((a, b) => a + b) / scores.length).round();
+  }
+
+  void _approveComposedLook() {
+    if (_composedSlots.isEmpty) return;
+    // Finalização ou aprovação de look aciona HapticFeedback.mediumImpact() (AGENTS.md 7.1)
+    HapticFeedback.mediumImpact();
+    final score = _composedIheScore;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.tapestryNoir,
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          'Look autoral aprovado com IHE $score% (${_composedSlots.length} peças).',
+          style: AppTypography.bodySmall(color: AppColors.ivoryText),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLookComposerTray() {
+    const slotCategories = ['Partes de cima', 'Partes de baixo', 'Calçados'];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 8, AppSpacing.pageMargin, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.ivoryVeil,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          border: Border.all(color: AppColors.hairlineGold, width: 0.9),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'ARARA MAGNÉTICA • ARRASTE PEÇAS',
+                  style: AppTypography.atelierMeta(color: AppColors.gildedLeaf),
+                ),
+                const Spacer(),
+                if (_composedSlots.isNotEmpty)
+                  Text(
+                    'IHE $_composedIheScore%',
+                    style: AppTypography.uiHeadline(color: AppColors.ivoryText),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (final slot in slotCategories)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: DragTarget<ClothingItem>(
+                        onWillAcceptWithDetails: (details) {
+                          HapticFeedback.selectionClick();
+                          return true;
+                        },
+                        onAcceptWithDetails: (details) => _snapItemToComposer(details.data),
+                        builder: (context, candidateData, rejectedData) {
+                          final assigned = _composedSlots[slot];
+                          final hovering = candidateData.isNotEmpty;
+                          return AnimatedScale(
+                            scale: hovering ? 1.05 : (assigned != null ? 1.0 : 0.96),
+                            duration: AppMotion.medium,
+                            curve: AppMotion.theatricalGesture,
+                            child: GestureDetector(
+                              onTap: assigned != null
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _composedSlots.remove(slot));
+                                    }
+                                  : null,
+                              child: Container(
+                                height: 78,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.tapestryNoir.withValues(alpha: hovering ? 0.55 : 0.32),
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                                  border: Border.all(
+                                    color: assigned != null || hovering
+                                        ? AppColors.gildedLeaf
+                                        : AppColors.hairlineIvory,
+                                    width: assigned != null || hovering ? 1.2 : 0.8,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (assigned != null) ...[
+                                      Container(
+                                        width: 14,
+                                        height: 14,
+                                        decoration: BoxDecoration(
+                                          color: assigned.dominantColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        assigned.name,
+                                        style: AppTypography.bodySmall(color: AppColors.ivoryText)
+                                            .copyWith(fontSize: 10.5),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ] else ...[
+                                      const Icon(Icons.add_rounded, size: 16, color: AppColors.ivoryMuted),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        slot,
+                                        style: AppTypography.atelierMeta(color: AppColors.ivoryMuted)
+                                            .copyWith(fontSize: 8.5),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (_composedSlots.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              CinnabarButton(
+                label: 'Aprovar Look Montado',
+                icon: Icons.check_circle_outline,
+                onPressed: _approveComposedLook,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -681,7 +874,18 @@ class _GarmentDetailSheetState extends State<_GarmentDetailSheet> {
             leadingDotColor: item.dominantColor,
           ),
           _DetailRow(label: 'PROVENIÊNCIA', value: item.brandOrProvenance),
-          _DetailRow(label: 'FREQUÊNCIA DE USO', value: '${item.usageRate} combinações no acervo'),
+          _DetailRow(
+            label: 'FREQUÊNCIA DE USO',
+            value: item.formattedCostPerUse != null
+                ? '${item.usageRate} combinações • ${item.formattedCostPerUse}'
+                : '${item.usageRate} combinações no acervo',
+          ),
+          if (item.season != null && item.season!.isNotEmpty)
+            _DetailRow(label: 'ESTAÇÃO', value: item.season!),
+          if (item.capsules.isNotEmpty)
+            _DetailRow(label: 'COLEÇÃO CÁPSULA', value: item.capsules.join(' • ')),
+          if (item.disposalStatus != null && item.disposalStatus != 'ACTIVE')
+            _DetailRow(label: 'DESTINAÇÃO ESG', value: _disposalLabel(item.disposalStatus!)),
           if (item.isConsciousFashion && item.consciousNote != null)
             _DetailRow(label: 'SUSTENTABILIDADE ESG', value: item.consciousNote!),
 
@@ -719,31 +923,30 @@ class _GarmentDetailSheetState extends State<_GarmentDetailSheet> {
           ),
           const SizedBox(height: 12),
 
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentCinnabar,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+          CinnabarButton(
+            label: 'Combinar no Provador Virtual',
+            icon: Icons.auto_awesome_outlined,
+            onPressed: () {
+              final nav = Navigator.of(context);
+              nav.pop();
+              nav.push(
+                MaterialPageRoute(
+                  builder: (_) => DailyOutfitScreen(anchorItem: item),
                 ),
-              ),
-              child: Text(
-                'Combinar no Provador Virtual',
-                style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 14.5),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  static String _disposalLabel(String status) => switch (status) {
+        'DONATE' => 'Separada para Doação',
+        'SELL' => 'Separada para Brechó / Venda',
+        'RECYCLE' => 'Separada para Reciclagem Têxtil',
+        _ => 'Ativa no Acervo',
+      };
 }
 
 /// Folha de edição de metadados da peça (Seção 3.2.3 da Documentação)
@@ -759,8 +962,12 @@ class _EditGarmentSheet extends StatefulWidget {
 
 class _EditGarmentSheetState extends State<_EditGarmentSheet> {
   late final TextEditingController _nameController;
+  late final TextEditingController _priceController;
   late String _selectedCategory;
   late double _formality;
+  late String _selectedSeason;
+  late String _selectedDisposal;
+  late Set<String> _selectedCapsules;
   bool _saving = false;
 
   static const _availableCategories = [
@@ -770,20 +977,51 @@ class _EditGarmentSheetState extends State<_EditGarmentSheet> {
     'Peças únicas',
   ];
 
+  static const _availableSeasons = [
+    'Todas',
+    'Verão',
+    'Meia-estação',
+    'Inverno',
+  ];
+
+  static const _availableCapsules = [
+    'Trabalho',
+    'Viagem',
+    'Festa',
+    'Minimal',
+  ];
+
+  static const _disposalOptions = [
+    ('ACTIVE', 'No acervo'),
+    ('DONATE', 'Doar'),
+    ('SELL', 'Brechó'),
+    ('RECYCLE', 'Reciclar'),
+  ];
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.item.name);
+    _priceController = TextEditingController(
+      text: widget.item.price != null ? widget.item.price!.toStringAsFixed(2) : '',
+    );
     _selectedCategory = widget.item.category;
     if (!_availableCategories.contains(_selectedCategory)) {
       _selectedCategory = _availableCategories.first;
     }
     _formality = widget.item.formalityScore ?? 0.5;
+    _selectedSeason = widget.item.season ?? 'Todas';
+    if (!_availableSeasons.contains(_selectedSeason)) {
+      _selectedSeason = 'Todas';
+    }
+    _selectedDisposal = widget.item.disposalStatus ?? 'ACTIVE';
+    _selectedCapsules = {...widget.item.capsules};
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -794,10 +1032,16 @@ class _EditGarmentSheetState extends State<_EditGarmentSheet> {
     setState(() => _saving = true);
     HapticFeedback.mediumImpact();
 
+    final parsedPrice = double.tryParse(_priceController.text.trim().replaceAll(',', '.'));
+
     final updated = widget.item.copyWith(
       name: name,
       category: _selectedCategory,
       formalityScore: _formality,
+      price: parsedPrice,
+      season: _selectedSeason,
+      disposalStatus: _selectedDisposal,
+      capsules: _selectedCapsules.toList(),
     );
 
     final saved = await widget.service.updateClothingItem(updated);
@@ -875,7 +1119,36 @@ class _EditGarmentSheetState extends State<_EditGarmentSheet> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                    borderSide: const BorderSide(color: AppColors.gildedLeaf, width: 1.4),
+                    borderSide: const BorderSide(color: AppColors.accentCinnabar, width: 1.4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Preço de Compra (para Custo por Uso - Seção 3.2.2)
+              Text('VALOR DE AQUISIÇÃO (R\$)', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: AppTypography.bodyReading(color: AppColors.inkText),
+                decoration: InputDecoration(
+                  hintText: 'Ex: 280.00',
+                  hintStyle: AppTypography.bodySmall(color: AppColors.inkSecondary),
+                  filled: true,
+                  fillColor: AppColors.paperBoneRaised,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderSide: const BorderSide(color: AppColors.hairlineInk),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderSide: const BorderSide(color: AppColors.hairlineInk),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderSide: const BorderSide(color: AppColors.accentCinnabar, width: 1.4),
                   ),
                 ),
               ),
@@ -915,6 +1188,120 @@ class _EditGarmentSheetState extends State<_EditGarmentSheet> {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 16),
+
+              // Estação
+              Text('ESTAÇÃO', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _availableSeasons.map((season) {
+                  final isSelected = season == _selectedSeason;
+                  return ChoiceChip(
+                    label: Text(
+                      season,
+                      style: AppTypography.atelierMeta(
+                        color: isSelected ? AppColors.ivoryText : AppColors.inkText,
+                      ).copyWith(fontSize: 10),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.accentCinnabar,
+                    backgroundColor: AppColors.paperBoneRaised,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                      side: BorderSide(
+                        color: isSelected ? AppColors.accentCinnabar : AppColors.hairlineInk,
+                        width: 0.8,
+                      ),
+                    ),
+                    onSelected: (selected) {
+                      if (selected) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedSeason = season);
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Coleções Cápsula
+              Text('COLEÇÕES CÁPSULA', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _availableCapsules.map((cap) {
+                  final isSelected = _selectedCapsules.contains(cap);
+                  return FilterChip(
+                    label: Text(
+                      cap,
+                      style: AppTypography.atelierMeta(
+                        color: isSelected ? AppColors.ivoryText : AppColors.inkText,
+                      ).copyWith(fontSize: 10),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.accentCinnabar,
+                    backgroundColor: AppColors.paperBoneRaised,
+                    checkmarkColor: AppColors.ivoryText,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                      side: BorderSide(
+                        color: isSelected ? AppColors.accentCinnabar : AppColors.hairlineInk,
+                        width: 0.8,
+                      ),
+                    ),
+                    onSelected: (selected) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        if (selected) {
+                          _selectedCapsules.add(cap);
+                        } else {
+                          _selectedCapsules.remove(cap);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Destinação Consciente ESG (Seção 3.2.2)
+              Text('DESTINAÇÃO CONSCIENTE (ESG)', style: AppTypography.atelierMeta(color: AppColors.inkSecondary).copyWith(fontSize: 9.5)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _disposalOptions.map((entry) {
+                  final (code, label) = entry;
+                  final isSelected = code == _selectedDisposal;
+                  return ChoiceChip(
+                    label: Text(
+                      label,
+                      style: AppTypography.atelierMeta(
+                        color: isSelected ? AppColors.ivoryText : AppColors.inkText,
+                      ).copyWith(fontSize: 10),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.verdigrisInk,
+                    backgroundColor: AppColors.paperBoneRaised,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                      side: BorderSide(
+                        color: isSelected ? AppColors.verdigrisInk : AppColors.hairlineInk,
+                        width: 0.8,
+                      ),
+                    ),
+                    onSelected: (selected) {
+                      if (selected) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedDisposal = code);
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
               const SizedBox(height: 20),
 
               // Nível de Formalidade
@@ -941,7 +1328,7 @@ class _EditGarmentSheetState extends State<_EditGarmentSheet> {
               ),
               const SizedBox(height: 24),
 
-              // Botões
+              // Botões (sem CircularProgressIndicator cru - AGENTS.md Seção 2)
               Row(
                 children: [
                   Expanded(
@@ -957,17 +1344,10 @@ class _EditGarmentSheetState extends State<_EditGarmentSheet> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _saving ? null : _save,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentCinnabar,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
-                      ),
-                      child: _saving
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ivoryText))
-                          : Text('Salvar', style: AppTypography.uiHeadline(color: AppColors.ivoryText)),
+                    child: CinnabarButton(
+                      label: 'Salvar',
+                      busy: _saving,
+                      onPressed: _save,
                     ),
                   ),
                 ],

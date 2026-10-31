@@ -9,15 +9,21 @@ import '../../theme/app_theme.dart';
 /// as peças do acervo numa folha de papel.
 class EditorialFeedCard extends StatelessWidget {
   final CommunityPost post;
+  final double aspectRatio;
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
+  final VoidCallback? onSaveLongPress;
+  final VoidCallback? onVisibilityToggle;
   final VoidCallback? onDelete;
 
   const EditorialFeedCard({
     super.key,
     required this.post,
+    this.aspectRatio = 3 / 4,
     this.onLikeToggle,
     this.onSaveToggle,
+    this.onSaveLongPress,
+    this.onVisibilityToggle,
     this.onDelete,
   });
 
@@ -73,25 +79,74 @@ class EditorialFeedCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Foto editorial do look vestido
+          // Foto editorial do look vestido (proporções 3:4 e 4:5 com hotspots circulares - AGENTS.md 7.4)
           AspectRatio(
-            aspectRatio: 3 / 4,
+            aspectRatio: aspectRatio,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
               child: LayoutBuilder(
-                builder: (context, constraints) => Image.network(
-                  post.imageUrl,
-                  fit: BoxFit.cover,
-                  width: constraints.maxWidth,
-                  height: constraints.maxHeight,
-                  filterQuality: FilterQuality.medium,
-                  cacheWidth: (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context)).round(),
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: const Color(0x14F4EEE1),
-                    child: const Center(
-                      child: Icon(Icons.style_outlined, color: AppColors.gildedLeaf, size: 44),
+                builder: (context, constraints) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      post.imageUrl,
+                      fit: BoxFit.cover,
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      filterQuality: FilterQuality.medium,
+                      cacheWidth: (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context)).round(),
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: const Color(0x14F4EEE1),
+                        child: const Center(
+                          child: Icon(Icons.style_outlined, color: AppColors.gildedLeaf, size: 44),
+                        ),
+                      ),
                     ),
-                  ),
+                    // Hotspots circulares sutis (anel gildedLeaf capilar) sobre as peças (AGENTS.md 7.4)
+                    for (final (idx, piece) in post.pieces.indexed)
+                      Positioned(
+                        left: constraints.maxWidth * (piece.hotspotX ?? (0.28 + (idx * 0.24)).clamp(0.18, 0.78)) - 14,
+                        top: constraints.maxHeight * (piece.hotspotY ?? (0.30 + (idx * 0.25)).clamp(0.22, 0.76)) - 14,
+                        child: Semantics(
+                          container: true,
+                          button: true,
+                          label: 'Hotspot ${piece.name}',
+                          child: GestureDetector(
+                            key: Key('hotspot_${piece.id}'),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              showModalBottomSheet<void>(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                isScrollControlled: true,
+                                builder: (_) => _PiecesSheet(pieces: post.pieces, highlightedPiece: piece),
+                              );
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.tapestryNoir.withValues(alpha: 0.65),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppColors.gildedLeaf, width: 1.0),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: piece.color,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: AppColors.ivoryText, width: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -131,12 +186,33 @@ class EditorialFeedCard extends StatelessWidget {
               _FeedAction(
                 icon: post.savedByMe ? Icons.bookmark : Icons.bookmark_border,
                 active: post.savedByMe,
+                label: post.savedBoardName,
                 semanticLabel: post.savedByMe ? 'Remover do moodboard' : 'Salvar no moodboard',
                 onTap: onSaveToggle,
+                onLongPress: onSaveLongPress,
               ),
               const Spacer(),
               if (post.isMine) ...[
-                Text(post.isPublic ? 'PÚBLICO' : 'PRIVADO', style: AppTypography.atelierMeta().copyWith(fontSize: 9.5)),
+                Semantics(
+                  button: onVisibilityToggle != null,
+                  label: post.isPublic ? 'Tornar privado' : 'Tornar público',
+                  child: GestureDetector(
+                    onTap: onVisibilityToggle != null
+                        ? () {
+                            HapticFeedback.selectionClick();
+                            onVisibilityToggle!();
+                          }
+                        : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                      child: Text(
+                        post.isPublic ? 'PÚBLICO' : 'PRIVADO',
+                        style: AppTypography.atelierMeta().copyWith(fontSize: 9.5),
+                      ),
+                    ),
+                  ),
+                ),
                 if (onDelete != null) ...[
                   const SizedBox(width: 14),
                   _FeedAction(
@@ -170,6 +246,7 @@ class _FeedAction extends StatelessWidget {
   final String? label;
   final String semanticLabel;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const _FeedAction({
     required this.icon,
@@ -177,6 +254,7 @@ class _FeedAction extends StatelessWidget {
     required this.semanticLabel,
     this.label,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -191,6 +269,12 @@ class _FeedAction extends StatelessWidget {
           HapticFeedback.selectionClick();
           onTap?.call();
         },
+        onLongPress: onLongPress != null
+            ? () {
+                HapticFeedback.mediumImpact();
+                onLongPress!();
+              }
+            : null,
         behavior: HitTestBehavior.opaque,
         child: Row(
           children: [
@@ -261,11 +345,12 @@ class _PiecesStrip extends StatelessWidget {
   }
 }
 
-/// Folha de papel com as peças recortadas do look: categoria, nome e cor L*a*b* (AGENTS.md 7.4, 7.5)
+/// Folha de papel com as peças recortadas do look: categoria, nome, marca, tecido e cor L*a*b* (AGENTS.md 7.4, 7.5)
 class _PiecesSheet extends StatelessWidget {
   final List<PostPiece> pieces;
+  final PostPiece? highlightedPiece;
 
-  const _PiecesSheet({required this.pieces});
+  const _PiecesSheet({required this.pieces, this.highlightedPiece});
 
   @override
   Widget build(BuildContext context) {
@@ -293,8 +378,16 @@ class _PiecesSheet extends StatelessWidget {
             Text('COMPOSIÇÃO DO LOOK', style: AppTypography.metadataBadge(color: AppColors.inkSecondary)),
             const SizedBox(height: 12),
             for (final piece in pieces)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 14),
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: EdgeInsets.all(highlightedPiece?.id == piece.id ? 10 : 0),
+                decoration: highlightedPiece?.id == piece.id
+                    ? BoxDecoration(
+                        color: AppColors.paperBoneRaised,
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                        border: Border.all(color: AppColors.accentCinnabar, width: 1.0),
+                      )
+                    : null,
                 child: Row(
                   children: [
                     SizedBox(
@@ -315,7 +408,14 @@ class _PiecesSheet extends StatelessWidget {
                         children: [
                           Text(piece.name, style: AppTypography.uiHeadline(color: AppColors.inkText)),
                           const SizedBox(height: 2),
-                          Text(piece.category, style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
+                          Text(
+                            [
+                              piece.category,
+                              piece.brand ?? 'Acervo Curatorial',
+                              piece.fabric ?? 'Fibra Natural',
+                            ].join(' • '),
+                            style: AppTypography.bodySmall(color: AppColors.inkSecondary),
+                          ),
                           const SizedBox(height: 2),
                           Text(piece.labLabel, style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
                         ],

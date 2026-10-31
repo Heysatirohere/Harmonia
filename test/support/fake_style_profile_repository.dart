@@ -46,10 +46,20 @@ class FakeStyleProfileRepository implements StyleProfileRepository {
     BodySilhouetteType? silhouette,
     SeasonalPaletteType? palette,
     bool? isPublic,
+    bool? isPremium,
+    bool? dailyNotifications,
+    bool? rotationAlerts,
   }) async {
     calls.add('update');
     _throwIfQueued();
-    profile = profile.copyWith(silhouette: silhouette, palette: palette, isPublic: isPublic);
+    profile = profile.copyWith(
+      silhouette: silhouette,
+      palette: palette,
+      isPublic: isPublic,
+      isPremium: isPremium,
+      dailyNotifications: dailyNotifications,
+      rotationAlerts: rotationAlerts,
+    );
     return profile;
   }
 

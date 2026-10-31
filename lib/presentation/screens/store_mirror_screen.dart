@@ -44,6 +44,10 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
   Uint8List? _photo;
   bool _analyzing = false;
 
+  /// Peça virtual do acervo sobreposta no reflexo do provador (AGENTS.md 7.3)
+  ClothingItem? _arOverlayItem;
+  Offset _arOverlayOffset = Offset.zero;
+
   StoreParityResult get _demoParityResult => StoreParityResult(
     storeGarment: _storeGarment(
       const GarmentColor(l: 54, a: 32, b: 28, hex: '#C86D51', percentage: 85, name: 'Terracota'),
@@ -104,13 +108,27 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
       if (!mounted) return;
       setState(() => _analyzing = false);
       HapticFeedback.selectionClick();
-      await StoreParitySheet.show(context, parityResult: result);
+      await StoreParitySheet.show(
+        context,
+        parityResult: result,
+        onOverlayItem: (item) => setState(() {
+          _arOverlayItem = item;
+          _arOverlayOffset = Offset.zero;
+        }),
+      );
     } catch (e) {
       if (kDemoMode) {
         if (!mounted) return;
         setState(() => _analyzing = false);
         HapticFeedback.selectionClick();
-        await StoreParitySheet.show(context, parityResult: _demoParityResult);
+        await StoreParitySheet.show(
+          context,
+          parityResult: _demoParityResult,
+          onOverlayItem: (item) => setState(() {
+            _arOverlayItem = item;
+            _arOverlayOffset = Offset.zero;
+          }),
+        );
       } else {
         _showMessage(switch (e) {
           SegmentationException(:final message) || OutfitException(:final message) => message,
@@ -197,6 +215,103 @@ class _StoreMirrorScreenState extends State<StoreMirrorScreen> {
               ),
             ),
           ),
+
+          // Sobreposição Virtual no Espelho (AR Mirror Overlay - AGENTS.md 7.3)
+          if (_arOverlayItem case final overlayItem?)
+            Positioned.fill(
+              child: Center(
+                child: Transform.translate(
+                  offset: _arOverlayOffset,
+                  child: GestureDetector(
+                    key: const Key('ar_mirror_overlay'),
+                    onPanUpdate: (details) {
+                      setState(() => _arOverlayOffset += details.delta);
+                    },
+                    child: Container(
+                      width: 210,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.tapestryNoir.withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.gildedLeaf, width: 1.2),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'SOBREPOSIÇÃO AR • ACERVO',
+                            style: GoogleFonts.interTight(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                              color: AppColors.gildedLeaf,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              color: overlayItem.dominantColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.ivoryText, width: 1.2),
+                            ),
+                            child: overlayItem.imageUrl.isNotEmpty
+                                ? ClipOval(
+                                    child: Image.network(
+                                      overlayItem.imageUrl,
+                                      fit: BoxFit.contain,
+                                      filterQuality: FilterQuality.medium,
+                                      errorBuilder: (_, _, _) => const Icon(
+                                        Icons.checkroom_outlined,
+                                        color: AppColors.ivoryText,
+                                        size: 34,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(Icons.checkroom_outlined, color: AppColors.ivoryText, size: 34),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            overlayItem.name,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.bodoniModa(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.ivoryText,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            overlayItem.labColorSpace,
+                            style: GoogleFonts.interTight(
+                              fontSize: 10.5,
+                              color: AppColors.ivoryMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _arOverlayItem = null);
+                            },
+                            child: Text(
+                              'REMOVER SOBREPOSIÇÃO',
+                              style: GoogleFonts.interTight(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.0,
+                                color: AppColors.ivoryText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // Top Navigation Bar
           Positioned(

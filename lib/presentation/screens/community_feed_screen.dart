@@ -217,6 +217,56 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     }
   }
 
+  Future<void> _toggleVisibility(CommunityPost post) async {
+    final targetPublic = !post.isPublic;
+    _replace(post.id, post.copyWith(isPublic: targetPublic));
+    try {
+      final updated = await _service.updatePostVisibility(post.id, isPublic: targetPublic);
+      _replace(post.id, updated);
+      _showMessage(updated.isPublic ? 'Publicação visível na comunidade.' : 'Publicação restrita a "Meus looks".');
+    } on CommunityException catch (e) {
+      _replace(post.id, post);
+      _showMessage(e.message);
+    }
+  }
+
+  Future<void> _pickMoodboardAndSave(CommunityPost post) async {
+    const boards = ['Alfaiataria', 'Referências de Cor', 'Cápsula Minimal', 'Gala & Noite'];
+    final chosen = await showPaperModalSheet<String>(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('MOODBOARD SEMÂNTICO', style: AppTypography.metadataBadge(color: AppColors.accentCinnabar)),
+            const SizedBox(height: 4),
+            Text('Salvar referência em coleção', style: AppTypography.editorialTitleMedium()),
+            const SizedBox(height: 16),
+            for (final board in boards)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.bookmark_outline, color: AppColors.inkText),
+                title: Text(board, style: AppTypography.uiHeadline()),
+                onTap: () => Navigator.pop(ctx, board),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    final updated = post.copyWith(savedByMe: true, savedBoardName: chosen);
+    _replace(post.id, updated);
+    try {
+      await _service.setSaved(post.id, true, boardName: chosen);
+      _showMessage('Salvo no moodboard "$chosen".');
+    } on CommunityException catch (e) {
+      _replace(post.id, post);
+      _showMessage(e.message);
+    }
+  }
+
   void _replace(String id, CommunityPost post) {
     if (!mounted) return;
     setState(() => _posts = [for (final p in _posts) p.id == id ? post : p]);
@@ -339,8 +389,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                       return EditorialFeedCard(
                         key: ValueKey(post.id),
                         post: post,
+                        aspectRatio: index.isEven ? 3 / 4 : 4 / 5,
                         onLikeToggle: () => _toggle(post, like: true),
                         onSaveToggle: () => _toggle(post, like: false),
+                        onSaveLongPress: () => _pickMoodboardAndSave(post),
+                        onVisibilityToggle: post.isMine ? () => _toggleVisibility(post) : null,
                         onDelete: post.isMine ? () => _confirmDelete(post) : null,
                       );
                     },

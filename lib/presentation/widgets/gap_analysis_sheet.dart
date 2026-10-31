@@ -129,6 +129,13 @@ class _ProductRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (product.formattedPrice != null || product.fabric != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      [product.formattedPrice, product.fabric].whereType<String>().join(' • '),
+                      style: AppTypography.bodySmall(color: AppColors.inkSecondary),
+                    ),
+                  ],
                 ],
               ),
             ),

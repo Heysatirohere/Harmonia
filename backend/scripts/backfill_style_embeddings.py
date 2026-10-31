@@ -48,6 +48,9 @@ def embed_missing(
 
 async def main(apply: bool) -> None:
     from app.core.database import AsyncSessionLocal
+    from app.main import ensure_schema
+
+    await ensure_schema()
 
     async with AsyncSessionLocal() as db:
         items = (await db.execute(select(ClothingItem).where(ClothingItem.style_embedding.is_(None)))).scalars().all()

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/demo/demo_mode.dart';
@@ -8,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
+import 'daily_outfit_screen.dart';
 
 /// Tela do Dashboard Analítico de Rotação de Acervo & ESG (Seção 3.2.2 da Doc)
 ///
@@ -132,6 +134,9 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
             else ...[
               // 1. Diagnóstico ESG & rotação (já é uma folha)
               section(_buildEsgHealthSummaryCard(), sheet: false),
+              // 1b. Patrimônio têxtil & Custo por Uso (só quando informado no acervo)
+              if (data.averageCostPerUse != null || data.totalWardrobeValue != null)
+                section(_buildCostPerUseSection()),
               // 2. Ociosidade (30, 60, 90 dias)
               section(_buildRotationTimelineSection()),
               // 3. Proporção cromática dominante (CIE L*a*b*)
@@ -252,6 +257,70 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCostPerUseSection() {
+    final avgCpu = _analytics.averageCostPerUse;
+    final totalVal = _analytics.totalWardrobeValue;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'INTELIGÊNCIA PATRIMONIAL & CUSTO POR USO',
+          style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 10, letterSpacing: 1.0),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            if (avgCpu != null)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.paperBoneRaised,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    border: Border.all(color: AppColors.hairlineInk, width: 0.6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Custo Médio por Uso', style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'R\$ ${avgCpu.toStringAsFixed(2).replaceAll('.', ',')}',
+                        style: AppTypography.editorialTitleMedium(color: AppColors.inkText),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (avgCpu != null && totalVal != null) const SizedBox(width: 10),
+            if (totalVal != null)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.paperBoneRaised,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    border: Border.all(color: AppColors.hairlineInk, width: 0.6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Patrimônio Têxtil', style: AppTypography.bodySmall(color: AppColors.inkSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'R\$ ${totalVal.toStringAsFixed(2).replaceAll('.', ',')}',
+                        style: AppTypography.editorialTitleMedium(color: AppColors.inkText),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -500,7 +569,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 190,
+          height: 224,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -509,7 +578,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
               final garment = dormant[index];
               final piece = garment.item;
               return Container(
-                width: 150,
+                width: 158,
                 margin: const EdgeInsets.only(right: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -553,6 +622,31 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                         fontSize: 10.5,
                         color: AppColors.accentCinnabar,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => DailyOutfitScreen(anchorItem: piece),
+                          ),
+                        );
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentCinnabar,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                        ),
+                        child: Text(
+                          'Reativar em Look',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 8.5),
+                        ),
                       ),
                     ),
                   ],

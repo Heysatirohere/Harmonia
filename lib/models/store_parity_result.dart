@@ -6,6 +6,8 @@ class ParityMatchItem {
   final int ihePercentage;
   final double chromaticScore;
   final double morphologicalScore;
+  final double? occasionScore;
+  final double? similarityScore;
   final bool isStronglyRecommended;
   final String rationale;
 
@@ -14,6 +16,8 @@ class ParityMatchItem {
     required this.ihePercentage,
     required this.chromaticScore,
     required this.morphologicalScore,
+    this.occasionScore,
+    this.similarityScore,
     required this.isStronglyRecommended,
     required this.rationale,
   });
@@ -24,6 +28,8 @@ class ParityMatchItem {
       ihePercentage: (json['ihe_percentage'] as num).round(),
       chromaticScore: (json['s_cor'] as num).toDouble(),
       morphologicalScore: (json['s_bio'] as num).toDouble(),
+      occasionScore: (json['s_ocasion'] as num?)?.toDouble(),
+      similarityScore: (json['s_cos'] as num?)?.toDouble(),
       isStronglyRecommended: json['is_strongly_recommended'] as bool,
       rationale: json['rationale'] as String,
     );

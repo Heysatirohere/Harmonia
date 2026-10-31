@@ -3,6 +3,279 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/outfit_combination.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_sheet.dart';
+
+/// Medidor Joalheiro do IHE sobre Sala Cromática (AGENTS.md Seção 7.2):
+/// - Traço fino vetorial via CustomPainter com gradiente metálico de `gildedLeaf` (ouro batido)
+/// - Pontuação central em Bodoni Moda, 56pt, `ivoryText`; sinal `%` em `gildedLeaf`
+/// - Decomposição visual dos 4 pilares (S_cor, S_bio, S_ocasion, S_cos)
+/// - Para IHE >= 75%, exibe o selo `✦ LOOK FORTEMENTE RECOMENDADO` com kerning +1.2
+class AtelierIheGauge extends StatelessWidget {
+  final int ihePercentage;
+  final double sCor;
+  final double sBio;
+  final double sOcasion;
+  final double sCos;
+  final Color dominantColor;
+  final String? dominantLabLabel;
+  final String? stylingAdvice;
+  final bool isStronglyRecommended;
+  final VoidCallback? onTapDetails;
+  final AtelierRoom room;
+
+  const AtelierIheGauge({
+    super.key,
+    required this.ihePercentage,
+    required this.sCor,
+    required this.sBio,
+    required this.sOcasion,
+    required this.sCos,
+    required this.dominantColor,
+    this.dominantLabLabel,
+    this.stylingAdvice,
+    bool? isStronglyRecommended,
+    this.onTapDetails,
+    this.room = AtelierRoom.gildedOchre,
+  }) : isStronglyRecommended = isStronglyRecommended ?? (ihePercentage >= 75);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.ivoryVeil,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+        border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Medidor Circular Vetorial com reflexo de ouro batido e pontuação central 56pt
+              SizedBox(
+                width: 132,
+                height: 132,
+                child: CustomPaint(
+                  painter: _BeatenGoldArcPainter(
+                    progress: (ihePercentage / 100.0).clamp(0.0, 1.0),
+                  ),
+                  child: Center(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$ihePercentage',
+                            style: AppTypography.heroDisplay(
+                              color: AppColors.ivoryText,
+                              fontSize: 56,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '%',
+                            style: AppTypography.heroDisplay(
+                              color: AppColors.gildedLeaf,
+                              fontSize: 28,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ÍNDICE DE HARMONIA ESTÉTICA',
+                      style: AppTypography.atelierMeta(color: AppColors.ivoryMuted),
+                    ),
+                    const SizedBox(height: 8),
+                    if (isStronglyRecommended)
+                      GoldSeal(room: room)
+                    else
+                      Text(
+                        'Harmonia Equilibrada',
+                        style: AppTypography.subtitleCuratorial(color: AppColors.ivoryText),
+                      ),
+                    if (dominantLabLabel != null && dominantLabLabel!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        dominantLabLabel!.toUpperCase(),
+                        style: AppTypography.atelierMeta(color: AppColors.ivoryMuted).copyWith(fontSize: 9.5),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Decomposição visual dos 4 pilares sobre a Sala (AGENTS.md 7.2)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AtelierPillarChip(
+                label: 'S_cor • ${(sCor * 100).round()}%',
+                leading: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: dominantColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+                  ),
+                ),
+              ),
+              _AtelierPillarChip(
+                label: 'S_bio • ${(sBio * 100).round()}%',
+                icon: Icons.straighten_rounded,
+              ),
+              _AtelierPillarChip(
+                label: 'S_ocasion • ${(sOcasion * 100).round()}%',
+                icon: Icons.wb_sunny_outlined,
+              ),
+              _AtelierPillarChip(
+                label: 'S_cos • ${(sCos * 100).round()}%',
+                icon: Icons.hub_outlined,
+              ),
+            ],
+          ),
+          if (stylingAdvice != null && stylingAdvice!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              stylingAdvice!,
+              style: AppTypography.bodyReading(color: AppColors.ivoryMuted),
+            ),
+          ],
+          if (onTapDetails != null) ...[
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: onTapDetails,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.analytics_outlined, size: 14, color: AppColors.ivoryText),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Ver análise dos 4 pilares científicos →',
+                      // Em gildedOchre, texto pequeno usa ivoryText para contraste >= 4.5:1 (AGENTS.md seção 3)
+                      style: AppTypography.atelierMeta(
+                        color: room.allowsSmallGoldText ? AppColors.gildedLeaf : AppColors.ivoryText,
+                      ).copyWith(fontSize: 10.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BeatenGoldArcPainter extends CustomPainter {
+  final double progress;
+
+  const _BeatenGoldArcPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) / 2) - 4;
+
+    final trackPaint = Paint()
+      ..color = AppColors.hairlineIvory
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    const startAngle = -math.pi / 2;
+    final sweepAngle = 2 * math.pi * progress.clamp(0.0, 1.0);
+
+    // Gradiente metálico de gildedLeaf (claro -> escuro -> claro, simulando reflexo de ouro batido)
+    const gradient = SweepGradient(
+      startAngle: startAngle,
+      endAngle: startAngle + 2 * math.pi,
+      colors: [
+        Color(0xFFF3E2B3), // Reflexo claro de folha de ouro
+        AppColors.gildedLeaf,
+        Color(0xFF9C762C), // Sombra do ouro batido
+        AppColors.gildedLeaf,
+        Color(0xFFF3E2B3),
+      ],
+      stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+    );
+
+    final arcPaint = Paint()
+      ..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      arcPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BeatenGoldArcPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+class _AtelierPillarChip extends StatelessWidget {
+  final String label;
+  final Widget? leading;
+  final IconData? icon;
+
+  const _AtelierPillarChip({
+    required this.label,
+    this.leading,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.tapestryNoir.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+        border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (leading != null) ...[
+            leading!,
+            const SizedBox(width: 6),
+          ] else if (icon != null) ...[
+            Icon(icon, size: 12, color: AppColors.ivoryMuted),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Medidor Visual do IHE (Índice de Harmonia Estética)
 /// Conforme AGENTS.md Seção 6.2:

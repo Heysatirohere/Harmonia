@@ -56,15 +56,20 @@ class FakeOutfitService extends OutfitApiService {
         ),
       ]);
 
+  /// IDs de peças âncora pedidas em [generateDailyOutfits], na ordem
+  final List<String?> anchorItemIds = [];
+
   @override
   Future<List<RecommendedLook>> generateDailyOutfits({
     String occasion = 'CASUAL',
     double temperatureCelsius = 22.0,
     bool isRaining = false,
     int limit = 5,
+    String? anchorItemId,
   }) async {
     occasions.add(occasion);
     climates.add((temperature: temperatureCelsius, isRaining: isRaining));
+    anchorItemIds.add(anchorItemId);
     final queued = failure;
     if (queued != null) {
       failure = null;

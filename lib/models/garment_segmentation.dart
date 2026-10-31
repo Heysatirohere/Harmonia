@@ -54,15 +54,30 @@ class GarmentSuggestion {
   /// Nome com a estampa, ex: 'Camisa com listras'; nulo sem confiança
   final String? name;
   final String? pattern;
+  final String? season;
+  final String? thermalCategory;
+  final String? cutType;
   final double formality;
   final double confidence;
 
-  const GarmentSuggestion({this.category, this.name, this.pattern, required this.formality, required this.confidence});
+  const GarmentSuggestion({
+    this.category,
+    this.name,
+    this.pattern,
+    this.season,
+    this.thermalCategory,
+    this.cutType,
+    required this.formality,
+    required this.confidence,
+  });
 
   factory GarmentSuggestion.fromJson(Map<String, dynamic> json) => GarmentSuggestion(
         category: json['category'] as String?,
         name: json['name'] as String?,
         pattern: json['pattern'] as String?,
+        season: json['season'] as String?,
+        thermalCategory: json['thermal_category'] as String?,
+        cutType: json['cut_type'] as String?,
         formality: (json['formality'] as num).toDouble(),
         confidence: (json['confidence'] as num).toDouble(),
       );

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../domain/repositories/wardrobe_repository.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
 import '../../models/wardrobe_analytics.dart';
@@ -19,13 +20,14 @@ class WardrobeException implements Exception {
 }
 
 /// Serviço de integração com o módulo de Acervo Virtual (Wardrobe) da API e Supabase (RF03, RF04, RF06, RN01, RN02)
-class WardrobeApiService {
+class WardrobeApiService implements WardrobeRepository {
   final ApiClient _client;
 
   WardrobeApiService({ApiClient? client}) : _client = client ?? ApiClient();
 
   /// Busca peças do guarda-roupa via API, com o Supabase como segunda via.
   /// Lança [WardrobeException] quando nenhuma das duas responde.
+  @override
   Future<List<ClothingItem>> getClothingItems({
     String? category,
     double? minFormality,
@@ -74,6 +76,7 @@ class WardrobeApiService {
 
   /// Saúde do acervo (Seção 3.2.2), calculada pela API a partir das peças e dos looks aprovados.
   /// Sem segunda via no Supabase: o cálculo de uso só existe no backend.
+  @override
   Future<WardrobeAnalytics> getAnalytics() async {
     try {
       final response = await _client.get('/wardrobe/analytics');
@@ -88,6 +91,7 @@ class WardrobeApiService {
   }
 
   /// Cadastra nova peça de vestuário no backend. Retorna null se nada foi salvo.
+  @override
   Future<ClothingItem?> createClothingItem(ClothingItem item) async {
     try {
       final response = await _client.post(
@@ -110,6 +114,7 @@ class WardrobeApiService {
   }
 
   /// Realiza o fluxo completo: Upload da foto no Supabase Storage e persistência da peça no acervo
+  @override
   Future<ClothingItem> uploadAndCatalogGarment({
     Uint8List? imageBytes,
     String? fileName,
@@ -142,6 +147,7 @@ class WardrobeApiService {
 
   /// Remove o fundo da foto e extrai as cores dominantes em CIE L*a*b* (RF04, RF05).
   /// Lança [SegmentationException] com mensagem pronta para o usuário em caso de falha.
+  @override
   Future<GarmentSegmentation> segmentGarment({
     required Uint8List imageBytes,
     required String fileName,
@@ -182,6 +188,7 @@ class WardrobeApiService {
 
   /// Exclui peça do acervo no backend com isolamento multi-tenant (RN01, RN04).
   /// Sem segunda via no Supabase: só a API apaga a foto do Storage junto com o registro.
+  @override
   Future<bool> deleteClothingItem(String itemId) async {
     try {
       final response = await _client.delete('/wardrobe/items/$itemId');
@@ -192,16 +199,22 @@ class WardrobeApiService {
     }
   }
 
-  /// Atualiza atributos taxonômicos da peça (categoria, nome, formalidade) no backend (RF05, 3.2.3)
+  /// Atualiza atributos taxonômicos da peça (categoria, nome, formalidade, preço, estação, cápsula, destinação) no backend (RF05, 3.2.3)
+  @override
   Future<ClothingItem?> updateClothingItem(ClothingItem item) async {
+    final patchPayload = <String, dynamic>{
+      'category': item.category,
+      'subcategory': item.name,
+      if (item.formalityScore != null) 'formality_score': item.formalityScore,
+      if (item.price != null) 'purchase_price': item.price,
+      if (item.season != null && item.season!.isNotEmpty) 'season': item.season,
+      if (item.disposalStatus != null && item.disposalStatus!.isNotEmpty) 'disposal_status': item.disposalStatus,
+      if (item.capsules.isNotEmpty) 'capsules': item.capsules,
+    };
     try {
       final response = await _client.patch(
         '/wardrobe/items/${item.id}',
-        body: {
-          'category': item.category,
-          'subcategory': item.name,
-          if (item.formalityScore != null) 'formality_score': item.formalityScore,
-        },
+        body: patchPayload,
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
@@ -215,11 +228,7 @@ class WardrobeApiService {
     try {
       final supabase = SupabaseConfig.client;
       if (supabase != null) {
-        final res = await supabase.from('clothing_items').update({
-          'category': item.category,
-          'subcategory': item.name,
-          if (item.formalityScore != null) 'formality_score': item.formalityScore,
-        }).eq('id', item.id).select().single();
+        final res = await supabase.from('clothing_items').update(patchPayload).eq('id', item.id).select().single();
         return ClothingItem.fromJson(res);
       }
     } catch (e) {

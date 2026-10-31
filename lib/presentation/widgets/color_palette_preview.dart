@@ -96,36 +96,43 @@ class ColorPalettePreview extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'CARTELA SAZONAL EXPANDIDA',
-                    style: AppTypography.metadataBadge(
-                      color: AppColors.accentCinnabar,
-                    ).copyWith(fontSize: 9.5, letterSpacing: 1.2),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    paletteType.displayName,
-                    style: AppTypography.displayEditorial().copyWith(
-                      fontSize: 22,
-                      height: 1.2,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CARTELA SAZONAL EXPANDIDA',
+                      style: AppTypography.metadataBadge(
+                        color: AppColors.accentCinnabar,
+                      ).copyWith(fontSize: 9.5, letterSpacing: 1.2),
                     ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.gildedWash,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.hairlineInk, width: 0.6),
+                    const SizedBox(height: 2),
+                    Text(
+                      paletteType.displayName,
+                      style: AppTypography.displayEditorial().copyWith(
+                        fontSize: 22,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  paletteType.temperature,
-                  style: AppTypography.metadataBadge(color: AppColors.gildedInk)
-                      .copyWith(fontSize: 9.0, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.gildedWash,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.hairlineInk, width: 0.6),
+                  ),
+                  child: Text(
+                    paletteType.temperature,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.metadataBadge(color: AppColors.gildedInk)
+                        .copyWith(fontSize: 9.0, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ],

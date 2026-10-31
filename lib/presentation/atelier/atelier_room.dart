@@ -23,6 +23,9 @@ enum AtelierRoom {
 
   const AtelierRoom(this.color, this.texture, this.seed);
 
+  /// Alias semântico para a cor base da Sala (AGENTS.md seção 4.1)
+  Color get baseColor => color;
+
   /// gildedLeaf em texto pequeno só passa 4,5:1 nas Salas profundas; nas de reboco,
   /// o dourado fica restrito a números e títulos a partir de 24pt (3:1).
   bool get allowsSmallGoldText => this == velvetBordeaux || this == silkEmerald || this == tapestryNoir;

@@ -370,3 +370,61 @@ async def test_account_deletion_removes_posts_photos_and_interactions():
 async def test_feed_requires_authentication():
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         assert (await client.get("/api/v1/community/posts")).status_code == 401
+
+
+@pytest.mark.anyio
+async def test_moodboards_and_board_filtering():
+    ana, bia = member("Ana"), member("Bia")
+    p1 = await publish(ana, caption="Look de Inverno")
+    p2 = await publish(ana, caption="Look de Verão")
+
+    assert (await call("PUT", f"/posts/{p1['id']}/save", bia, params={"board_name": "Inverno Parisiense"})).status_code == 204
+    assert (await call("PUT", f"/posts/{p2['id']}/save", bia, params={"board_name": "Resort"})).status_code == 204
+
+    boards_res = await call("GET", "/moodboards", bia)
+    assert boards_res.status_code == 200
+    boards = {b["name"]: b for b in boards_res.json()}
+    assert set(boards.keys()) == {"Inverno Parisiense", "Resort"}
+    assert boards["Inverno Parisiense"]["posts_count"] == 1
+    assert boards["Inverno Parisiense"]["cover_photo_url"] == p1["image_url"]
+
+    filtered = await feed(bia, filter="saved", board_name="Inverno Parisiense")
+    assert captions(filtered) == ["Look de Inverno"]
+
+
+@pytest.mark.anyio
+async def test_patch_post_updates_visibility_and_metadata_and_hotspots_include_color():
+    ana, bia = member("Ana", body_shape="OVAL", palette="INVERNO_ESCURO"), member("Bia")
+    feedback, pieces = approved_look(ana)
+    pieces[0].brand = "Ateliê HarmonIA"
+    pieces[0].fabric_composition = "100% Linho Puro"
+    post = await publish(ana, feedback_id=str(feedback.id))
+
+    assert post["pieces"][0]["color_hex"].startswith("#")
+    assert post["pieces"][0]["color_name"]
+    assert post["pieces"][0]["brand"] == "Ateliê HarmonIA"
+    assert post["pieces"][0]["fabric_composition"] == "100% Linho Puro"
+
+    # Outro usuário não pode editar
+    assert (await call("PATCH", f"/posts/{post['id']}", bia, json={"is_public": False})).status_code == 404
+
+    # Autor edita visibilidade, legenda e tags
+    patched = await call(
+        "PATCH",
+        f"/posts/{post['id']}",
+        ana,
+        json={"is_public": False, "caption": "Meu look privado", "style_tags": ["#Alfaiataria"]},
+    )
+    assert patched.status_code == 200
+    data = patched.json()
+    assert data["is_public"] is False
+    assert data["caption"] == "Meu look privado"
+    assert data["style_tags"] == ["Alfaiataria"]
+    assert captions(await feed(bia)) == []
+
+    # Reabrir como público e filtrar por target_body_shape e target_palette
+    await call("PATCH", f"/posts/{post['id']}", ana, json={"is_public": True})
+    assert captions(await feed(bia, target_body_shape="Oval", target_palette="Inverno Escuro")) == ["Meu look privado"]
+    assert (await call("GET", "/posts", bia, params={"target_body_shape": "INEXISTENTE"})).status_code == 422
+    assert (await call("GET", "/posts", bia, params={"target_palette": "INEXISTENTE"})).status_code == 422
+

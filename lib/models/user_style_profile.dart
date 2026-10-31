@@ -182,6 +182,7 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
     }
   }
 
+  /// Amostras cromáticas distintas para cada uma das 12 cartelas sazonais expandidas
   List<Color> get colorSwatches {
     switch (this) {
       case SeasonalPaletteType.outonoQuente:
@@ -191,15 +192,15 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
           Color(0xFFB88E3E),
           Color(0xFFD9CDBF),
           Color(0xFF8B4513),
-          Color(0xFF2E8B57),
+          Color(0xFF2E6B47),
         ];
       case SeasonalPaletteType.outonoSuave:
         return const [
           Color(0xFFD9CDBF),
-          Color(0xFF4B5842),
+          Color(0xFF6B7B63),
           Color(0xFFC2B280),
-          Color(0xFFB0C4DE),
-          Color(0xFF808000),
+          Color(0xFF8CA3B5),
+          Color(0xFF808040),
           Color(0xFFD2B48C),
         ];
       case SeasonalPaletteType.outonoEscuro:
@@ -212,86 +213,86 @@ extension SeasonalPaletteExtension on SeasonalPaletteType {
           Color(0xFF3B2F2F),
         ];
       case SeasonalPaletteType.invernoFrio:
+        return const [
+          Color(0xFF121316),
+          Color(0xFF001F5B),
+          Color(0xFF800020),
+          Color(0xFF0F52BA),
+          Color(0xFFF5F7FA),
+          Color(0xFF2F3E46),
+        ];
       case SeasonalPaletteType.invernoVivo:
+        return const [
+          Color(0xFF0E0E10),
+          Color(0xFF0047AB),
+          Color(0xFFDC143C),
+          Color(0xFF008B5E),
+          Color(0xFFFFFFFF),
+          Color(0xFF4B0082),
+        ];
       case SeasonalPaletteType.invernoEscuro:
         return const [
-          Color(0xFF1A1817),
-          Color(0xFF000080),
-          Color(0xFF800020),
-          Color(0xFF4B0082),
-          Color(0xFFFBF9F5),
-          Color(0xFF2F4F4F),
+          Color(0xFF181619),
+          Color(0xFF191970),
+          Color(0xFF4A154B),
+          Color(0xFF004953),
+          Color(0xFFF0EFEA),
+          Color(0xFF2D232E),
         ];
       case SeasonalPaletteType.primaveraClara:
+        return const [
+          Color(0xFFFF8C69),
+          Color(0xFFFADF7F),
+          Color(0xFF98E2B0),
+          Color(0xFFF7F0E2),
+          Color(0xFFB5C7EB),
+          Color(0xFFE6BE8A),
+        ];
       case SeasonalPaletteType.primaveraQuente:
-      case SeasonalPaletteType.primaveraVibrante:
         return const [
           Color(0xFFFF7F50),
-          Color(0xFFFFD700),
-          Color(0xFF98FB98),
+          Color(0xFFFFC125),
+          Color(0xFF55A630),
           Color(0xFFD9CDBF),
-          Color(0xFFE6E6FA),
+          Color(0xFF30B5C8),
           Color(0xFFF4A460),
         ];
+      case SeasonalPaletteType.primaveraVibrante:
+        return const [
+          Color(0xFFFF3823),
+          Color(0xFFFFB703),
+          Color(0xFF38B000),
+          Color(0xFFFFFBF2),
+          Color(0xFF1D4ED8),
+          Color(0xFFFB8500),
+        ];
       case SeasonalPaletteType.veraoSuave:
-      case SeasonalPaletteType.veraoFrio:
-      case SeasonalPaletteType.veraoClaro:
         return const [
           Color(0xFF708090),
           Color(0xFFBC8F8F),
-          Color(0xFFB0C4DE),
-          Color(0xFFD8BFD8),
-          Color(0xFFEBE5DC),
+          Color(0xFFA2B5CD),
+          Color(0xFFC8A2C8),
+          Color(0xFFE2DDD5),
+          Color(0xFF5C768D),
+        ];
+      case SeasonalPaletteType.veraoFrio:
+        return const [
           Color(0xFF4682B4),
+          Color(0xFF9E2A5B),
+          Color(0xFFB0C4DE),
+          Color(0xFFB4A7D6),
+          Color(0xFFF2ECE9),
+          Color(0xFF2C4259),
+        ];
+      case SeasonalPaletteType.veraoClaro:
+        return const [
+          Color(0xFF87CEEB),
+          Color(0xFFF4C2C2),
+          Color(0xFFA8DADC),
+          Color(0xFFD8BFD8),
+          Color(0xFFF4F1EA),
+          Color(0xFF6495ED),
         ];
     }
-  }
-}
-
-/// Modelo de Perfil de Estilo & Morfocromia do Usuário
-class UserStyleProfile {
-  final String userName;
-  final BodySilhouetteType silhouette;
-  final SeasonalPaletteType seasonalPalette;
-  final String contrastLevel;
-  final String styleArchetype;
-  final bool isCompleted;
-
-  const UserStyleProfile({
-    required this.userName,
-    required this.silhouette,
-    required this.seasonalPalette,
-    required this.contrastLevel,
-    required this.styleArchetype,
-    this.isCompleted = true,
-  });
-
-  /// Perfil Curatorial Padrão para Testes e Exibição Inicial
-  factory UserStyleProfile.defaultProfile() {
-    return const UserStyleProfile(
-      userName: 'Helena Vasconcelos',
-      silhouette: BodySilhouetteType.ampulheta,
-      seasonalPalette: SeasonalPaletteType.outonoQuente,
-      contrastLevel: 'Médio-Alto Contraste Quente',
-      styleArchetype: 'Minimalismo Quente & Alfaiataria Desestruturada',
-    );
-  }
-
-  UserStyleProfile copyWith({
-    String? userName,
-    BodySilhouetteType? silhouette,
-    SeasonalPaletteType? seasonalPalette,
-    String? contrastLevel,
-    String? styleArchetype,
-    bool? isCompleted,
-  }) {
-    return UserStyleProfile(
-      userName: userName ?? this.userName,
-      silhouette: silhouette ?? this.silhouette,
-      seasonalPalette: seasonalPalette ?? this.seasonalPalette,
-      contrastLevel: contrastLevel ?? this.contrastLevel,
-      styleArchetype: styleArchetype ?? this.styleArchetype,
-      isCompleted: isCompleted ?? this.isCompleted,
-    );
   }
 }

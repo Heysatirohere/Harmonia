@@ -25,6 +25,12 @@ class ClothingItem {
   final List<double>? styleEmbedding; // Vetor de estilo (512d) do recorte, só no cadastro; a API não o devolve
   final String? colorFamily; // Família cromática calculada pela API (ex: 'Azuis'), para o filtro por cor
   final int? daysIdle; // Dias desde o último uso (ou desde o cadastro), calculados pela API
+  final String? pattern; // Estampa (ex: 'Liso', 'Listrado', 'Xadrez')
+  final String? season; // Estação ('Todas', 'Verão', 'Inverno', 'Meia-estação')
+  final String? thermalCategory; // Faixa térmica ('LEVE', 'MEDIA', 'PESADA')
+  final String? cutType; // Corte morfológico (ex: 'Cintura Alta', 'Decote V', 'Reto')
+  final String? disposalStatus; // Destinação consciente ESG ('ACTIVE', 'DONATE', 'SELL', 'RECYCLE')
+  final List<String> capsules; // Coleções cápsula (ex: ['Trabalho', 'Viagem'])
 
   const ClothingItem({
     required this.id,
@@ -47,12 +53,25 @@ class ClothingItem {
     this.styleEmbedding,
     this.colorFamily,
     this.daysIdle,
+    this.pattern,
+    this.season,
+    this.thermalCategory,
+    this.cutType,
+    this.disposalStatus,
+    this.capsules = const [],
   });
 
   String get title => name;
   String get storeName => storeNameOverride ?? brandOrProvenance;
   String get provenance => brandOrProvenance;
   String get formattedPrice => price != null ? 'R\$ ${price!.toStringAsFixed(2).replaceAll('.', ',')}' : 'R\$ 259,90';
+
+  /// Custo por Uso (CPU = Preço / Quantidade de usos, Seção 3.2.2)
+  double? get costPerUse =>
+      (price != null && price! > 0) ? (usageRate > 0 ? price! / usageRate : price!) : null;
+
+  String? get formattedCostPerUse =>
+      costPerUse != null ? 'R\$ ${costPerUse!.toStringAsFixed(2).replaceAll('.', ',')}/uso' : null;
 
   ClothingItem copyWith({
     String? id,
@@ -75,6 +94,12 @@ class ClothingItem {
     List<double>? styleEmbedding,
     String? colorFamily,
     int? daysIdle,
+    String? pattern,
+    String? season,
+    String? thermalCategory,
+    String? cutType,
+    String? disposalStatus,
+    List<String>? capsules,
   }) {
     return ClothingItem(
       id: id ?? this.id,
@@ -97,6 +122,12 @@ class ClothingItem {
       styleEmbedding: styleEmbedding ?? this.styleEmbedding,
       colorFamily: colorFamily ?? this.colorFamily,
       daysIdle: daysIdle ?? this.daysIdle,
+      pattern: pattern ?? this.pattern,
+      season: season ?? this.season,
+      thermalCategory: thermalCategory ?? this.thermalCategory,
+      cutType: cutType ?? this.cutType,
+      disposalStatus: disposalStatus ?? this.disposalStatus,
+      capsules: capsules ?? this.capsules,
     );
   }
 
@@ -119,12 +150,20 @@ class ClothingItem {
       formalityScore: (json['formality_score'] as num?)?.toDouble(),
       usageRate: (json['usage_rate'] as int?) ?? 0,
       imageUrl: json['image_url'] as String? ?? '',
-      brandOrProvenance: json['cut_type'] != null ? 'Corte ${json['cut_type']}' : 'Acervo Pessoal',
-      // A API ainda não registra origem ESG; nada é presumido
-      isConsciousFashion: false,
+      brandOrProvenance: (json['brand'] as String?) ??
+          (json['cut_type'] != null ? 'Corte ${json['cut_type']}' : 'Acervo Pessoal'),
+      isConsciousFashion: (json['is_conscious_fashion'] as bool?) ?? false,
+      consciousNote: (json['conscious_note'] as String?) ?? (json['fabric_composition'] as String?),
       iheScore: (json['ihe_score'] as num?)?.toInt(),
+      price: (json['purchase_price'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble(),
       colorFamily: json['color_family'] as String?,
       daysIdle: (json['days_idle'] as num?)?.toInt(),
+      pattern: json['pattern'] as String?,
+      season: json['season'] as String?,
+      thermalCategory: json['thermal_category'] as String?,
+      cutType: json['cut_type'] as String?,
+      disposalStatus: json['disposal_status'] as String?,
+      capsules: (json['capsules'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
@@ -152,6 +191,15 @@ class ClothingItem {
       'dominant_b': b,
       'formality_score': formalityScore ?? 0.5,
       if (styleEmbedding != null) 'style_embedding': styleEmbedding,
+      if (price != null) 'purchase_price': price,
+      if (isConsciousFashion) 'is_conscious_fashion': isConsciousFashion,
+      if (consciousNote != null && consciousNote!.isNotEmpty) 'fabric_composition': consciousNote,
+      if (pattern != null && pattern!.isNotEmpty) 'pattern': pattern,
+      if (season != null && season!.isNotEmpty) 'season': season,
+      if (thermalCategory != null && thermalCategory!.isNotEmpty) 'thermal_category': thermalCategory,
+      if (cutType != null && cutType!.isNotEmpty) 'cut_type': cutType,
+      if (disposalStatus != null && disposalStatus!.isNotEmpty) 'disposal_status': disposalStatus,
+      if (capsules.isNotEmpty) 'capsules': capsules,
     };
   }
 }

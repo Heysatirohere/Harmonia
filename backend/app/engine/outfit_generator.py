@@ -7,8 +7,9 @@ Varre o acervo de peças ativas do usuário, compõe combinações candidatas
 em tempo real pela fórmula determinística multivariada do IHE.
 """
 
-from typing import List, Dict, Any, FrozenSet, Optional, Set
+from typing import List, Dict, Any, FrozenSet, Optional, Sequence, Set
 import itertools
+import re
 from dataclasses import dataclass
 
 from app.models.entities import ClothingItem, User
@@ -29,13 +30,20 @@ BOTTOM_CATEGORIES = {
 
 SHOES_CATEGORIES = {
     "shoes", "shoe", "calcado", "calçado", "sapato", "tenis",
-    "tênis", "mule", "sandalia", "sandália", "bota", "calçados"
+    "tênis", "mule", "sandalia", "sandália", "bota", "calçados", "calcados"
 }
 
 ONE_PIECE_CATEGORIES = {
     "one_piece", "vestido", "macacao", "macacão", "vestidos", "macacões",
     "peças únicas", "peça única", "pecas unicas", "peca unica"
 }
+
+OUTERWEAR_CATEGORIES = {
+    "outerwear", "terceira peça", "terceira peca", "terceiras peças", "terceiras pecas",
+    "casaco", "jaqueta", "blazer", "sobretudo", "cardigan", "colete", "trench coat", "parka"
+}
+
+VALID_THERMAL_CATEGORIES = {"LEVE", "MEDIO", "PESADO", "IMPERMEAVEL"}
 
 
 @dataclass
@@ -50,26 +58,89 @@ def _categorize_item(item: ClothingItem) -> str:
     cat = (item.category or "").strip().lower()
     sub = (item.subcategory or "").strip().lower()
 
-    if cat in TOP_CATEGORIES or sub in TOP_CATEGORIES:
-        return "top"
-    if cat in BOTTOM_CATEGORIES or sub in BOTTOM_CATEGORIES:
-        return "bottom"
+    if cat in OUTERWEAR_CATEGORIES:
+        return "outerwear"
     if cat in SHOES_CATEGORIES or sub in SHOES_CATEGORIES:
         return "shoes"
+    if cat in BOTTOM_CATEGORIES or sub in BOTTOM_CATEGORIES:
+        return "bottom"
     if cat in ONE_PIECE_CATEGORIES or sub in ONE_PIECE_CATEGORIES:
         return "one_piece"
-    
-    # Fallback por inferência
-    if "camis" in cat or "top" in cat or "blus" in cat:
+    if cat in TOP_CATEGORIES or sub in TOP_CATEGORIES:
         return "top"
-    if "calc" in cat or "calç" in cat or "sai" in cat or "short" in cat:
-        return "bottom"
-    if "sapat" in cat or "tenis" in cat or "tênis" in cat or "mule" in cat or "bota" in cat:
+    if sub in OUTERWEAR_CATEGORIES:
+        return "outerwear"
+
+    # Fallback por inferência (calçados avaliados antes de calças para evitar colisão "calçad" vs "calç")
+    if any(k in cat or k in sub for k in (
+        "calçad", "calcad", "sapat", "tenis", "tênis", "mule", "bota", "sand",
+        "mocassim", "scarpin", "loafer", "rasteir", "chinel"
+    )):
         return "shoes"
-    if "vestid" in cat or "macac" in cat:
+    if any(k in cat for k in (
+        "outerwear", "terceira peça", "terceira peca", "casaco", "jaqueta",
+        "blazer", "sobretudo", "trench", "parka", "cardigan"
+    )):
+        return "outerwear"
+    if "vestid" in cat or "macac" in cat or "vestid" in sub or "macac" in sub:
         return "one_piece"
+    if "calc" in cat or "calç" in cat or "sai" in cat or "short" in cat or "bermud" in cat:
+        return "bottom"
+    if "camis" in cat or "top" in cat or "blus" in cat or "regat" in cat:
+        return "top"
 
     return "top"
+
+
+def infer_item_thermal_category(item: ClothingItem) -> str:
+    """Infere a categoria térmica da peça a partir dos atributos explícitos ou palavras-chave."""
+    explicit = getattr(item, "thermal_category", None)
+    if isinstance(explicit, str) and explicit.strip().upper() in VALID_THERMAL_CATEGORIES:
+        return explicit.strip().upper()
+
+    season = getattr(item, "season", None)
+    if isinstance(season, str):
+        s_clean = season.strip().upper()
+        if s_clean in ("VERAO", "VERÃO"):
+            return "LEVE"
+        if s_clean == "INVERNO":
+            return "PESADO"
+
+    cat = (item.category or "").strip().lower()
+    sub = (item.subcategory or "").strip().lower()
+    cut = (item.cut_type or "").strip().lower()
+    text = f"{cat} {sub} {cut}"
+
+    if any(k in text for k in ("imperme", "capa", "trench", "corta-vento", "parka", "anorak")):
+        return "IMPERMEAVEL"
+    if any(k in text for k in (
+        "casaco", "sobretudo", "jaqueta", "tricô", "trico", "lã",
+        "moletom", "suéter", "sueter", "bota", "veludo"
+    )) or re.search(r"\bl[aã]\b", text):
+        return "PESADO"
+    if any(k in text for k in (
+        "shorts", "bermuda", "regata", "sandália", "sandalia",
+        "rasteira", "chinelo", "linho", "minissaia", "cropped"
+    )) or (cat not in ("top", "tops") and re.search(r"\btop\b", f"{sub} {cut}")):
+        return "LEVE"
+    return "MEDIO"
+
+
+def infer_combo_thermal_category(combo: Sequence[ClothingItem], is_raining: bool = True) -> str:
+    """Deriva a categoria térmica do conjunto de peças do look."""
+    if not combo:
+        return "MEDIO"
+    item_thermals = [infer_item_thermal_category(i) for i in combo]
+    non_shoes = [i for i in combo if _categorize_item(i) != "shoes"] or list(combo)
+    non_shoe_thermals = [infer_item_thermal_category(i) for i in non_shoes]
+
+    if "IMPERMEAVEL" in item_thermals and (is_raining or all(t == "IMPERMEAVEL" for t in non_shoe_thermals)):
+        return "IMPERMEAVEL"
+    if "PESADO" in item_thermals:
+        return "PESADO"
+    if non_shoe_thermals and all(t == "LEVE" for t in non_shoe_thermals):
+        return "LEVE"
+    return "MEDIO"
 
 
 def _generate_styling_advice(ihe: IHEResponse, occasion: str) -> str:
@@ -135,13 +206,8 @@ def _score_combo(
     avg_formality = sum(i.formality_score for i in combo) / len(combo)
     cuts = [i.cut_type for i in combo if i.cut_type]
 
-    # Determinar categoria térmica
-    if temperature_celsius < 16:
-        thermal = "PESADO"
-    elif temperature_celsius > 25:
-        thermal = "LEVE"
-    else:
-        thermal = "MEDIO"
+    # Determinar categoria térmica real a partir das peças da combinação
+    thermal = infer_combo_thermal_category(combo, is_raining=is_raining)
 
     # Direções de estilo do usuário e do look, relativas ao centro do acervo (S_cos)
     user_vec = style.user_vector() if style else NEUTRAL_VECTOR
@@ -177,6 +243,7 @@ def generate_outfit_recommendations(
     limit: Optional[int] = 5,
     excluded_looks: Optional[Set[FrozenSet[str]]] = None,
     style: Optional[StyleSpace] = None,
+    anchor_item_id: Optional[Any] = None,
 ) -> List[CandidateOutfit]:
     """
     Gera as melhores combinações de looks a partir do acervo do usuário,
@@ -187,24 +254,31 @@ def generate_outfit_recommendations(
     if not items:
         return []
 
+    anchor_str = str(anchor_item_id) if anchor_item_id is not None else None
+
     # 1. Separar itens por categorias
     buckets: Dict[str, List[ClothingItem]] = {
         "top": [],
         "bottom": [],
         "shoes": [],
         "one_piece": [],
+        "outerwear": [],
     }
 
     for item in items:
         cat = _categorize_item(item)
         if cat in buckets:
-            buckets[cat].append(item)
+            if anchor_str and str(item.id) == anchor_str:
+                buckets[cat].insert(0, item)
+            else:
+                buckets[cat].append(item)
 
     candidates_raw: List[List[ClothingItem]] = []
 
-    # 2. Gerar combinações Top + Bottom + Shoes
-    if buckets["top"] and buckets["bottom"]:
-        tops_slice = buckets["top"][:15]
+    # 2. Gerar combinações Top + Bottom + Shoes (e sobreposições com Outerwear)
+    effective_tops = buckets["top"] if buckets["top"] else buckets["outerwear"]
+    if effective_tops and buckets["bottom"]:
+        tops_slice = effective_tops[:15]
         bottoms_slice = buckets["bottom"][:15]
         shoes_slice = buckets["shoes"][:10] if buckets["shoes"] else [None]
 
@@ -214,6 +288,18 @@ def generate_outfit_recommendations(
                 if s is not None:
                     combo.append(s)
                 candidates_raw.append(combo)
+
+        if buckets["top"] and buckets["outerwear"]:
+            for t, b, ow in itertools.product(
+                buckets["top"][:10],
+                buckets["bottom"][:10],
+                buckets["outerwear"][:6],
+            ):
+                for s in shoes_slice:
+                    combo = [t, b, ow]
+                    if s is not None:
+                        combo.append(s)
+                    candidates_raw.append(combo)
 
     # 3. Gerar combinações One-Piece + Shoes
     if buckets["one_piece"]:
@@ -233,6 +319,13 @@ def generate_outfit_recommendations(
             candidates_raw.append(list(pair))
     elif not candidates_raw and len(items) == 1:
         candidates_raw.append([items[0]])
+
+    # Se houver peça âncora (ex: reativar peça adormecida), restringe os looks a ela
+    if anchor_str is not None:
+        candidates_raw = [
+            combo for combo in candidates_raw
+            if any(str(i.id) == anchor_str for i in combo)
+        ]
 
     # Retroalimentação (RF13): combinações descartadas saem antes do ranking
     if excluded_looks:
@@ -274,11 +367,14 @@ class StoreParity:
 
 def _looks_with_store_piece(store_item: ClothingItem, items: List[ClothingItem]) -> List[List[ClothingItem]]:
     """Looks completos que incluem a peça da loja, montados com as peças do acervo."""
-    buckets: Dict[str, List[ClothingItem]] = {"top": [], "bottom": [], "shoes": [], "one_piece": []}
+    buckets: Dict[str, List[ClothingItem]] = {
+        "top": [], "bottom": [], "shoes": [], "one_piece": [], "outerwear": []
+    }
     for item in items:
         buckets[_categorize_item(item)].append(item)
 
     shoes: List[Optional[ClothingItem]] = list(buckets["shoes"][:10]) or [None]
+    effective_tops = buckets["top"] if buckets["top"] else buckets["outerwear"]
 
     def with_shoes(base: List[ClothingItem]) -> List[List[ClothingItem]]:
         return [base + [s] if s is not None else base for s in shoes]
@@ -288,13 +384,22 @@ def _looks_with_store_piece(store_item: ClothingItem, items: List[ClothingItem])
     if family == "top":
         for bottom in buckets["bottom"][:15]:
             looks.extend(with_shoes([store_item, bottom]))
+    elif family == "outerwear":
+        if buckets["top"] and buckets["bottom"]:
+            for top, bottom in itertools.product(buckets["top"][:10], buckets["bottom"][:10]):
+                looks.extend(with_shoes([top, bottom, store_item]))
+        elif buckets["bottom"]:
+            for bottom in buckets["bottom"][:15]:
+                looks.extend(with_shoes([store_item, bottom]))
+        for piece in buckets["one_piece"][:10]:
+            looks.extend(with_shoes([piece, store_item]))
     elif family == "bottom":
-        for top in buckets["top"][:15]:
+        for top in effective_tops[:15]:
             looks.extend(with_shoes([top, store_item]))
     elif family == "one_piece":
         looks.extend(with_shoes([store_item]))
     else:  # calçado
-        for top, bottom in itertools.product(buckets["top"][:10], buckets["bottom"][:10]):
+        for top, bottom in itertools.product(effective_tops[:10], buckets["bottom"][:10]):
             looks.append([top, bottom, store_item])
         for piece in buckets["one_piece"][:10]:
             looks.append([piece, store_item])

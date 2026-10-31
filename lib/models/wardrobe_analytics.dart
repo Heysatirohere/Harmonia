@@ -38,14 +38,28 @@ class DormantGarment {
   final ClothingItem item;
   final int daysIdle;
   final int wearCount;
+  final double? costPerUse;
 
-  const DormantGarment({required this.item, required this.daysIdle, required this.wearCount});
+  const DormantGarment({
+    required this.item,
+    required this.daysIdle,
+    required this.wearCount,
+    this.costPerUse,
+  });
 
   factory DormantGarment.fromJson(Map<String, dynamic> json) {
+    final parsedItem = ClothingItem.fromJson(json['item'] as Map<String, dynamic>);
+    final wears = json['wear_count'] as int;
+    final rawCpu = (json['cost_per_use'] as num?)?.toDouble();
+    final computedCpu = rawCpu ??
+        ((parsedItem.price != null && parsedItem.price! > 0)
+            ? (wears > 0 ? parsedItem.price! / wears : parsedItem.price!)
+            : null);
     return DormantGarment(
-      item: ClothingItem.fromJson(json['item'] as Map<String, dynamic>),
+      item: parsedItem,
       daysIdle: json['days_idle'] as int,
-      wearCount: json['wear_count'] as int,
+      wearCount: wears,
+      costPerUse: computedCpu,
     );
   }
 
@@ -64,6 +78,8 @@ class WardrobeAnalytics {
   final int idle90DaysCount; // Sem uso há 90 dias ou mais (dormindo no armário)
   final int neverWornCount;
   final int totalWears;
+  final double? totalWardrobeValue;
+  final double? averageCostPerUse;
   final List<DominantColorShare> colorDistribution;
   final List<DormantGarment> dormantItems;
 
@@ -75,6 +91,8 @@ class WardrobeAnalytics {
     required this.idle90DaysCount,
     required this.neverWornCount,
     required this.totalWears,
+    this.totalWardrobeValue,
+    this.averageCostPerUse,
     required this.colorDistribution,
     required this.dormantItems,
   });
@@ -88,6 +106,8 @@ class WardrobeAnalytics {
       idle90DaysCount: json['dormant_count'] as int,
       neverWornCount: json['never_worn_count'] as int,
       totalWears: json['total_wears'] as int,
+      totalWardrobeValue: (json['total_wardrobe_value'] as num?)?.toDouble(),
+      averageCostPerUse: (json['average_cost_per_use'] as num?)?.toDouble(),
       colorDistribution: (json['color_distribution'] as List<dynamic>)
           .map((c) => DominantColorShare.fromJson(c as Map<String, dynamic>))
           .toList(),

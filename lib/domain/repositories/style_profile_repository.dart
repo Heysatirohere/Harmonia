@@ -23,6 +23,9 @@ abstract class StyleProfileRepository {
     BodySilhouetteType? silhouette,
     SeasonalPaletteType? palette,
     bool? isPublic,
+    bool? isPremium,
+    bool? dailyNotifications,
+    bool? rotationAlerts,
   });
 
   /// Teste de colorimetria por selfie (RF02); a selfie não é guardada e a cartela não muda sozinha

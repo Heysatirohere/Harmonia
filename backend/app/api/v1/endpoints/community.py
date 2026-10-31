@@ -18,12 +18,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin, is_user_photo
+from app.engine.color_science import normalize_palette
 from app.engine.context_rules import normalize_occasion
+from app.engine.morphology import normalize_biotype
 from app.models.entities import ClothingItem, CommunityPost, LookFeedback, PostReaction, SavedPost, User
 from app.schemas.dtos import (
     CommunityFeedResponse,
     CommunityPostCreate,
     CommunityPostResponse,
+    CommunityPostUpdate,
+    MoodboardSummaryResponse,
     PostPieceResponse,
 )
 
@@ -113,6 +117,9 @@ async def _to_responses(db: AsyncSession, user: User, posts: List[CommunityPost]
 async def list_posts(
     filter: FeedFilter = Query(default="all", description="Recorte do feed (RF15)"),
     occasion: Optional[str] = Query(default=None, description="Só looks desta ocasião"),
+    target_body_shape: Optional[str] = Query(default=None, description="Filtrar por biótipo específico"),
+    target_palette: Optional[str] = Query(default=None, description="Filtrar por cartela sazonal específica"),
+    board_name: Optional[str] = Query(default=None, max_length=80, description="Pasta do moodboard quando filter='saved'"),
     q: Optional[str] = Query(default=None, max_length=60, description="Busca na legenda e nas tags"),
     before: Optional[datetime] = Query(default=None, description="Paginação: posts anteriores a esta data"),
     limit: int = Query(default=20, ge=1, le=30),
@@ -133,15 +140,37 @@ async def list_posts(
             return CommunityFeedResponse(posts=[], next_before=None)
         conditions.append(CommunityPost.user_id.in_(select(User.id).where(trait == mine)))
     elif filter == "saved":
-        conditions.append(CommunityPost.id.in_(select(SavedPost.post_id).where(SavedPost.user_id == user.id)))
+        if board_name and board_name.strip():
+            conditions.append(CommunityPost.id.in_(
+                select(SavedPost.post_id).where(
+                    SavedPost.user_id == user.id,
+                    SavedPost.board_name == board_name.strip(),
+                )
+            ))
+        else:
+            conditions.append(CommunityPost.id.in_(select(SavedPost.post_id).where(SavedPost.user_id == user.id)))
     elif filter == "mine":
         conditions.append(CommunityPost.user_id == user.id)
+
+    if target_body_shape:
+        try:
+            norm_bs = normalize_biotype(target_body_shape)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+        conditions.append(CommunityPost.user_id.in_(select(User.id).where(User.body_shape == norm_bs)))
+
+    if target_palette:
+        try:
+            norm_pal = normalize_palette(target_palette)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+        conditions.append(CommunityPost.user_id.in_(select(User.id).where(User.seasonal_palette == norm_pal)))
 
     if occasion:
         try:
             conditions.append(CommunityPost.occasion == normalize_occasion(occasion))
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
     if q and q.strip():
         pattern = f"%{_escape_like(q.strip())}%"
@@ -182,7 +211,7 @@ async def create_post(
     """
     if not is_user_photo(payload.image_url, user.id):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="A foto precisa ser enviada pelo app antes da publicação.",
         )
 
@@ -267,6 +296,65 @@ async def _unmark(db: AsyncSession, user: User, post_id: UUID, model) -> Respons
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.patch("/posts/{post_id}", response_model=CommunityPostResponse, status_code=status.HTTP_200_OK)
+async def update_post(
+    post_id: UUID,
+    payload: CommunityPostUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Atualiza visibilidade individual (RN05), legenda, ocasião ou tags de um post próprio."""
+    stmt = select(CommunityPost).where(CommunityPost.id == post_id, CommunityPost.user_id == user.id)
+    post = (await db.execute(stmt)).scalars().first()
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publicação não encontrada.")
+
+    changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    for field, value in changes.items():
+        setattr(post, field, value)
+
+    await db.commit()
+    [response] = await _to_responses(db, user, [post])
+    return response
+
+
+@router.get("/moodboards", response_model=List[MoodboardSummaryResponse], status_code=status.HTTP_200_OK)
+async def list_moodboards(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lista as pastas de moodboard privado do usuário com contagem de posts visíveis e capa (Seção 3.5.2)."""
+    saved_rows = list((await db.execute(
+        select(SavedPost).where(SavedPost.user_id == user.id).order_by(desc(SavedPost.created_at))
+    )).scalars().all())
+    if not saved_rows:
+        return []
+
+    saved_post_ids = [s.post_id for s in saved_rows]
+    visible_posts = {
+        p.id: p for p in (await db.execute(
+            select(CommunityPost).where(CommunityPost.id.in_(saved_post_ids), _visible_to(user))
+        )).scalars().all()
+    }
+
+    boards: Dict[str, List[CommunityPost]] = {}
+    for s in saved_rows:
+        post = visible_posts.get(s.post_id)
+        if post is None:
+            continue
+        bname = (getattr(s, "board_name", None) or "Salvos").strip() or "Salvos"
+        boards.setdefault(bname, []).append(post)
+
+    return [
+        MoodboardSummaryResponse(
+            name=name,
+            posts_count=len(posts_list),
+            cover_photo_url=posts_list[0].image_url if posts_list else None,
+        )
+        for name, posts_list in sorted(boards.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    ]
+
+
 @router.put("/posts/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT)
 async def like_post(post_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await _mark(db, user, post_id, PostReaction)
@@ -278,9 +366,32 @@ async def unlike_post(post_id: UUID, user: User = Depends(get_current_user), db:
 
 
 @router.put("/posts/{post_id}/save", status_code=status.HTTP_204_NO_CONTENT)
-async def save_post(post_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Salva no moodboard privado (Seção 3.5.2)."""
-    return await _mark(db, user, post_id, SavedPost)
+async def save_post(
+    post_id: UUID,
+    board_name: str = Query(default="Salvos", min_length=1, max_length=80, description="Pasta do moodboard privado"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Salva no moodboard privado (Seção 3.5.2), permitindo organizar em pastas."""
+    await _visible_post(db, user, post_id)
+    clean_board = board_name.strip() or "Salvos"
+    stmt = select(SavedPost).where(SavedPost.post_id == post_id, SavedPost.user_id == user.id)
+    existing = (await db.execute(stmt)).scalars().first()
+    if existing is None:
+        db.add(SavedPost(
+            post_id=post_id,
+            user_id=user.id,
+            board_name=clean_board,
+            created_at=datetime.now(timezone.utc),
+        ))
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+    else:
+        existing.board_name = clean_board
+        await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/posts/{post_id}/save", status_code=status.HTTP_204_NO_CONTENT)

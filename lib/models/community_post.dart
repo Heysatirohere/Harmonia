@@ -11,6 +11,10 @@ class PostPiece {
   final String imageUrl;
   final Color color;
   final String labLabel;
+  final String? brand;
+  final String? fabric;
+  final double? hotspotX; // 0.0 a 1.0 na imagem
+  final double? hotspotY; // 0.0 a 1.0 na imagem
 
   const PostPiece({
     required this.id,
@@ -19,6 +23,10 @@ class PostPiece {
     required this.imageUrl,
     required this.color,
     required this.labLabel,
+    this.brand,
+    this.fabric,
+    this.hotspotX,
+    this.hotspotY,
   });
 
   factory PostPiece.fromJson(Map<String, dynamic> json) {
@@ -33,6 +41,10 @@ class PostPiece {
       imageUrl: json['image_url'] as String,
       color: labToColor(l, a, b),
       labLabel: formatLab(l, a, b),
+      brand: json['brand'] as String?,
+      fabric: (json['fabric_composition'] as String?) ?? (json['fabric'] as String?),
+      hotspotX: (json['hotspot_x'] as num?)?.toDouble(),
+      hotspotY: (json['hotspot_y'] as num?)?.toDouble(),
     );
   }
 }
@@ -52,6 +64,7 @@ class CommunityPost {
   final int likeCount;
   final bool likedByMe;
   final bool savedByMe;
+  final String? savedBoardName;
   final bool isPublic; // RN05
   final bool isMine;
   final DateTime createdAt;
@@ -70,6 +83,7 @@ class CommunityPost {
     this.likeCount = 0,
     this.likedByMe = false,
     this.savedByMe = false,
+    this.savedBoardName,
     this.isPublic = true,
     this.isMine = false,
     required this.createdAt,
@@ -90,6 +104,7 @@ class CommunityPost {
       likeCount: json['like_count'] as int,
       likedByMe: json['liked_by_me'] as bool,
       savedByMe: json['saved_by_me'] as bool,
+      savedBoardName: json['saved_board_name'] as String?,
       isPublic: json['is_public'] as bool,
       isMine: json['is_mine'] as bool,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -106,7 +121,13 @@ class CommunityPost {
   /// Selo ✦ Look Fortemente Recomendado (IHE >= 75%, Seção 5.3)
   bool get isStronglyRecommended => (ihePercentage ?? 0) >= 75;
 
-  CommunityPost copyWith({bool? likedByMe, int? likeCount, bool? savedByMe}) {
+  CommunityPost copyWith({
+    bool? likedByMe,
+    int? likeCount,
+    bool? savedByMe,
+    String? savedBoardName,
+    bool? isPublic,
+  }) {
     return CommunityPost(
       id: id,
       authorName: authorName,
@@ -121,7 +142,8 @@ class CommunityPost {
       likeCount: likeCount ?? this.likeCount,
       likedByMe: likedByMe ?? this.likedByMe,
       savedByMe: savedByMe ?? this.savedByMe,
-      isPublic: isPublic,
+      savedBoardName: savedBoardName ?? this.savedBoardName,
+      isPublic: isPublic ?? this.isPublic,
       isMine: isMine,
       createdAt: createdAt,
     );

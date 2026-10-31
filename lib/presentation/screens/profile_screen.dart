@@ -80,8 +80,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// Salva no backend; lança [StyleProfileFailure] para quem precisar reagir à falha
-  Future<void> _persist({BodySilhouetteType? silhouette, SeasonalPaletteType? palette, bool? isPublic}) async {
-    final profile = await _repository!.update(silhouette: silhouette, palette: palette, isPublic: isPublic);
+  Future<void> _persist({
+    BodySilhouetteType? silhouette,
+    SeasonalPaletteType? palette,
+    bool? isPublic,
+    bool? isPremium,
+    bool? dailyNotifications,
+    bool? rotationAlerts,
+  }) async {
+    final profile = await _repository!.update(
+      silhouette: silhouette,
+      palette: palette,
+      isPublic: isPublic,
+      isPremium: isPremium,
+      dailyNotifications: dailyNotifications,
+      rotationAlerts: rotationAlerts,
+    );
     if (mounted) setState(() => _profile = profile);
   }
 
@@ -133,9 +147,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       builder: (ctx) => _PreferencesSheet(
         profile: profile,
-        onSave: (isPublic) async {
+        onSave: (isPublic, dailyNotifications, rotationAlerts) async {
           try {
-            await _persist(isPublic: isPublic);
+            if (_repository != null) {
+              // Se apenas a visibilidade mudou ou para manter compatibilidade com o backend,
+              // envia apenas os campos alterados em relação ao perfil inicial
+              await _persist(
+                isPublic: isPublic,
+                dailyNotifications: dailyNotifications != profile.dailyNotifications ? dailyNotifications : null,
+                rotationAlerts: rotationAlerts != profile.rotationAlerts ? rotationAlerts : null,
+              );
+            } else {
+              setState(() {
+                _profile = profile.copyWith(
+                  isPublic: isPublic,
+                  dailyNotifications: dailyNotifications,
+                  rotationAlerts: rotationAlerts,
+                );
+              });
+            }
             _showMessage(isPublic
                 ? 'Perfil alterado para Público (visível no Feed Editorial).'
                 : 'Perfil alterado para Privado (visível apenas para você).');
@@ -222,8 +252,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 child: FreemiumQuotaCard(
                   profile: profile,
-                  onUpgradeTap: () {
+                  onUpgradeTap: () async {
                     setState(() => _profile = profile.copyWith(isPremium: true));
+                    if (_repository != null) {
+                      try {
+                        await _persist(isPremium: true);
+                      } catch (_) {}
+                    }
                     _showMessage('Parabéns! Assinatura HarmonIA Ateliê ativada!');
                   },
                 ),
@@ -246,6 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: _requireProfile(() => StyleRecalibrationDialogs.showColorimetryRecalibration(
                             context,
                             current: profile!.palette,
+                            repository: _repository,
                             onSelected: (palette) => _saveRecalibration(palette: palette),
                           )),
                     ),
@@ -408,7 +444,7 @@ class _LoadErrorNotice extends StatelessWidget {
 /// Folha de Preferências e Privacidade (RN05, RF18)
 class _PreferencesSheet extends StatefulWidget {
   final StyleProfile profile;
-  final Future<void> Function(bool isPublic) onSave;
+  final Future<void> Function(bool isPublic, bool dailyNotifications, bool rotationAlerts) onSave;
 
   const _PreferencesSheet({required this.profile, required this.onSave});
 
@@ -418,20 +454,22 @@ class _PreferencesSheet extends StatefulWidget {
 
 class _PreferencesSheetState extends State<_PreferencesSheet> {
   late bool _isPublic;
-  bool _dailyNotifications = true;
-  bool _rotationAlerts = true;
+  late bool _dailyNotifications;
+  late bool _rotationAlerts;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _isPublic = widget.profile.isPublic;
+    _dailyNotifications = widget.profile.dailyNotifications;
+    _rotationAlerts = widget.profile.rotationAlerts;
   }
 
   Future<void> _submit() async {
     setState(() => _saving = true);
     HapticFeedback.mediumImpact();
-    await widget.onSave(_isPublic);
+    await widget.onSave(_isPublic, _dailyNotifications, _rotationAlerts);
     if (mounted) {
       setState(() => _saving = false);
       Navigator.pop(context);
@@ -567,21 +605,11 @@ class _PreferencesSheetState extends State<_PreferencesSheet> {
             ),
             const SizedBox(height: 24),
 
-            // Botão Salvar
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentCinnabar,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
-                ),
-                child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ivoryText))
-                    : Text('Salvar Preferências', style: AppTypography.uiHeadline(color: AppColors.ivoryText)),
-              ),
+            // Botão Salvar (sem CircularProgressIndicator cru - AGENTS.md Seção 2)
+            CinnabarButton(
+              label: 'Salvar Preferências',
+              busy: _saving,
+              onPressed: _submit,
             ),
           ],
         ),

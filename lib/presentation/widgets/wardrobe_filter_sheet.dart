@@ -47,6 +47,16 @@ class _WardrobeFilterSheetState extends State<WardrobeFilterSheet> {
     return counts.keys.toList()..sort((a, b) => counts[b]!.compareTo(counts[a]!));
   }();
 
+  static const _seasons = ['Verão', 'Meia-estação', 'Inverno'];
+
+  late final List<String> _capsules = () {
+    final set = <String>{};
+    for (final item in widget.items) {
+      set.addAll(item.capsules);
+    }
+    return set.toList()..sort();
+  }();
+
   void _update(WardrobeFilters filters) {
     setState(() => _filters = filters);
     widget.onChanged(filters);
@@ -106,6 +116,23 @@ class _WardrobeFilterSheetState extends State<WardrobeFilterSheet> {
                       onTap: () => _update(_filters.toggleUsage(band)),
                     ),
                 ]),
+                _section('ESTAÇÃO', [
+                  for (final season in _seasons)
+                    InkChip(
+                      label: season,
+                      selected: _filters.seasons.contains(season),
+                      onTap: () => _update(_filters.toggleSeason(season)),
+                    ),
+                ]),
+                if (_capsules.isNotEmpty)
+                  _section('COLEÇÃO CÁPSULA', [
+                    for (final capsule in _capsules)
+                      InkChip(
+                        label: capsule,
+                        selected: _filters.capsule == capsule,
+                        onTap: () => _update(_filters.selectCapsule(capsule)),
+                      ),
+                  ]),
                 const Divider(color: AppColors.hairlineInk, height: 1),
                 const SizedBox(height: 12),
                 Row(

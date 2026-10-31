@@ -48,6 +48,21 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   late BodySilhouetteType _selectedSilhouette = widget.initialSilhouette ?? BodySilhouetteType.ampulheta;
   late SeasonalPaletteType _selectedPalette = widget.initialPalette ?? SeasonalPaletteType.outonoQuente;
   bool _saving = false;
+  bool _showSilhouetteQuiz = false;
+  int _quizShoulderHip = 0; // 0: alinhados, 1: quadril maior, 2: ombros maiores
+  int _quizWaist = 0; // 0: marcada, 1: reta, 2: centro arredondado
+
+  void _applyQuizSelection() {
+    HapticFeedback.selectionClick();
+    final deduced = switch ((_quizShoulderHip, _quizWaist)) {
+      (_, 2) => BodySilhouetteType.oval,
+      (1, _) => BodySilhouetteType.triangulo,
+      (2, _) => BodySilhouetteType.trianguloInvertido,
+      (0, 0) => BodySilhouetteType.ampulheta,
+      _ => BodySilhouetteType.retangulo,
+    };
+    setState(() => _selectedSilhouette = deduced);
+  }
 
   /// Teste de colorimetria por selfie (RF02): sugere a cartela, a pessoa confirma ou troca
   ColorimetryResult? _analysis;
@@ -244,6 +259,107 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             'Selecione a silhueta que melhor descreve suas proporções naturais:',
             style: AppTypography.bodyReading(color: AppColors.ivoryMuted),
           ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _showSilhouetteQuiz = !_showSilhouetteQuiz);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.ivoryVeil,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.straighten_rounded, size: 16, color: AppColors.gildedLeaf),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Dúvida no biótipo? Questionário assistido em 2 toques',
+                      style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 13),
+                    ),
+                  ),
+                  Icon(
+                    _showSilhouetteQuiz ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppColors.ivoryMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showSilhouetteQuiz) ...[
+            const SizedBox(height: 12),
+            AtelierSheet(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('1. RELAÇÃO OMBROS × QUADRIL', style: AppTypography.metadataBadge()),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final (idx, label) in [
+                        (0, 'Alinhados'),
+                        (1, 'Quadril mais amplo'),
+                        (2, 'Ombros mais largos'),
+                      ])
+                        ChoiceChip(
+                          label: Text(
+                            label,
+                            style: AppTypography.bodySmall(
+                              color: _quizShoulderHip == idx ? AppColors.ivoryText : AppColors.inkText,
+                            ),
+                          ),
+                          selected: _quizShoulderHip == idx,
+                          selectedColor: AppColors.accentCinnabar,
+                          backgroundColor: AppColors.paperBoneRaised,
+                          onSelected: (_) {
+                            _quizShoulderHip = idx;
+                            _applyQuizSelection();
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text('2. LINHA DA CINTURA', style: AppTypography.metadataBadge()),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final (idx, label) in [
+                        (0, 'Cintura marcada'),
+                        (1, 'Cintura reta'),
+                        (2, 'Centro arredondado'),
+                      ])
+                        ChoiceChip(
+                          label: Text(
+                            label,
+                            style: AppTypography.bodySmall(
+                              color: _quizWaist == idx ? AppColors.ivoryText : AppColors.inkText,
+                            ),
+                          ),
+                          selected: _quizWaist == idx,
+                          selectedColor: AppColors.accentCinnabar,
+                          backgroundColor: AppColors.paperBoneRaised,
+                          onSelected: (_) {
+                            _quizWaist = idx;
+                            _applyQuizSelection();
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           for (final type in BodySilhouetteType.values) ...[
             SilhouetteSelectorCard(
@@ -349,15 +465,22 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'CARTELA: ${_selectedPalette.displayName.toUpperCase()}',
-                      style: AppTypography.metadataBadge(
-                        color: AppColors.accentCinnabar,
-                      ).copyWith(fontSize: 10, fontWeight: FontWeight.w700),
+                    Expanded(
+                      child: Text(
+                        'CARTELA: ${_selectedPalette.displayName.toUpperCase()}',
+                        style: AppTypography.metadataBadge(
+                          color: AppColors.accentCinnabar,
+                        ).copyWith(fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
                     ),
-                    Text(
-                      _selectedPalette.temperature,
-                      style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _selectedPalette.temperature,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.metadataBadge(color: AppColors.inkSecondary).copyWith(fontSize: 9),
+                      ),
                     ),
                   ],
                 ),

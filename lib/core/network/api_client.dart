@@ -68,9 +68,15 @@ class ApiClient {
         .timeout(timeoutDuration);
   }
 
-  Future<http.Response> put(String endpoint) async {
+  Future<http.Response> put(String endpoint, {Map<String, dynamic>? body}) async {
     final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.put(uri, headers: _headers).timeout(timeoutDuration);
+    return await http
+        .put(
+          uri,
+          headers: _headers,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(timeoutDuration);
   }
 
   Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body}) async {

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/clothing_item.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
 
 /// Peça flutuante sobre a Sala ("The Floating Canvas", AGENTS.md 7.1)
 /// - Sem cartão atrás: a peça recortada paira direto sobre a cenografia
@@ -150,7 +152,9 @@ class _FloatingGarment extends StatelessWidget {
                   switchInCurve: AppMotion.editorialDecel,
                   child: frame != null
                       ? child
-                      : (placeholders ? const _RoomTintedShimmer() : const SizedBox.expand()),
+                      : (placeholders
+                          ? const AtelierShimmer(room: AtelierRoom.silkEmerald)
+                          : const SizedBox.expand()),
                 );
               },
               errorBuilder: (context, error, stackTrace) => placeholders
@@ -180,45 +184,6 @@ class _FloatingGarment extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-/// Shimmer translúcido: sobre a Sala, ganha a cor dela (AGENTS.md 6.2)
-class _RoomTintedShimmer extends StatefulWidget {
-  const _RoomTintedShimmer();
-
-  @override
-  State<_RoomTintedShimmer> createState() => _RoomTintedShimmerState();
-}
-
-class _RoomTintedShimmerState extends State<_RoomTintedShimmer> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1300),
-  )..repeat(reverse: true);
-
-  late final Animation<Color?> _color = ColorTween(
-    begin: const Color(0x0FF4EEE1),
-    end: const Color(0x24F4EEE1),
-  ).animate(CurvedAnimation(parent: _controller, curve: AppMotion.editorialDecel));
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _color,
-      builder: (context, _) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: _color.value,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-        ),
-      ),
     );
   }
 }

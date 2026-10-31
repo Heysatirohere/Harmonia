@@ -25,12 +25,13 @@ class GapAnalysisScreen extends StatefulWidget {
 class _GapAnalysisScreenState extends State<GapAnalysisScreen> {
   static const _room = AtelierRoom.verdigris;
 
-  /// Ocasiões oferecidas e a chave correspondente no motor do IHE
+  /// Ocasiões oferecidas e a chave correspondente no motor do IHE (RF07, Seção 3.3.1)
   static const _occasions = [
     ('Casual', 'CASUAL'),
     ('Trabalho', 'TRABALHO'),
     ('Noite', 'NOITE'),
     ('Festa', 'FESTA'),
+    ('Gala', 'GALA'),
   ];
   int _occasionIndex = 0;
 

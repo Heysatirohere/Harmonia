@@ -13,6 +13,8 @@ class StyleProfile {
   final int maxDailyLooks;
   final bool isPremium;
   final bool isPublic;
+  final bool dailyNotifications;
+  final bool rotationAlerts;
 
   const StyleProfile({
     this.silhouette,
@@ -23,6 +25,8 @@ class StyleProfile {
     this.maxDailyLooks = 5,
     this.isPremium = false,
     this.isPublic = true,
+    this.dailyNotifications = true,
+    this.rotationAlerts = true,
   });
 
   factory StyleProfile.fromJson(Map<String, dynamic> json) {
@@ -35,6 +39,8 @@ class StyleProfile {
       maxDailyLooks: json['max_daily_looks_allowed'] as int? ?? 5,
       isPremium: json['is_premium'] as bool? ?? false,
       isPublic: json['is_public'] as bool? ?? true,
+      dailyNotifications: json['daily_notifications'] as bool? ?? true,
+      rotationAlerts: json['rotation_alerts'] as bool? ?? true,
     );
   }
 
@@ -54,6 +60,8 @@ class StyleProfile {
     int? looksToday,
     bool? isPremium,
     bool? isPublic,
+    bool? dailyNotifications,
+    bool? rotationAlerts,
   }) {
     return StyleProfile(
       silhouette: silhouette ?? this.silhouette,
@@ -64,6 +72,8 @@ class StyleProfile {
       maxDailyLooks: maxDailyLooks,
       isPremium: isPremium ?? this.isPremium,
       isPublic: isPublic ?? this.isPublic,
+      dailyNotifications: dailyNotifications ?? this.dailyNotifications,
+      rotationAlerts: rotationAlerts ?? this.rotationAlerts,
     );
   }
 }

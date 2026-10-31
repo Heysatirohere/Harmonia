@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/network/api_client.dart';
+import '../../domain/repositories/community_repository.dart';
 import '../../models/community_post.dart';
 import 'supabase_storage_service.dart';
 
@@ -33,7 +34,7 @@ enum FeedFilter {
 typedef PhotoUploader = Future<String?> Function(Uint8List bytes, String fileName);
 
 /// Serviço do feed comunitário (RF14, RF15, RN05)
-class CommunityApiService {
+class CommunityApiService implements CommunityRepository {
   final ApiClient _client;
   final PhotoUploader _uploadPhoto;
 
@@ -49,6 +50,7 @@ class CommunityApiService {
     );
   }
 
+  @override
   Future<CommunityFeedPage> fetchFeed({
     FeedFilter filter = FeedFilter.all,
     String? occasion,
@@ -67,6 +69,7 @@ class CommunityApiService {
 
   /// Envia a foto para a pasta do usuário e publica (RF14). Com [feedbackId], o post leva as
   /// peças e o IHE do look aprovado; [isPublic] nulo segue a visibilidade do perfil (RN05).
+  @override
   Future<CommunityPost> publish({
     required Uint8List photo,
     required String caption,
@@ -92,11 +95,32 @@ class CommunityApiService {
     return CommunityPost.fromJson(jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>);
   }
 
+  @override
   Future<void> setLiked(String postId, bool liked) => _toggle('/community/posts/$postId/like', liked);
 
   /// Salvar no moodboard privado (Seção 3.5.2)
-  Future<void> setSaved(String postId, bool saved) => _toggle('/community/posts/$postId/save', saved);
+  @override
+  Future<void> setSaved(String postId, bool saved, {String? boardName}) async {
+    if (saved && boardName != null && boardName.trim().isNotEmpty) {
+      final response = await _send(
+        () => _client.put('/community/posts/$postId/save', body: {'board_name': boardName.trim()}),
+      );
+      _expect(response, 204, 'Não foi possível atualizar agora.');
+      return;
+    }
+    return _toggle('/community/posts/$postId/save', saved);
+  }
 
+  @override
+  Future<CommunityPost> updatePostVisibility(String postId, {required bool isPublic}) async {
+    final response = await _send(
+      () => _client.patch('/community/posts/$postId', body: {'is_public': isPublic}),
+    );
+    _expect(response, 200, 'Não foi possível alterar a visibilidade da publicação.');
+    return CommunityPost.fromJson(jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>);
+  }
+
+  @override
   Future<void> delete(String postId) async {
     final response = await _send(() => _client.delete('/community/posts/$postId'));
     _expect(response, 204, 'Não foi possível apagar a publicação agora.');

@@ -64,6 +64,25 @@ class User(Base):
         String(100),
         nullable=True
     )
+    notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+    rotation_alerts_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+    lgpd_consent_accepted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+    lgpd_consent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
     looks_generated_today: Mapped[int] = mapped_column(
         Integer,
         default=0,
@@ -150,6 +169,45 @@ class ClothingItem(Base):
     cut_type: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True
+    )
+    pattern: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True
+    )
+    season: Mapped[Optional[str]] = mapped_column(
+        String(30),
+        nullable=True
+    )
+    thermal_category: Mapped[Optional[str]] = mapped_column(
+        String(30),
+        nullable=True
+    )
+    purchase_price: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True
+    )
+    brand: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    fabric_composition: Mapped[Optional[str]] = mapped_column(
+        String(160),
+        nullable=True
+    )
+    is_conscious_fashion: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    disposal_status: Mapped[str] = mapped_column(
+        String(30),
+        default="ACTIVE",
+        nullable=False
+    )
+    capsules: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False
     )
     style_embedding: Mapped[Optional[List[float]]] = mapped_column(
         Vector(512),
@@ -312,6 +370,11 @@ class SavedPost(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
+    )
+    board_name: Mapped[str] = mapped_column(
+        String(80),
+        default="Salvos",
+        nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

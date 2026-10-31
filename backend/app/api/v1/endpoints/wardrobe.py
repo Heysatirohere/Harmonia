@@ -19,6 +19,7 @@ from app.core.security import get_current_user, get_current_user_id
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
 from app.models.entities import User, ClothingItem, LookFeedback
 from app.schemas.dtos import (
+    CapsuleSummaryResponse,
     ClothingItemCreate,
     ClothingItemResponse,
     ClothingItemUpdate,
@@ -32,7 +33,7 @@ from app.schemas.dtos import (
 )
 from app import vision
 from app.vision import garment_attributes
-from app.engine.wardrobe_analytics import color_distribution, garment_usage, rotation_bucket
+from app.engine.wardrobe_analytics import color_distribution, color_family as calc_color_family, garment_usage, rotation_bucket
 
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
@@ -70,18 +71,18 @@ async def segment_garment_photo(
     data = await file.read(settings.MAX_UPLOAD_BYTES + 1)
     if len(data) > settings.MAX_UPLOAD_BYTES:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Foto muito grande. O limite é de 10 MB."
         )
 
     try:
         result = await run_in_threadpool(vision.segment_garment, data)
     except vision.InvalidImageError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
     if not result.colors:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Nenhuma peça foi identificada na foto. Tente fotografar sobre um fundo liso."
         )
 
@@ -106,7 +107,16 @@ def _suggest(embedding: Optional[List[float]]) -> Optional[GarmentSuggestionResp
         pattern=attrs.pattern,
         formality=attrs.formality,
         confidence=attrs.category_confidence,
+        cut_type=attrs.cut_type,
+        thermal_category=attrs.thermal_category,
+        season=attrs.season,
     )
+
+
+def _compute_cost_per_use(purchase_price: Optional[float], wear_count: int) -> Optional[float]:
+    if purchase_price is None or purchase_price <= 0:
+        return None
+    return round(float(purchase_price) / max(1, wear_count), 2)
 
 
 @router.get("/items", response_model=List[WardrobeItemResponse], status_code=status.HTTP_200_OK)
@@ -116,6 +126,11 @@ async def list_clothing_items(
     min_formality: Optional[float] = Query(None, ge=0.0, le=1.0, description="Formalidade mínima"),
     max_formality: Optional[float] = Query(None, ge=0.0, le=1.0, description="Formalidade máxima"),
     cut_type: Optional[str] = Query(None, description="Filtrar por corte/modelagem"),
+    color_family: Optional[str] = Query(None, description="Filtrar por família cromática (ex: Azuis)"),
+    season: Optional[str] = Query(None, description="Filtrar por estação (ex: VERAO, INVERNO)"),
+    capsule: Optional[str] = Query(None, description="Filtrar por cápsula temática (ex: Mala de Viagem)"),
+    usage_band: Optional[str] = Query(None, description="Filtrar por faixa de uso (active, idle_30, idle_60, dormant, never_worn)"),
+    disposal_status: Optional[str] = Query(None, description="Filtrar por status ESG (ACTIVE, DONATED, DISCARDED)"),
     include_archived: bool = Query(False, description="Incluir peças arquivadas"),
     sort_by: str = Query("created_at", description="Campo para ordenação"),
     order: str = Query("desc", description="Direção da ordenação (asc ou desc)"),
@@ -123,11 +138,11 @@ async def list_clothing_items(
 ):
     """
     Lista peças do guarda-roupa do usuário logado (RN01) com suporte a filtros multicritérios (RF06).
-    Cada peça traz a família cromática e o uso (looks aprovados), para filtrar por cor e frequência.
+    Cada peça traz a família cromática, o custo por uso e a frequência (looks aprovados).
     """
     stmt = select(ClothingItem).where(ClothingItem.user_id == current_user_id)
 
-    if not include_archived:
+    if not include_archived and not disposal_status:
         stmt = stmt.where(ClothingItem.is_archived == False)
 
     if category:
@@ -155,19 +170,72 @@ async def list_clothing_items(
         stmt = stmt.order_by(desc(col))
 
     result = await db.execute(stmt)
-    items = result.scalars().all()
+    items = list(result.scalars().all())
 
     worn_on = await _worn_on(db, current_user_id)
     now = datetime.now(timezone.utc)
-    responses = []
+    responses: List[WardrobeItemResponse] = []
     for item in items:
+        if not include_archived and not disposal_status and getattr(item, "is_archived", False):
+            continue
+        if category and item.category != category:
+            continue
+        if min_formality is not None and item.formality_score < min_formality:
+            continue
+        if max_formality is not None and item.formality_score > max_formality:
+            continue
+        if cut_type and item.cut_type != cut_type:
+            continue
+        if season and (getattr(item, "season", None) or "").upper() != season.strip().upper():
+            continue
+        if disposal_status and (getattr(item, "disposal_status", None) or "ACTIVE").upper() != disposal_status.strip().upper():
+            continue
+        if capsule:
+            item_capsules = [c.strip().lower() for c in (getattr(item, "capsules", None) or []) if isinstance(c, str)]
+            if capsule.strip().lower() not in item_capsules:
+                continue
+        item_cf = calc_color_family(item.dominant_l, item.dominant_a, item.dominant_b)
+        if color_family and item_cf.lower() != color_family.strip().lower():
+            continue
+
         usage = garment_usage(item.created_at, worn_on.get(str(item.id), []), now)
+        if usage_band:
+            ub = usage_band.strip().lower()
+            if ub == "never_worn":
+                if usage.wear_count != 0:
+                    continue
+            elif rotation_bucket(usage.days_idle) != ub:
+                continue
+
         responses.append(WardrobeItemResponse.model_validate(item).model_copy(update={
             "usage_rate": usage.wear_count,
             "last_worn_at": usage.last_worn_at,
             "days_idle": usage.days_idle,
+            "cost_per_use": _compute_cost_per_use(getattr(item, "purchase_price", None), usage.wear_count),
         }))
     return responses
+
+
+@router.get("/capsules", response_model=List[CapsuleSummaryResponse], status_code=status.HTTP_200_OK)
+async def list_wardrobe_capsules(
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lista as cápsulas temáticas do usuário e as peças associadas a cada uma (Seção 3.2.1)."""
+    items = (await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == current_user_id, ClothingItem.is_archived == False)
+    )).scalars().all()
+    grouped: dict[str, list[UUID]] = {}
+    for item in items:
+        if getattr(item, "is_archived", False):
+            continue
+        for raw in (getattr(item, "capsules", None) or []):
+            if isinstance(raw, str) and raw.strip():
+                grouped.setdefault(raw.strip(), []).append(item.id)
+    return [
+        CapsuleSummaryResponse(name=name, items_count=len(ids), item_ids=ids)
+        for name, ids in sorted(grouped.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    ]
 
 
 @router.post("/items", response_model=ClothingItemResponse, status_code=status.HTTP_201_CREATED)
@@ -198,8 +266,17 @@ async def create_clothing_item(
         dominant_b=item_in.dominant_b,
         formality_score=item_in.formality_score,
         cut_type=item_in.cut_type,
+        pattern=item_in.pattern,
+        season=item_in.season,
+        thermal_category=item_in.thermal_category,
+        purchase_price=item_in.purchase_price,
+        brand=item_in.brand,
+        fabric_composition=item_in.fabric_composition,
+        is_conscious_fashion=item_in.is_conscious_fashion,
+        disposal_status=item_in.disposal_status,
+        capsules=list(item_in.capsules or []),
         style_embedding=item_in.style_embedding,
-        is_archived=False,
+        is_archived=item_in.disposal_status in ("DONATED", "DISCARDED"),
         created_at=datetime.now(timezone.utc)
     )
 
@@ -298,6 +375,8 @@ async def update_clothing_item(
     changes = item_update.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in changes.items():
         setattr(item, field, value)
+    if changes.get("disposal_status") in ("DONATED", "DISCARDED") and "is_archived" not in changes:
+        item.is_archived = True
 
     await db.commit()
     await db.refresh(item)
@@ -310,13 +389,15 @@ async def wardrobe_analytics(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Saúde do acervo (Seção 3.2.2): rotação em janelas de 30, 60 e 90 dias e proporção
-    cromática dominante. O uso de cada peça vem dos looks aprovados (RF13), então desfazer
-    uma aprovação também desfaz o uso. Só peças e looks do próprio usuário (RN01).
+    Saúde do acervo (Seção 3.2.2): rotação em janelas de 30, 60 e 90 dias, proporção
+    cromática dominante, valor investido, custo médio por uso e indicadores ESG.
     """
-    items = (await db.execute(
-        select(ClothingItem).where(ClothingItem.user_id == current_user_id, ClothingItem.is_archived == False)
-    )).scalars().all()
+    all_items = list((await db.execute(
+        select(ClothingItem).where(ClothingItem.user_id == current_user_id)
+    )).scalars().all())
+    donated_count = sum(1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") == "DONATED")
+    discarded_count = sum(1 for i in all_items if (getattr(i, "disposal_status", None) or "ACTIVE") == "DISCARDED")
+    items = [i for i in all_items if not getattr(i, "is_archived", False)]
     worn_on = await _worn_on(db, current_user_id)
 
     now = datetime.now(timezone.utc)
@@ -331,6 +412,22 @@ async def wardrobe_analytics(
     )
     colors = color_distribution([(i.dominant_l, i.dominant_a, i.dominant_b) for i in items])
 
+    priced_cpus = [
+        float(item.purchase_price) / max(1, usage.wear_count)
+        for item, usage in usages
+        if getattr(item, "purchase_price", None) is not None and item.purchase_price > 0
+    ]
+    total_value = round(sum(
+        float(item.purchase_price) for item in items
+        if getattr(item, "purchase_price", None) is not None and item.purchase_price > 0
+    ), 2)
+    avg_cpu = round(sum(priced_cpus) / len(priced_cpus), 2) if priced_cpus else None
+    conscious_count = sum(1 for item in items if getattr(item, "is_conscious_fashion", False))
+    capsules_set = {
+        c.strip() for item in items for c in (getattr(item, "capsules", None) or [])
+        if isinstance(c, str) and c.strip()
+    }
+
     return WardrobeAnalyticsResponse(
         total_pieces=len(items),
         active_count=buckets["active"],
@@ -339,6 +436,12 @@ async def wardrobe_analytics(
         dormant_count=buckets["dormant"],
         never_worn_count=sum(1 for _, usage in usages if usage.wear_count == 0),
         total_wears=sum(usage.wear_count for _, usage in usages),
+        total_wardrobe_value=total_value,
+        average_cost_per_use=avg_cpu,
+        conscious_items_count=conscious_count,
+        donated_items=donated_count,
+        discarded_items=discarded_count,
+        capsules_count=len(capsules_set),
         color_distribution=[
             ColorShareResponse(
                 family=c.family, count=c.count, percentage=c.percentage,
@@ -352,6 +455,7 @@ async def wardrobe_analytics(
                 wear_count=usage.wear_count,
                 last_worn_at=usage.last_worn_at,
                 days_idle=usage.days_idle,
+                cost_per_use=_compute_cost_per_use(getattr(item, "purchase_price", None), usage.wear_count),
             )
             for item, usage in dormant
         ],

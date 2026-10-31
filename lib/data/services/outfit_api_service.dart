@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../domain/models/recommended_look.dart';
+import '../../domain/repositories/outfit_repository.dart';
 import '../../models/clothing_item.dart';
 import '../../models/store_parity_result.dart';
 import '../../models/wardrobe_gap.dart';
@@ -30,18 +31,20 @@ enum LookFeedbackAction {
 }
 
 /// Serviço de integração com o motor inteligente de looks e IHE da API FastAPI (RF07, RF13)
-class OutfitApiService {
+class OutfitApiService implements OutfitRepository {
   final ApiClient _client;
 
   OutfitApiService({ApiClient? client}) : _client = client ?? ApiClient();
 
   /// Gera looks a partir do acervo do usuário (RF07). Lista vazia: o acervo ainda não forma um look.
   /// Repetir a mesma consulta no mesmo dia não gasta a cota (RN02).
+  @override
   Future<List<RecommendedLook>> generateDailyOutfits({
     String occasion = 'CASUAL',
     double temperatureCelsius = 22.0,
     bool isRaining = false,
     int limit = 5,
+    String? anchorItemId,
   }) async {
     final http.Response response;
     try {
@@ -52,6 +55,7 @@ class OutfitApiService {
           'temperature_celsius': temperatureCelsius,
           'is_raining': isRaining,
           'limit': limit,
+          if (anchorItemId != null && anchorItemId.isNotEmpty) 'anchor_item_id': anchorItemId,
         },
       );
     } catch (e) {
@@ -77,6 +81,7 @@ class OutfitApiService {
 
   /// Registra a aprovação ou o descarte de um look (RF13). Retorna o id do registro, para desfazer.
   /// Um look descartado não volta a ser sugerido.
+  @override
   Future<String> sendLookFeedback(RecommendedLook look, LookFeedbackAction action) async {
     final http.Response response;
     try {
@@ -100,6 +105,7 @@ class OutfitApiService {
   }
 
   /// Desfaz uma aprovação ou um descarte
+  @override
   Future<void> undoLookFeedback(String feedbackId) async {
     final http.Response response;
     try {
@@ -115,6 +121,7 @@ class OutfitApiService {
 
   /// Compara uma peça fotografada na loja com o acervo (RF08, RF09). Não gasta a cota RN02.
   /// [storeGarment] precisa ter as coordenadas L*a*b* extraídas do recorte.
+  @override
   Future<StoreParityResult> analyzeStoreParity({
     required ClothingItem storeGarment,
     String occasion = 'CASUAL',
@@ -155,6 +162,7 @@ class OutfitApiService {
 
   /// Peças-chave que faltam no acervo e onde comprá-las nos parceiros (RF11, RF12).
   /// Produtos esgotados nunca vêm (RN03) e a consulta não gasta a cota (RN02).
+  @override
   Future<WardrobeGapReport> getWardrobeGaps({String occasion = 'CASUAL'}) async {
     final http.Response response;
     try {
@@ -175,6 +183,7 @@ class OutfitApiService {
   }
 
   /// Calcula o IHE pontual para um conjunto arbitrário de peças ou atributos
+  @override
   Future<Map<String, dynamic>?> calculateIhe(Map<String, dynamic> payload) async {
     try {
       final response = await _client.post(

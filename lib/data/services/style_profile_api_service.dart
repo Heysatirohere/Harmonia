@@ -23,11 +23,17 @@ class StyleProfileApiService implements StyleProfileRepository {
     BodySilhouetteType? silhouette,
     SeasonalPaletteType? palette,
     bool? isPublic,
+    bool? isPremium,
+    bool? dailyNotifications,
+    bool? rotationAlerts,
   }) {
     return _send(() => _client.patch('/users/me', body: {
           'body_shape': ?silhouette?.apiKey,
           'seasonal_palette': ?palette?.apiKey,
           'is_public': ?isPublic,
+          'is_premium': ?isPremium,
+          'daily_notifications': ?dailyNotifications,
+          'rotation_alerts': ?rotationAlerts,
         }));
   }
 

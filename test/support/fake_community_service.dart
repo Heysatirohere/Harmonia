@@ -27,6 +27,8 @@ class FakeCommunityService extends CommunityApiService {
   final List<PublishRequest> published = [];
   final List<(String, bool)> likes = [];
   final List<(String, bool)> saves = [];
+  final List<(String, String?)> saveBoards = [];
+  final List<(String, bool)> visibilityUpdates = [];
   final List<String> deleted = [];
 
   FakeCommunityService(this.feeds, {this.nextPage = const [], this.firstPageNextBefore, this.failure});
@@ -81,9 +83,22 @@ class FakeCommunityService extends CommunityApiService {
   }
 
   @override
-  Future<void> setSaved(String postId, bool saved) async {
+  Future<void> setSaved(String postId, bool saved, {String? boardName}) async {
     _throwIfQueued();
     saves.add((postId, saved));
+    if (saved) saveBoards.add((postId, boardName));
+  }
+
+  @override
+  Future<CommunityPost> updatePostVisibility(String postId, {required bool isPublic}) async {
+    _throwIfQueued();
+    visibilityUpdates.add((postId, isPublic));
+    for (final list in feeds.values) {
+      for (final p in list) {
+        if (p.id == postId) return p.copyWith(isPublic: isPublic);
+      }
+    }
+    return samplePost(id: postId, isMine: true, isPublic: isPublic);
   }
 
   @override

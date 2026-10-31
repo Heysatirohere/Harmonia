@@ -3,6 +3,7 @@ Endpoints do Perfil de Estilo do Usuário Autenticado (RF02, RF18, RN02)
 O perfil salvo (biótipo e cartela) alimenta os pilares S_bio e S_cor do IHE.
 """
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -15,10 +16,44 @@ from app.core.config import settings
 from app.core.security import get_current_user, get_current_user_id
 from app.core.supabase_admin import SupabaseAdmin, SupabaseAdminError, get_supabase_admin
 from app.models.entities import ClothingItem, CommunityPost, LookFeedback, PostReaction, SavedPost, User
-from app.schemas.dtos import ColorimetryResponse, StyleProfileResponse, StyleProfileUpdate
+from app.schemas.dtos import (
+    ColorimetryResponse,
+    MorphologyQuizRequest,
+    MorphologyQuizResponse,
+    StyleProfileResponse,
+    StyleProfileUpdate,
+)
 from app.vision import colorimetry, segmentation
 
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+MORPHOLOGY_GUIDE = {
+    "AMPULHETA": (
+        "Biótipo Ampulheta",
+        "Ombros e quadris alinhados com cintura bem definida; modelagens acinturadas acompanham a harmonia natural.",
+        ["ACINTURADO", "VESTIDO_ENVELOPE", "CINTURA_ALTA", "DECOTE_V"],
+    ),
+    "RETANGULO": (
+        "Biótipo Retângulo",
+        "Ombros, cintura e quadris em linhas paralelas; recortes, cinturas marcadas e volumes criam movimento.",
+        ["ACINTURADO", "EVASE", "CINTURA_ALTA", "ESTRUTURADO_OMBRO"],
+    ),
+    "TRIANGULO": (
+        "Biótipo Triângulo",
+        "Quadril mais pronunciado que a linha dos ombros; estrutura superior e decotes valorizam o equilíbrio.",
+        ["ESTRUTURADO_OMBRO", "DECOTE_V", "EVASE", "PANTALONA"],
+    ),
+    "TRIANGULO_INVERTIDO": (
+        "Biótipo Triângulo Invertido",
+        "Ombros mais amplos que o quadril; peças inferiores fluidas e evasê equilibram a proporção.",
+        ["PANTALONA", "EVASE", "FLUIDO_AMPLO", "DECOTE_V"],
+    ),
+    "OVAL": (
+        "Biótipo Oval",
+        "Centro do tronco suavemente arredondado; linhas verticais e decotes em V alongam a silhueta.",
+        ["VESTIDO_ENVELOPE", "DECOTE_V", "RETO", "ALFAIATARIA_ESTRUTURADA"],
+    ),
+}
 
 router = APIRouter()
 
@@ -47,9 +82,45 @@ async def update_own_profile(
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in changes.items():
         setattr(user, field, value)
+    if changes.get("lgpd_consent_accepted") is True:
+        user.lgpd_consent_at = datetime.now(timezone.utc)
 
     await db.commit()
     return StyleProfileResponse.model_validate(user)
+
+
+@router.post("/me/morphology-quiz", response_model=MorphologyQuizResponse, status_code=status.HTTP_200_OK)
+async def evaluate_morphology_quiz(
+    payload: MorphologyQuizRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Questionário visual assistido para descoberta do biótipo corporal (RF02, Seção 3.1.2).
+    Se `apply_to_profile=True`, grava o biótipo resultante no perfil do usuário.
+    """
+    if payload.waist_definition == "fuller_midsection":
+        body_shape = "OVAL"
+    elif payload.shoulder_hip_relation == "shoulders_wider":
+        body_shape = "TRIANGULO_INVERTIDO"
+    elif payload.shoulder_hip_relation == "hips_wider":
+        body_shape = "TRIANGULO"
+    elif payload.waist_definition == "defined":
+        body_shape = "AMPULHETA"
+    else:
+        body_shape = "RETANGULO"
+
+    title, summary, cuts = MORPHOLOGY_GUIDE[body_shape]
+    if payload.apply_to_profile:
+        user.body_shape = body_shape
+        await db.commit()
+
+    return MorphologyQuizResponse(
+        body_shape=body_shape,
+        title=title,
+        summary=summary,
+        recommended_cuts=list(cuts),
+    )
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -59,9 +130,9 @@ async def delete_own_account(
     admin: SupabaseAdmin = Depends(get_supabase_admin),
 ):
     """
-    Direito ao esquecimento (RN04, RNF01): apaga as fotos do Storage, os registros do banco
-    e o login do Supabase Auth, nesta ordem. Se o Storage falhar, nada é apagado; se o Auth
-    falhar, o banco volta atrás e uma nova tentativa conclui a exclusão.
+    Direito ao esquecimento (RN04, RNF01): valida acesso ao Storage, apaga o login do
+    Supabase Auth, as fotos do Storage e os registros do banco. Se qualquer etapa externa
+    falhar antes da conclusão, os registros do banco voltam atrás.
     """
     items = (await db.execute(select(ClothingItem).where(ClothingItem.user_id == user.id))).scalars().all()
     posts = (await db.execute(select(CommunityPost).where(CommunityPost.user_id == user.id))).scalars().all()
@@ -70,7 +141,6 @@ async def delete_own_account(
     paths = {path for url in urls if (path := admin.object_path(url))}
     try:
         paths |= set(await admin.list_user_objects(user.id))
-        await admin.delete_objects(paths)
     except SupabaseAdminError:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -92,8 +162,18 @@ async def delete_own_account(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Suas fotos foram apagadas, mas não foi possível concluir a exclusão. Tente novamente para terminar.",
+            detail="Não foi possível concluir a exclusão. Tente novamente para terminar.",
         )
+
+    try:
+        await admin.delete_objects(paths)
+    except SupabaseAdminError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Não foi possível apagar as suas fotos agora. Nada foi excluído; tente novamente.",
+        )
+
     await db.commit()
 
 

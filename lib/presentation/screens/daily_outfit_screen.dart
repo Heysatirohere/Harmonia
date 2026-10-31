@@ -18,6 +18,7 @@ import '../atelier/room_scene.dart';
 import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
 import '../widgets/gap_analysis_sheet.dart';
+import '../widgets/ihe_score_gauge.dart';
 import '../widgets/photo_capture.dart';
 import '../widgets/share_outfit_sheet.dart';
 import '../widgets/weather_context_badge.dart';
@@ -35,6 +36,7 @@ class DailyOutfitScreen extends StatefulWidget {
   final OutfitApiService? service;
   final CommunityApiService? communityService;
   final PhotoCapture? capturePhoto;
+  final ClothingItem? anchorItem;
 
   const DailyOutfitScreen({
     super.key,
@@ -42,6 +44,7 @@ class DailyOutfitScreen extends StatefulWidget {
     this.service,
     this.communityService,
     this.capturePhoto,
+    this.anchorItem,
   });
 
   @override
@@ -50,6 +53,7 @@ class DailyOutfitScreen extends StatefulWidget {
 
 class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   late final WeatherRepository _weatherRepository = widget.weatherRepository ?? OpenMeteoWeatherService();
+  late ClothingItem? _anchorItem = widget.anchorItem;
 
   /// Clima local (RF16); nulo enquanto carrega ou quando indisponível
   WeatherContext? _weather;
@@ -71,12 +75,13 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
   /// Peça-chave dos parceiros que mais destravaria looks nesta ocasião (Seção 3.6.2)
   WardrobeGap? _topGap;
 
-  /// Ocasiões oferecidas e a chave correspondente no motor do IHE
+  /// Ocasiões oferecidas e a chave correspondente no motor do IHE (RF07, Seção 3.3.1)
   static const _occasions = [
     ('Casual', 'CASUAL'),
     ('Trabalho', 'TRABALHO'),
     ('Noite', 'NOITE'),
     ('Festa', 'FESTA'),
+    ('Gala', 'GALA'),
   ];
   int _occasionIndex = 0;
 
@@ -164,6 +169,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
         occasion: _occasions[_occasionIndex].$2,
         temperatureCelsius: _weather?.temperature ?? _neutralTemperature,
         isRaining: _weather?.isRainExpected ?? false,
+        anchorItemId: _anchorItem?.id,
       );
       if (!mounted || requestId != _requestId) return;
       setState(() {
@@ -430,6 +436,7 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                 eyebrow: 'Curadoria • $_today',
                 title: 'Look do Dia',
                 room: AtelierRoom.velvetBordeaux,
+                onBack: Navigator.canPop(context) ? () => Navigator.pop(context) : null,
                 trailing: RoomIconButton(
                   icon: Icons.center_focus_strong,
                   label: 'Modo Provador (Mirror Mode)',
@@ -437,6 +444,51 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
                 ),
               ),
             ),
+            if (_anchorItem case final anchor?)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.pageMargin, 0, AppSpacing.pageMargin, 14),
+                sliver: SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.ivoryVeil,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                      border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: anchor.dominantColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Peça âncora: ${anchor.name}',
+                            style: AppTypography.uiHeadline(color: AppColors.ivoryText).copyWith(fontSize: 13),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _anchorItem = null);
+                            _loadLooks();
+                          },
+                          child: Text(
+                            'REMOVER',
+                            style: AppTypography.atelierMeta(color: AppColors.ivoryMuted).copyWith(fontSize: 9.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: FilterChipsBar(
                 categories: [for (final (label, _) in _occasions) label],
@@ -557,94 +609,24 @@ class _DailyOutfitScreenState extends State<DailyOutfitScreen> {
         ),
       ),
 
-      // 3. Medidor IHE: Sala dissolve em ocre dourado com painel de joalheria limpo
+      // 3. Medidor IHE: Sala dissolve em ocre dourado com medidor vetorial joalheiro (AGENTS.md 7.2)
       const RoomMarker(room: AtelierRoom.gildedOchre),
       const SliverToBoxAdapter(child: RoomSectionTitle(title: 'Harmonia do look', meta: 'IHE')),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
         sliver: SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: AppColors.ivoryVeil,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-              border: Border.all(color: AppColors.hairlineGold, width: 0.8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '${look.ihePercentage}',
-                            style: AppTypography.heroDisplay().copyWith(fontSize: 76, height: 0.95),
-                          ),
-                          TextSpan(
-                            text: '%',
-                            style: AppTypography.heroDisplay(color: AppColors.gildedLeaf).copyWith(fontSize: 40),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    if (look.isStronglyRecommended)
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.gildedVeil,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.hairlineGold, width: 0.8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text('✦ ', style: TextStyle(fontSize: 12, color: AppColors.gildedLeaf)),
-                              Expanded(
-                                child: Text(
-                                  'LOOK FORTEMENTE RECOMENDADO',
-                                  style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 8.5),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  look.stylingAdvice,
-                  style: AppTypography.bodyReading(color: AppColors.ivoryMuted).copyWith(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () => _showIheBreakdownSheet(context, look),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.analytics_outlined, size: 14, color: AppColors.gildedLeaf),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Ver análise dos 4 pilares científicos →',
-                          style: AppTypography.atelierMeta(color: AppColors.gildedLeaf).copyWith(fontSize: 10.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          child: AtelierIheGauge(
+            ihePercentage: look.ihePercentage,
+            sCor: look.sCor,
+            sBio: look.sBio,
+            sOcasion: look.sOcasion,
+            sCos: look.sCos,
+            dominantColor: look.items.firstOrNull?.dominantColor ?? AppColors.gildedLeaf,
+            dominantLabLabel: look.items.firstOrNull?.labColorSpace,
+            stylingAdvice: look.stylingAdvice,
+            isStronglyRecommended: look.isStronglyRecommended,
+            room: AtelierRoom.gildedOchre,
+            onTapDetails: () => _showIheBreakdownSheet(context, look),
           ),
         ),
       ),

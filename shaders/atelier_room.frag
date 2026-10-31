@@ -5,7 +5,7 @@
 
 #include <flutter/runtime_effect.glsl>
 
-precision mediump float;
+precision highp float;
 
 uniform vec2 uSize;
 uniform vec4 uColorA;
@@ -20,6 +20,7 @@ uniform float uDrift;    // deslocamento vertical da textura acompanhando o scro
 out vec4 fragColor;
 
 float hash(vec2 p) {
+  p = mod(p, 289.0);
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);

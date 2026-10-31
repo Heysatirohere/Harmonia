@@ -119,23 +119,24 @@ class AppTypography {
     );
   }
 
-  // Métodos de Suporte Editorial
+  // Métodos de Suporte Editorial (AGENTS.md Seção 5)
   static TextStyle displayEditorial({Color color = AppColors.inkText}) {
     return GoogleFonts.bodoniModa(
-      fontSize: 32,
+      fontSize: 40,
       fontWeight: FontWeight.w600,
-      letterSpacing: -0.6,
-      height: 1.15,
+      letterSpacing: -1.0,
+      height: 1.05,
       color: color,
     );
   }
 
   static TextStyle subtitleCuratorial({Color color = AppColors.inkSecondary}) {
     return GoogleFonts.bodoniModa(
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.italic,
-      height: 1.25,
+      letterSpacing: -0.2,
+      height: 1.2,
       color: color,
     );
   }
@@ -145,15 +146,16 @@ class AppTypography {
       fontSize: 15,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
-      height: 1.3,
+      height: 1.30,
       color: color,
     );
   }
 
   static TextStyle bodyReading({Color color = AppColors.inkText}) {
     return GoogleFonts.interTight(
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: FontWeight.w400,
+      letterSpacing: 0.0,
       height: 1.45,
       color: color,
     );
@@ -163,22 +165,47 @@ class AppTypography {
     return GoogleFonts.interTight(
       fontSize: 11,
       fontWeight: FontWeight.w600,
-      letterSpacing: 0.8,
-      height: 1.3,
+      letterSpacing: 1.2,
+      height: 1.30,
       color: color,
     );
   }
 
-  // ── Renascença do Ateliê: escala de revista sobre Sala ───────────────────
-  static TextStyle heroDisplay({Color color = AppColors.ivoryText}) {
+  // ── Renascença do Ateliê: escala de revista sobre Sala (AGENTS.md Seção 5) ──
+  static TextStyle heroDisplay({Color color = AppColors.ivoryText, double fontSize = 56}) {
     return GoogleFonts.bodoniModa(
-      fontSize: 48,
+      fontSize: fontSize,
       fontWeight: FontWeight.w700,
-      letterSpacing: -1.4,
-      height: 1.0,
+      letterSpacing: -1.0,
+      height: 1.05,
       color: color,
     );
   }
+
+  static TextStyle atelierHero({Color color = AppColors.ivoryText}) =>
+      heroDisplay(color: color, fontSize: 56);
+
+  static TextStyle atelierDisplay({Color color = AppColors.ivoryText, double fontSize = 40}) {
+    return GoogleFonts.bodoniModa(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -1.0,
+      height: 1.05,
+      color: color,
+    );
+  }
+
+  static TextStyle atelierSubtitle({Color color = AppColors.ivoryMuted}) =>
+      subtitleCuratorial(color: color);
+
+  static TextStyle atelierHeadline({Color color = AppColors.ivoryText}) =>
+      uiHeadline(color: color);
+
+  static TextStyle atelierBody({Color color = AppColors.ivoryText}) =>
+      bodyReading(color: color);
+
+  static TextStyle atelierBadge({Color color = AppColors.ivoryMuted}) =>
+      metadataBadge(color: color);
 
   static TextStyle sectionDisplay({Color color = AppColors.ivoryText}) {
     return GoogleFonts.bodoniModa(
@@ -196,7 +223,7 @@ class AppTypography {
       fontSize: 11,
       fontWeight: FontWeight.w600,
       letterSpacing: 1.2,
-      height: 1.3,
+      height: 1.30,
       color: color,
     );
   }

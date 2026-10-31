@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
+import '../atelier/atelier_room.dart';
+import '../atelier/atelier_widgets.dart';
 
 
 /// Visualizador da Remoção de Fundo e Segmentação Semântica (Canal Alfa)
@@ -319,67 +321,25 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-/// Shimmer Aquecido para o Estado Intermediário de Remoção de Fundo
-class _WarmShimmerProcessingPlaceholder extends StatefulWidget {
-  @override
-  State<_WarmShimmerProcessingPlaceholder> createState() =>
-      __WarmShimmerProcessingPlaceholderState();
-}
-
-class __WarmShimmerProcessingPlaceholderState
-    extends State<_WarmShimmerProcessingPlaceholder>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _shimmerController;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
-
-    _colorAnimation = ColorTween(
-      begin: const Color(0x0FF4EEE1),
-      end: const Color(0x2EF4EEE1),
-    ).animate(
-      CurvedAnimation(
-        parent: _shimmerController,
-        curve: AppMotion.editorialDecel,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    super.dispose();
-  }
-
+/// Shimmer Tingido para o Estado Intermediário de Remoção de Fundo (AGENTS.md 6.2)
+class _WarmShimmerProcessingPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _colorAnimation,
-      builder: (context, child) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                color: _colorAnimation.value,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'REMOVENDO FUNDO E ISOLANDO CANAL ALFA...',
-              style: AppTypography.atelierMeta().copyWith(fontSize: 9),
-            ),
-          ],
-        ),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AtelierShimmer(
+            room: AtelierRoom.frescoBlue,
+            width: 140,
+            height: 140,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'REMOVENDO FUNDO E ISOLANDO CANAL ALFA...',
+            style: AppTypography.atelierMeta().copyWith(fontSize: 9),
+          ),
+        ],
       ),
     );
   }

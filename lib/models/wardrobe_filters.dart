@@ -43,14 +43,32 @@ class WardrobeFilters {
   final Set<String> colorFamilies;
   final Set<FormalityBand> formality;
   final Set<UsageBand> usage;
+  final Set<String> seasons;
+  final String? capsule;
 
-  const WardrobeFilters({this.colorFamilies = const {}, this.formality = const {}, this.usage = const {}});
+  const WardrobeFilters({
+    this.colorFamilies = const {},
+    this.formality = const {},
+    this.usage = const {},
+    this.seasons = const {},
+    this.capsule,
+  });
 
   static const none = WardrobeFilters();
 
-  bool get isEmpty => colorFamilies.isEmpty && formality.isEmpty && usage.isEmpty;
+  bool get isEmpty =>
+      colorFamilies.isEmpty &&
+      formality.isEmpty &&
+      usage.isEmpty &&
+      seasons.isEmpty &&
+      (capsule == null || capsule!.isEmpty);
 
-  int get activeCount => colorFamilies.length + formality.length + usage.length;
+  int get activeCount =>
+      colorFamilies.length +
+      formality.length +
+      usage.length +
+      seasons.length +
+      ((capsule != null && capsule!.isNotEmpty) ? 1 : 0);
 
   bool matches(ClothingItem item) {
     if (colorFamilies.isNotEmpty && !colorFamilies.contains(item.colorFamily)) return false;
@@ -59,6 +77,15 @@ class WardrobeFilters {
       if (score == null || !formality.any((band) => band.contains(score))) return false;
     }
     if (usage.isNotEmpty && !usage.any((band) => band.contains(item))) return false;
+    if (seasons.isNotEmpty) {
+      final itemSeason = item.season;
+      if (itemSeason == null || (!seasons.contains(itemSeason) && itemSeason != 'Todas')) {
+        return false;
+      }
+    }
+    if (capsule != null && capsule!.isNotEmpty && !item.capsules.contains(capsule)) {
+      return false;
+    }
     return true;
   }
 
@@ -66,18 +93,40 @@ class WardrobeFilters {
         colorFamilies: _toggle(colorFamilies, family),
         formality: formality,
         usage: usage,
+        seasons: seasons,
+        capsule: capsule,
       );
 
   WardrobeFilters toggleFormality(FormalityBand band) => WardrobeFilters(
         colorFamilies: colorFamilies,
         formality: _toggle(formality, band),
         usage: usage,
+        seasons: seasons,
+        capsule: capsule,
       );
 
   WardrobeFilters toggleUsage(UsageBand band) => WardrobeFilters(
         colorFamilies: colorFamilies,
         formality: formality,
         usage: _toggle(usage, band),
+        seasons: seasons,
+        capsule: capsule,
+      );
+
+  WardrobeFilters toggleSeason(String season) => WardrobeFilters(
+        colorFamilies: colorFamilies,
+        formality: formality,
+        usage: usage,
+        seasons: _toggle(seasons, season),
+        capsule: capsule,
+      );
+
+  WardrobeFilters selectCapsule(String? selectedCapsule) => WardrobeFilters(
+        colorFamilies: colorFamilies,
+        formality: formality,
+        usage: usage,
+        seasons: seasons,
+        capsule: selectedCapsule == capsule ? null : selectedCapsule,
       );
 
   static Set<T> _toggle<T>(Set<T> set, T value) => set.contains(value) ? ({...set}..remove(value)) : {...set, value};

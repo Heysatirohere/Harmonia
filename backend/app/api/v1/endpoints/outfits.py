@@ -135,23 +135,27 @@ async def generate_daily_outfits(
         ClothingItem.is_archived == False
     )
     res_items = await db.execute(stmt_items)
-    items = res_items.scalars().all()
+    items = [i for i in res_items.scalars().all() if not getattr(i, "is_archived", False)]
 
     if not items:
         return []
 
     approved, discarded = await _feedback_looks(db, user)
 
-    signature = look_request_signature(
-        user,
-        [item.id for item in items],
-        # Descartes mudam o resultado: gerar de novo depois deles é uma consulta nova
+    sig_parts = [
         ";".join(sorted(",".join(sorted(look)) for look in discarded)),
         payload.occasion,
-        # Clima real varia ao longo do dia; só a faixa muda o resultado
         temperature_band(payload.temperature_celsius),
         payload.is_raining,
         payload.limit,
+    ]
+    if payload.anchor_item_id is not None:
+        sig_parts.append(str(payload.anchor_item_id))
+
+    signature = look_request_signature(
+        user,
+        [item.id for item in items],
+        *sig_parts,
     )
     repeated = was_charged_today(user, signature)
 
@@ -170,7 +174,8 @@ async def generate_daily_outfits(
         limit=payload.limit,
         excluded_looks=discarded,
         # Aprovações reordenam o ranking sem gastar cota: só descartes mudam a assinatura
-        style=build_style_space(list(items), approved, discarded),
+        style=build_style_space(list(items), approved, discarded, fallback_user_vector=user.style_vector),
+        anchor_item_id=payload.anchor_item_id,
     )
 
     # Incrementa cota Freemium diária utilizada
@@ -268,11 +273,20 @@ async def analyze_store_parity(
         matches=[
             ParityMatchResponse(
                 item=ClothingItemResponse.model_validate(match.item),
+                ihe_score=match.best_look.ihe_result.ihe_score,
                 ihe_percentage=match.best_look.ihe_result.ihe_percentage,
                 s_cor=match.best_look.ihe_result.s_cor,
                 s_bio=match.best_look.ihe_result.s_bio,
+                s_ocasion=match.best_look.ihe_result.s_ocasion,
+                s_cos=match.best_look.ihe_result.s_cos,
                 is_strongly_recommended=match.best_look.ihe_result.is_strongly_recommended,
                 rationale=_parity_rationale(match.best_look.ihe_result),
+                styling_advice=match.best_look.styling_advice,
+                look_items=[
+                    ClothingItemResponse.model_validate(piece)
+                    for piece in match.best_look.items
+                    if piece is not store_item and getattr(piece, "id", None) is not None
+                ],
             )
             for match in parity.matches
         ],
@@ -301,9 +315,12 @@ async def wardrobe_gaps(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
-    items = list((await db.execute(
-        select(ClothingItem).where(ClothingItem.user_id == user.id, ClothingItem.is_archived == False)
-    )).scalars().all())
+    items = [
+        i for i in (await db.execute(
+            select(ClothingItem).where(ClothingItem.user_id == user.id, ClothingItem.is_archived == False)
+        )).scalars().all()
+        if not getattr(i, "is_archived", False)
+    ]
     approved, discarded = await _feedback_looks(db, user)
     analysis = analyze_gaps(
         items,
@@ -311,7 +328,7 @@ async def wardrobe_gaps(
         StaticPartnerCatalog().archetypes(),
         occasion=occasion,
         limit=limit,
-        style=build_style_space(items, approved, discarded),
+        style=build_style_space(items, approved, discarded, fallback_user_vector=user.style_vector),
     )
 
     return WardrobeGapsResponse(
@@ -336,6 +353,9 @@ async def wardrobe_gaps(
                         name=product.name,
                         color_hex=lab_to_hex(product.L, product.a, product.b),
                         url=partner_search_url(product.store, product.search_query, gap.archetype.id),
+                        price=product.price,
+                        fabric=product.fabric,
+                        image_url=product.image_url,
                     )
                     for product in gap.products
                 ],
@@ -361,6 +381,22 @@ async def _feedback_looks(db: AsyncSession, user: User) -> Tuple[List[FrozenSet[
         return [frozenset(str(i) for i in entry.item_ids) for entry in feedback if entry.action == action]
 
     return looks("APPROVED"), set(looks("DISCARDED"))
+
+
+async def _sync_user_style_vector(db: AsyncSession, user: User) -> None:
+    """Atualiza e persiste o vetor latente de estilo do usuário em public.users.style_vector (RF13)."""
+    items = [
+        i for i in (await db.execute(
+            select(ClothingItem).where(ClothingItem.user_id == user.id, ClothingItem.is_archived == False)
+        )).scalars().all()
+        if not getattr(i, "is_archived", False)
+    ]
+    approved, discarded = await _feedback_looks(db, user)
+    space = build_style_space(items, approved, discarded)
+    if space is not None and space.user_direction is not None:
+        user.style_vector = space.user_vector()
+    else:
+        user.style_vector = None
 
 
 @router.post("/feedback", response_model=LookFeedbackResponse, status_code=status.HTTP_201_CREATED)
@@ -392,6 +428,8 @@ async def create_look_feedback(
         created_at=datetime.now(timezone.utc),
     )
     db.add(feedback)
+    await db.flush()
+    await _sync_user_style_vector(db, user)
     await db.commit()
     return LookFeedbackResponse.model_validate(feedback)
 
@@ -408,4 +446,6 @@ async def delete_look_feedback(
     if feedback is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback não encontrado.")
     await db.delete(feedback)
+    await db.flush()
+    await _sync_user_style_vector(db, user)
     await db.commit()

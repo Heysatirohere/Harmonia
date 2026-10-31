@@ -101,3 +101,16 @@ def test_shipped_label_file_matches_the_label_table():
 
 def test_every_family_maps_to_an_app_category():
     assert {label.family for label in ga.GARMENT_LABELS} == set(ga.APP_CATEGORIES)
+
+
+def test_classify_infers_cut_type_thermal_category_and_season():
+    blazer_attrs = ga.classify(piece("blazer", "solid"), VECTORS)
+    assert blazer_attrs.cut_type == "ESTRUTURADO_OMBRO"
+    assert blazer_attrs.thermal_category == "PESADO"
+    assert blazer_attrs.season == "MEIA_ESTACAO"
+
+    shorts_attrs = ga.classify(piece("shorts", "solid"), VECTORS)
+    assert shorts_attrs.cut_type == "RETO"
+    assert shorts_attrs.thermal_category == "LEVE"
+    assert shorts_attrs.season == "VERAO"
+

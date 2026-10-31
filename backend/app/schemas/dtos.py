@@ -12,6 +12,7 @@ from app.engine.color_science import LabColor, normalize_palette
 from app.engine.morphology import normalize_biotype
 from app.engine.context_rules import normalize_occasion
 from app.engine.wardrobe_analytics import color_family
+from app.vision.color_extraction import describe_lab, lab_to_hex
 from app.core.config import settings
 
 
@@ -70,6 +71,11 @@ class StyleProfileUpdate(BaseModel):
     body_shape: Optional[str] = Field(default=None, description="Biótipo corporal (ex: AMPULHETA)")
     seasonal_palette: Optional[str] = Field(default=None, description="Cartela sazonal (ex: OUTONO_QUENTE)")
     is_public: Optional[bool] = Field(default=None, description="Visibilidade do perfil e publicações no feed (RN05)")
+    display_name: Optional[str] = Field(default=None, max_length=100, description="Nome exibido no perfil e no feed")
+    is_premium: Optional[bool] = Field(default=None, description="Plano de assinatura (Freemium vs Premium)")
+    notifications_enabled: Optional[bool] = Field(default=None, description="Notificações push gerais")
+    rotation_alerts_enabled: Optional[bool] = Field(default=None, description="Alertas de peças ociosas (RF10)")
+    lgpd_consent_accepted: Optional[bool] = Field(default=None, description="Consentimento LGPD (RNF01)")
 
     @field_validator("body_shape")
     @classmethod
@@ -86,10 +92,14 @@ class StyleProfileResponse(BaseModel):
     """Perfil de estilo do usuário autenticado com o uso da cota Freemium (RF02, RF18, RN02, RN05)."""
     id: UUID
     email: str
+    display_name: Optional[str] = None
     body_shape: Optional[str] = None
     seasonal_palette: Optional[str] = None
     is_premium: bool = False
     is_public: bool = True
+    notifications_enabled: bool = True
+    rotation_alerts_enabled: bool = True
+    lgpd_consent_accepted: bool = True
     items_count: int = 0
     looks_generated_today: int = 0
     max_items_allowed: int = settings.FREEMIUM_MAX_CLOTHING_ITEMS
@@ -97,9 +107,15 @@ class StyleProfileResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("is_public", mode="before")
+    @field_validator(
+        "is_public",
+        "notifications_enabled",
+        "rotation_alerts_enabled",
+        "lgpd_consent_accepted",
+        mode="before",
+    )
     @classmethod
-    def default_is_public(cls, v: Optional[bool]) -> bool:
+    def default_bool_true(cls, v: Optional[bool]) -> bool:
         return True if v is None else bool(v)
 
     @computed_field
@@ -107,6 +123,37 @@ class StyleProfileResponse(BaseModel):
     def onboarding_completed(self) -> bool:
         """O onboarding está completo quando biótipo e cartela foram definidos."""
         return self.body_shape is not None and self.seasonal_palette is not None
+
+
+class MorphologyQuizRequest(BaseModel):
+    """Questionário visual assistido para descoberta do biótipo corporal (RF02, Seção 3.1.2)."""
+    shoulder_hip_relation: Literal["aligned", "shoulders_wider", "hips_wider"] = Field(
+        ..., description="Relação visual entre a largura dos ombros e a do quadril"
+    )
+    waist_definition: Literal["defined", "straight", "fuller_midsection"] = Field(
+        ..., description="Grau de definição da cintura"
+    )
+    apply_to_profile: bool = Field(
+        default=False, description="Se verdadeiro, aplica o biótipo resultante ao perfil do usuário"
+    )
+
+
+class MorphologyQuizResponse(BaseModel):
+    """Resultado do questionário assistido de morfologia corporal (RF02)."""
+    body_shape: str
+    title: str
+    summary: str
+    recommended_cuts: List[str]
+
+
+class WeatherResponse(BaseModel):
+    """Telemetria climática local para o pilar S_ocasion (RF07, Seção 5.3)."""
+    temperature_celsius: float
+    is_raining: bool
+    weather_code: int = 0
+    condition_label: str
+    thermal_recommendation: Literal["LEVE", "MEDIO", "PESADO", "IMPERMEAVEL"]
+    location_name: Optional[str] = None
 
 
 class UserUsageSummary(BaseModel):
@@ -166,6 +213,15 @@ class ClothingItemCreate(BaseModel):
     dominant_b: float = Field(..., ge=-128.0, le=127.0, description="Coordenada b* CIE L*a*b*")
     formality_score: float = Field(..., ge=0.0, le=1.0, description="Grau de formalidade (0.0 a 1.0)")
     cut_type: Optional[str] = Field(default=None, description="Corte/modelagem (ex: acinturado, pantalona)")
+    pattern: Optional[str] = Field(default=None, max_length=50, description="Estampa (ex: solid, striped, floral)")
+    season: Optional[str] = Field(default=None, max_length=30, description="Estação (VERAO, INVERNO, MEIA_ESTACAO, ANO_TODO)")
+    thermal_category: Optional[str] = Field(default=None, max_length=30, description="Categoria térmica (LEVE, MEDIO, PESADO, IMPERMEAVEL)")
+    purchase_price: Optional[float] = Field(default=None, ge=0.0, description="Valor de aquisição em R$ para cálculo do custo por uso")
+    brand: Optional[str] = Field(default=None, max_length=100, description="Marca da peça")
+    fabric_composition: Optional[str] = Field(default=None, max_length=160, description="Composição têxtil")
+    is_conscious_fashion: bool = Field(default=False, description="Selo de moda consciente / ESG")
+    disposal_status: Literal["ACTIVE", "DONATED", "DISCARDED"] = Field(default="ACTIVE", description="Status da peça no acervo")
+    capsules: List[str] = Field(default_factory=list, description="Cápsulas temáticas (ex: ['Mala de Viagem', 'Cápsula de Inverno'])")
     style_embedding: Optional[List[float]] = Field(default=None, description="Embedding de estilo (512d)")
 
     @field_validator("style_embedding")
@@ -191,6 +247,9 @@ class GarmentSuggestionResponse(BaseModel):
     pattern: Optional[str] = Field(default=None, description="Estampa: solid, striped, plaid, floral, polka, animal, graphic")
     formality: float = Field(..., ge=0.0, le=1.0)
     confidence: float = Field(..., ge=0.0, le=1.0, description="Probabilidade da categoria sugerida")
+    cut_type: Optional[str] = Field(default=None, description="Corte/modelagem sugerida para o motor morfológico (S_bio)")
+    thermal_category: Optional[str] = Field(default=None, description="Categoria térmica sugerida (LEVE, MEDIO, PESADO, IMPERMEAVEL)")
+    season: Optional[str] = Field(default=None, description="Estação recomendada (VERAO, INVERNO, MEIA_ESTACAO, ANO_TODO)")
 
 
 class ColorimetryResponse(BaseModel):
@@ -235,10 +294,34 @@ class ClothingItemResponse(BaseModel):
     dominant_b: float
     formality_score: float
     cut_type: Optional[str] = None
+    pattern: Optional[str] = None
+    season: Optional[str] = None
+    thermal_category: Optional[str] = None
+    purchase_price: Optional[float] = None
+    brand: Optional[str] = None
+    fabric_composition: Optional[str] = None
+    is_conscious_fashion: bool = False
+    disposal_status: str = "ACTIVE"
+    capsules: List[str] = Field(default_factory=list)
     is_archived: bool = False
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("is_conscious_fashion", "is_archived", mode="before")
+    @classmethod
+    def default_bool_false(cls, v: Optional[bool]) -> bool:
+        return False if v is None else bool(v)
+
+    @field_validator("disposal_status", mode="before")
+    @classmethod
+    def default_disposal_status(cls, v: Optional[str]) -> str:
+        return "ACTIVE" if not v else str(v)
+
+    @field_validator("capsules", mode="before")
+    @classmethod
+    def default_capsules(cls, v: Optional[List[str]]) -> List[str]:
+        return [] if v is None else list(v)
 
     @computed_field
     @property
@@ -252,6 +335,14 @@ class WardrobeItemResponse(ClothingItemResponse):
     usage_rate: int = Field(default=0, description="Looks aprovados com a peça")
     last_worn_at: Optional[datetime] = None
     days_idle: int = Field(default=0, description="Dias desde o último uso, ou desde o cadastro se nunca usada")
+    cost_per_use: Optional[float] = Field(default=None, description="Custo por uso em R$ (preço / max(1, usos))")
+
+
+class CapsuleSummaryResponse(BaseModel):
+    """Resumo de uma cápsula temática do guarda-roupa (Seção 3.2.1)."""
+    name: str
+    items_count: int
+    item_ids: List[UUID]
 
 
 class GarmentUsageResponse(BaseModel):
@@ -260,6 +351,10 @@ class GarmentUsageResponse(BaseModel):
     wear_count: int = Field(..., ge=0, description="Looks aprovados com esta peça")
     last_worn_at: Optional[datetime] = Field(default=None, description="Data da aprovação mais recente; nula se nunca usada")
     days_idle: int = Field(..., ge=0, description="Dias desde o último uso (ou desde o cadastro, se nunca usada)")
+    cost_per_use: Optional[float] = Field(default=None, description="Custo por uso em R$")
+
+
+DormantItemResponse = GarmentUsageResponse
 
 
 class ColorShareResponse(BaseModel):
@@ -281,6 +376,12 @@ class WardrobeAnalyticsResponse(BaseModel):
     dormant_count: int = Field(..., description="Sem uso há 90 dias ou mais")
     never_worn_count: int
     total_wears: int
+    total_wardrobe_value: float = Field(default=0.0, description="Valor total investido nas peças precificadas (R$)")
+    average_cost_per_use: Optional[float] = Field(default=None, description="Custo médio por uso das peças precificadas (R$)")
+    conscious_items_count: int = Field(default=0, description="Peças com selo de moda consciente / ESG")
+    donated_items: int = Field(default=0, description="Peças encaminhadas para doação (ESG)")
+    discarded_items: int = Field(default=0, description="Peças descartadas")
+    capsules_count: int = Field(default=0, description="Total de cápsulas temáticas ativas")
     color_distribution: List[ColorShareResponse]
     dormant_items: List[GarmentUsageResponse] = Field(..., description="Peças adormecidas, da mais esquecida para a menos")
 
@@ -291,6 +392,18 @@ class ClothingItemUpdate(BaseModel):
     subcategory: Optional[str] = Field(default=None, description="Subcategoria descritiva ou nome")
     formality_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Grau de formalidade (0.0 a 1.0)")
     cut_type: Optional[str] = Field(default=None, description="Corte/modelagem")
+    pattern: Optional[str] = Field(default=None, max_length=50, description="Estampa")
+    season: Optional[str] = Field(default=None, max_length=30, description="Estação")
+    thermal_category: Optional[str] = Field(default=None, max_length=30, description="Categoria térmica")
+    purchase_price: Optional[float] = Field(default=None, ge=0.0, description="Valor de aquisição em R$")
+    brand: Optional[str] = Field(default=None, max_length=100, description="Marca")
+    fabric_composition: Optional[str] = Field(default=None, max_length=160, description="Composição têxtil")
+    is_conscious_fashion: Optional[bool] = Field(default=None, description="Selo de moda consciente / ESG")
+    is_archived: Optional[bool] = Field(default=None, description="Arquivada do motor de recomendação")
+    disposal_status: Optional[Literal["ACTIVE", "DONATED", "DISCARDED"]] = Field(
+        default=None, description="Destino ESG da peça (ACTIVE, DONATED, DISCARDED)"
+    )
+    capsules: Optional[List[str]] = Field(default=None, description="Lista de cápsulas temáticas da peça")
 
 
 class ClothingItemFilter(BaseModel):
@@ -338,6 +451,7 @@ class OutfitGenerateRequest(BaseModel):
     temperature_celsius: float = Field(default=22.0, description="Temperatura local em °C")
     is_raining: bool = Field(default=False, description="Flag de chuva")
     limit: int = Field(default=5, ge=1, le=20, description="Limite máximo de looks recomendados")
+    anchor_item_id: Optional[UUID] = Field(default=None, description="ID de peça âncora (ex: peça adormecida a reativar)")
 
     @field_validator("occasion")
     @classmethod
@@ -393,11 +507,16 @@ class StoreParityRequest(BaseModel):
 class ParityMatchResponse(BaseModel):
     """Peça do acervo e o IHE do melhor look que ela forma com a peça da loja."""
     item: ClothingItemResponse
+    ihe_score: float = 0.0
     ihe_percentage: float
     s_cor: float
     s_bio: float
+    s_ocasion: float = 0.75
+    s_cos: float = 0.5
     is_strongly_recommended: bool
     rationale: str
+    styling_advice: str = ""
+    look_items: List[ClothingItemResponse] = Field(default_factory=list)
 
 
 class StoreParityResponse(BaseModel):
@@ -425,6 +544,9 @@ class PartnerProductResponse(BaseModel):
     name: str
     color_hex: str
     url: str
+    price: float = 159.90
+    fabric: str = "100% Algodão Certificado"
+    image_url: Optional[str] = None
 
 
 class WardrobeGapResponse(BaseModel):
@@ -531,6 +653,43 @@ class CommunityPostCreate(BaseModel):
         return tags
 
 
+class CommunityPostUpdate(BaseModel):
+    """Atualização parcial de publicação pelo autor (RN05)."""
+    is_public: Optional[bool] = None
+    caption: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    occasion: Optional[str] = None
+    style_tags: Optional[List[str]] = Field(default=None, max_length=MAX_STYLE_TAGS)
+
+    @field_validator("caption")
+    @classmethod
+    def strip_caption(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("Escreva uma legenda para o look.")
+        return v
+
+    @field_validator("occasion")
+    @classmethod
+    def check_occasion(cls, v: Optional[str]) -> Optional[str]:
+        return normalize_occasion(v) if v is not None else None
+
+    @field_validator("style_tags")
+    @classmethod
+    def clean_tags(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        if v is None:
+            return None
+        return CommunityPostCreate.clean_tags(v)
+
+
+class MoodboardSummaryResponse(BaseModel):
+    """Pasta do moodboard privado de referências salvas pelo usuário (Seção 3.5.2)."""
+    name: str
+    posts_count: int
+    cover_photo_url: Optional[str] = None
+
+
 class PostPieceResponse(BaseModel):
     """Peça do look publicado, para a ficha em papel do post (AGENTS.md 7.4)."""
     id: UUID
@@ -540,8 +699,20 @@ class PostPieceResponse(BaseModel):
     dominant_l: float
     dominant_a: float
     dominant_b: float
+    brand: Optional[str] = None
+    fabric_composition: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def color_hex(self) -> str:
+        return lab_to_hex(self.dominant_l, self.dominant_a, self.dominant_b)
+
+    @computed_field
+    @property
+    def color_name(self) -> str:
+        return describe_lab(self.dominant_l, self.dominant_a, self.dominant_b)
 
 
 class CommunityPostResponse(BaseModel):

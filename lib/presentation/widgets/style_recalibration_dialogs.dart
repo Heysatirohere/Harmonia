@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../domain/models/colorimetry_result.dart';
+import '../../domain/repositories/style_profile_repository.dart';
 import '../../models/user_style_profile.dart';
 import '../../theme/app_theme.dart';
 import '../atelier/atelier_widgets.dart';
 import 'color_palette_preview.dart';
+import 'photo_capture.dart';
 
 /// Folhas de recalibração do perfil morfocromático (RF18)
 class StyleRecalibrationDialogs {
   static void showColorimetryRecalibration(
     BuildContext context, {
     SeasonalPaletteType? current,
+    StyleProfileRepository? repository,
+    PhotoCapture captureSelfie = pickSelfieWithSystem,
     required ValueChanged<SeasonalPaletteType> onSelected,
   }) {
     HapticFeedback.lightImpact();
     var selected = current ?? SeasonalPaletteType.outonoQuente;
+    ColorimetryResult? analysis;
+    String? analysisError;
+    var analyzing = false;
 
     showModalBottomSheet<void>(
       context: context,
@@ -25,9 +34,55 @@ class StyleRecalibrationDialogs {
           title: 'Recalibrar Colorimetria',
           subtitle: 'Escolha a cartela sazonal que melhor harmoniza com sua pele, olhos e cabelos.',
           children: [
+            if (repository != null) ...[
+              CinnabarButton(
+                label: analysis == null ? 'Analisar com selfie' : 'Refazer a selfie',
+                icon: Icons.face_retouching_natural_outlined,
+                busy: analyzing,
+                onPressed: analyzing
+                    ? null
+                    : () async {
+                        HapticFeedback.selectionClick();
+                        final photo = await captureSelfie(ImageSource.camera);
+                        if (photo == null || !ctx.mounted) return;
+                        setSheetState(() {
+                          analyzing = true;
+                          analysisError = null;
+                        });
+                        try {
+                          final res = await repository.analyzeSelfie(photo.bytes, photo.name);
+                          if (!ctx.mounted) return;
+                          HapticFeedback.mediumImpact();
+                          setSheetState(() {
+                            analysis = res;
+                            selected = res.palette;
+                          });
+                        } on StyleProfileFailure catch (e) {
+                          if (ctx.mounted) setSheetState(() => analysisError = e.message);
+                        } finally {
+                          if (ctx.mounted) setSheetState(() => analyzing = false);
+                        }
+                      },
+              ),
+              if (analysis != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${analysis!.summary}. Sugerimos ${analysis!.palette.displayName}.',
+                  style: AppTypography.bodySmall(color: AppColors.inkText),
+                ),
+              ],
+              if (analysisError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  analysisError!,
+                  style: AppTypography.bodySmall(color: AppColors.accentCinnabar),
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
             ColorPalettePreview(
               paletteType: selected,
-              showCameraHud: false,
+              showCameraHud: true,
               onPaletteSelected: (palette) => setSheetState(() => selected = palette),
             ),
             const SizedBox(height: 20),

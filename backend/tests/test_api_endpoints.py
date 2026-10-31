@@ -1707,3 +1707,130 @@ async def test_store_parity_rejects_a_vector_of_the_wrong_size():
         response = await client.post("/api/v1/outfits/store-parity", json=payload, headers=auth_headers(user_id))
 
     assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_wardrobe_enriched_fields_cost_per_use_capsules_and_esg_disposal():
+    user_id = uuid.uuid4()
+    headers = auth_headers(user_id, email="capsule@harmonia.app")
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        create_res = await client.post(
+            "/api/v1/wardrobe/items",
+            json={
+                "category": "top",
+                "subcategory": "Camisa de Linho Orgânico",
+                "image_url": _photo_url(f"{user_id}/camisa.png"),
+                "dominant_l": 90.0,
+                "dominant_a": 0.5,
+                "dominant_b": 5.0,
+                "formality_score": 0.65,
+                "cut_type": "ALFAIATARIA_ESTRUTURADA",
+                "pattern": "solid",
+                "season": "VERAO",
+                "thermal_category": "LEVE",
+                "purchase_price": 300.0,
+                "brand": "Ateliê Consciente",
+                "fabric_composition": "100% Linho Certificado",
+                "is_conscious_fashion": True,
+                "capsules": ["Mala de Viagem", "Trabalho Verão"],
+            },
+            headers=headers,
+        )
+        assert create_res.status_code == 201
+        item_id = create_res.json()["id"]
+
+        # Aprovar look 2 vezes para reduzir o custo por uso para R$ 150.00
+        _approve(user_id, [item_id], days_ago=5)
+        _approve(user_id, [item_id], days_ago=1)
+
+        items_res = await client.get(
+            "/api/v1/wardrobe/items",
+            params={"capsule": "Mala de Viagem", "season": "VERAO", "usage_band": "active"},
+            headers=headers,
+        )
+        assert items_res.status_code == 200
+        [listed] = items_res.json()
+        assert listed["cost_per_use"] == 150.0
+        assert listed["is_conscious_fashion"] is True
+        assert listed["capsules"] == ["Mala de Viagem", "Trabalho Verão"]
+
+        capsules_res = await client.get("/api/v1/wardrobe/capsules", headers=headers)
+        assert capsules_res.status_code == 200
+        assert {c["name"] for c in capsules_res.json()} == {"Mala de Viagem", "Trabalho Verão"}
+
+        analytics_before = (await client.get("/api/v1/wardrobe/analytics", headers=headers)).json()
+        assert analytics_before["total_wardrobe_value"] == 300.0
+        assert analytics_before["average_cost_per_use"] == 150.0
+        assert analytics_before["conscious_items_count"] == 1
+        assert analytics_before["capsules_count"] == 2
+
+        # Doar a peça arquiva automaticamente e contabiliza em donated_items
+        donate_res = await client.patch(
+            f"/api/v1/wardrobe/items/{item_id}",
+            json={"disposal_status": "DONATED"},
+            headers=headers,
+        )
+        assert donate_res.status_code == 200
+        assert donate_res.json()["disposal_status"] == "DONATED"
+        assert donate_res.json()["is_archived"] is True
+
+        analytics_after = (await client.get("/api/v1/wardrobe/analytics", headers=headers)).json()
+        assert analytics_after["donated_items"] == 1
+        assert analytics_after["total_pieces"] == 0
+
+
+@pytest.mark.anyio
+async def test_feedback_persists_user_style_vector_and_undo_clears_it():
+    user_id, pieces = _seed_styled_wardrobe()
+    headers = auth_headers(user_id)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        approval = _feedback([str(pieces["minimal"].id), str(pieces["calca"].id)])
+        created = await client.post("/api/v1/outfits/feedback", json=approval, headers=headers)
+        assert created.status_code == 201
+        assert store.users[user_id].style_vector is not None
+        assert len(store.users[user_id].style_vector) == 512
+
+        deleted = await client.delete(f"/api/v1/outfits/feedback/{created.json()['id']}", headers=headers)
+        assert deleted.status_code == 204
+        assert store.users[user_id].style_vector is None
+
+
+@pytest.mark.anyio
+async def test_morphology_quiz_and_weather_endpoint(monkeypatch):
+    from app.api.v1.endpoints import weather as weather_ep
+
+    user_id = uuid.uuid4()
+    headers = auth_headers(user_id, email="quiz@harmonia.app")
+
+    async def fake_fetch(lat, lon):
+        return {
+            "temperature_celsius": 14.5,
+            "is_raining": True,
+            "weather_code": 61,
+            "condition_label": "Chuva leve",
+            "thermal_recommendation": "IMPERMEAVEL",
+        }
+
+    weather_ep._WEATHER_CACHE.clear()
+    monkeypatch.setattr(weather_ep, "_fetch_open_meteo", fake_fetch)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        quiz_res = await client.post(
+            "/api/v1/users/me/morphology-quiz",
+            json={"shoulder_hip_relation": "hips_wider", "waist_definition": "defined", "apply_to_profile": True},
+            headers=headers,
+        )
+        assert quiz_res.status_code == 200
+        assert quiz_res.json()["body_shape"] == "TRIANGULO"
+        assert store.users[user_id].body_shape == "TRIANGULO"
+
+        w_res = await client.get("/api/v1/weather?latitude=-23.55&longitude=-46.63&location_name=S%C3%A3o%20Paulo")
+        assert w_res.status_code == 200
+        w_data = w_res.json()
+        assert w_data["temperature_celsius"] == 14.5
+        assert w_data["is_raining"] is True
+        assert w_data["thermal_recommendation"] == "IMPERMEAVEL"
+        assert w_data["location_name"] == "São Paulo"
+

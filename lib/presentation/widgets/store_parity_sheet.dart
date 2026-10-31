@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../models/clothing_item.dart';
 import '../../models/store_parity_result.dart';
 
 /// Bandeja Deslizante de Paridade de Provador (RF09)
@@ -12,17 +13,20 @@ class StoreParitySheet extends StatefulWidget {
   final StoreParityResult parityResult;
   final ScrollController? scrollController;
   final VoidCallback? onClose;
+  final ValueChanged<ClothingItem>? onOverlayItem;
 
   const StoreParitySheet({
     super.key,
     required this.parityResult,
     this.scrollController,
     this.onClose,
+    this.onOverlayItem,
   });
 
   static Future<void> show(
     BuildContext context, {
     required StoreParityResult parityResult,
+    ValueChanged<ClothingItem>? onOverlayItem,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -39,6 +43,10 @@ class StoreParitySheet extends StatefulWidget {
             parityResult: parityResult,
             scrollController: scrollController,
             onClose: () => Navigator.of(ctx).pop(),
+            onOverlayItem: (item) {
+              Navigator.of(ctx).pop();
+              onOverlayItem?.call(item);
+            },
           );
         },
       ),
@@ -245,6 +253,118 @@ class _StoreParitySheetState extends State<StoreParitySheet> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    if (result.compatibleMatches.isNotEmpty) ...[
+                      SizedBox(
+                        height: 124,
+                        child: ListView.separated(
+                          key: const Key('parity_horizontal_carousel'),
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: result.compatibleMatches.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final match = result.compatibleMatches[index];
+                            final piece = match.closetItem;
+                            return Container(
+                              width: 196,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.ivoryVeil,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          color: piece.dominantColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          piece.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.interTight(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.ivoryText,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        match.formattedPercentage,
+                                        style: GoogleFonts.bodoniModa(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.gildedLeaf,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    piece.labColorSpace,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.interTight(
+                                      fontSize: 10,
+                                      color: AppColors.ivoryMuted,
+                                    ),
+                                  ),
+                                  // Ação em 1 toque para sobreposição da peça virtual sobre o reflexo do provador (AGENTS.md 7.3)
+                                  GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.mediumImpact();
+                                      widget.onOverlayItem?.call(piece);
+                                    },
+                                    behavior: HitTestBehavior.opaque,
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accentCinnabar,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: AppColors.ivoryText, width: 0.8),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.layers_outlined, size: 13, color: AppColors.ivoryText),
+                                          const SizedBox(width: 5),
+                                          Flexible(
+                                            child: Text(
+                                              'Sobrepor no Espelho (AR)',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.interTight(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.ivoryText,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     ...List.generate(result.compatibleMatches.length, (index) {
                       final match = result.compatibleMatches[index];
                       final isSelected = _selectedMatchIndex == index;

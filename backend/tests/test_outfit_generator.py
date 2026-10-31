@@ -206,3 +206,71 @@ def test_temperature_band_matches_engine_thresholds():
     assert [temperature_band(t) for t in (14.9, 15.0, 15.9, 16.0, 25.0, 25.1)] == [
         "FRIO", "FRESCO", "FRESCO", "AMENO", "AMENO", "QUENTE",
     ]
+
+
+def test_categorize_item_does_not_confuse_calcados_with_calca():
+    from app.engine.outfit_generator import _categorize_item
+
+    assert _categorize_item(_app_item("Calçado Esportivo", "Tênis Corrida")) == "shoes"
+    assert _categorize_item(_app_item("Calçados Casuais", "Mocassim")) == "shoes"
+    assert _categorize_item(_app_item("Terceira peça", "Blazer Estruturado")) == "outerwear"
+    assert _categorize_item(_app_item("outerwear", "Trench Coat")) == "outerwear"
+
+
+def test_thermal_category_inferred_from_garment_attributes_and_weather_ranking():
+    from app.engine.outfit_generator import infer_combo_thermal_category, infer_item_thermal_category
+
+    user = _parity_user()
+    winter_coat = _app_item("Terceira peça", "Sobretudo de Lã")
+    heavy_top = _app_item("Partes de cima", "Suéter de Tricô")
+    light_top = _app_item("Partes de cima", "Regata de Linho")
+    heavy_bottom = _app_item("Partes de baixo", "Calça de Veludo")
+    light_bottom = _app_item("Partes de baixo", "Shorts de Linho")
+    boots = _app_item("Calçados", "Bota de Couro")
+    sandals = _app_item("Calçados", "Sandália Rasteira")
+    raincoat = _app_item("Terceira peça", "Parka Impermeável")
+
+    assert infer_item_thermal_category(winter_coat) == "PESADO"
+    assert infer_item_thermal_category(light_top) == "LEVE"
+    assert infer_item_thermal_category(raincoat) == "IMPERMEAVEL"
+    assert infer_combo_thermal_category([light_top, light_bottom, sandals], is_raining=False) == "LEVE"
+    assert infer_combo_thermal_category([heavy_top, heavy_bottom, boots], is_raining=False) == "PESADO"
+    assert infer_combo_thermal_category([light_top, heavy_bottom, raincoat], is_raining=True) == "IMPERMEAVEL"
+
+    cold_looks = generate_outfit_recommendations(
+        [heavy_top, light_top, heavy_bottom, light_bottom],
+        user,
+        temperature_celsius=10.0,
+        limit=10,
+    )
+    hot_looks = generate_outfit_recommendations(
+        [heavy_top, light_top, heavy_bottom, light_bottom],
+        user,
+        temperature_celsius=32.0,
+        limit=10,
+    )
+    assert {i.id for i in cold_looks[0].items} == {heavy_top.id, heavy_bottom.id}
+    assert {i.id for i in hot_looks[0].items} == {light_top.id, light_bottom.id}
+
+
+def test_outerwear_layering_and_anchor_item_filter():
+    user = _parity_user()
+    top1 = _app_item("Partes de cima", "Camisa")
+    top2 = _app_item("Partes de cima", "Camiseta")
+    bottom = _app_item("Partes de baixo", "Calça")
+    blazer = _app_item("Terceira peça", "Blazer")
+    shoes = _app_item("Calçados", "Mocassim")
+
+    all_looks = generate_outfit_recommendations([top1, top2, bottom, blazer, shoes], user, limit=20)
+    sizes = {len(look.items) for look in all_looks}
+    assert 3 in sizes and 4 in sizes
+
+    anchored = generate_outfit_recommendations(
+        [top1, top2, bottom, blazer, shoes],
+        user,
+        limit=20,
+        anchor_item_id=blazer.id,
+    )
+    assert anchored
+    assert all(any(i.id == blazer.id for i in look.items) for look in anchored)
+

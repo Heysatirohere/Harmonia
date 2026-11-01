@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../atelier/atelier_room.dart';
 import '../atelier/atelier_widgets.dart';
 import '../atelier/room_scene.dart';
+import 'circular_marketplace_screen.dart';
 import 'daily_outfit_screen.dart';
 
 /// Tela do Dashboard Analítico de Rotação de Acervo & ESG (Seção 3.2.2 da Doc)
@@ -257,7 +258,48 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
             'peças novas contam a partir do cadastro.',
             style: AppTypography.bodyReading().copyWith(color: AppColors.inkSecondary, fontSize: 12.0, height: 1.45),
           ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            key: const ValueKey('open_circular_marketplace_btn'),
+            onTap: _openCircularMarketplace,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.verdigris,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.storefront_outlined, color: AppColors.ivoryText, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'EXPLORAR BRECHÓ CIRCULAR C2C',
+                    style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _openCircularMarketplace() {
+    HapticFeedback.selectionClick();
+    final localSellItems = _analytics.dormantItems
+        .where((g) => _circularListedIds.contains(g.item.id) || g.item.disposalStatus == 'SELL')
+        .map((g) => g.item.copyWith(disposalStatus: 'SELL', isConsciousFashion: true))
+        .toList();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CircularMarketplaceScreen(
+          service: _service,
+          localItems: localSellItems,
+        ),
       ),
     );
   }
@@ -655,7 +697,7 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
                     const SizedBox(height: 5),
                     GestureDetector(
                       key: ValueKey('circular_sell_${piece.id}'),
-                      onTap: isListed ? null : () => _announceInCircularBrecho(piece),
+                      onTap: isListed ? _openCircularMarketplace : () => _announceInCircularBrecho(piece),
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         width: double.infinity,
@@ -703,6 +745,11 @@ class _WardrobeAnalyticsScreenState extends State<WardrobeAnalyticsScreen> {
         content: Text(
           'Peça "${piece.name}" anunciada no Brechó Circular C2C!',
           style: AppTypography.bodyReading(color: AppColors.ivoryText),
+        ),
+        action: SnackBarAction(
+          label: 'VER VITRINE',
+          textColor: AppColors.gildedLeaf,
+          onPressed: _openCircularMarketplace,
         ),
       ),
     );

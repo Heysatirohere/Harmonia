@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:harmonia_mvp/data/services/wardrobe_api_service.dart';
+import 'package:harmonia_mvp/models/circular_listing.dart';
 import 'package:harmonia_mvp/models/clothing_item.dart';
 import 'package:harmonia_mvp/models/garment_segmentation.dart';
 import 'package:harmonia_mvp/models/wardrobe_analytics.dart';
@@ -16,7 +17,16 @@ class FakeWardrobeService extends WardrobeApiService {
   /// Saúde do acervo devolvida por [getAnalytics]
   WardrobeAnalytics? analytics;
 
-  FakeWardrobeService(this.items, {this.failure, this.segmentation, this.analytics});
+  /// Peças anunciadas no Brechó Circular C2C
+  List<CircularListing>? circularListings;
+
+  FakeWardrobeService(
+    this.items, {
+    this.failure,
+    this.segmentation,
+    this.analytics,
+    this.circularListings,
+  });
 
   @override
   Future<List<ClothingItem>> getClothingItems({
@@ -62,6 +72,32 @@ class FakeWardrobeService extends WardrobeApiService {
       items[index] = item;
     }
     return item;
+  }
+
+  @override
+  Future<ClothingItem?> createClothingItem(ClothingItem item) async {
+    items.insert(0, item);
+    return item;
+  }
+
+  @override
+  Future<List<CircularListing>> getCircularMarketplace({String? category}) async {
+    final queued = failure;
+    if (queued != null) {
+      failure = null;
+      throw queued;
+    }
+    if (circularListings != null) {
+      if (category != null && category.isNotEmpty && category != 'Todos') {
+        return circularListings!.where((l) => l.category == category).toList();
+      }
+      return circularListings!;
+    }
+    final ownSell = items
+        .where((i) => i.disposalStatus == 'SELL')
+        .map((i) => CircularListing.fromClothingItem(i, isOwnListing: true))
+        .toList();
+    return [...ownSell, ...CircularListing.demoListings];
   }
 }
 

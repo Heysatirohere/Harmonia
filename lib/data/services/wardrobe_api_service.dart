@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../domain/repositories/wardrobe_repository.dart';
+import '../../models/circular_listing.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
 import '../../models/wardrobe_analytics.dart';
@@ -235,5 +236,43 @@ class WardrobeApiService implements WardrobeRepository {
       debugPrint('[WardrobeApiService] Falha ao atualizar no Supabase: $e');
     }
     return null;
+  }
+
+  /// Lista peças disponíveis no Brechó Circular C2C (Seção 3.5.4 da Documentação),
+  /// ordenadas por compatibilidade cromática (S_cor CIE Lab*) com a cartela do usuário.
+  @override
+  Future<List<CircularListing>> getCircularMarketplace({String? category}) async {
+    try {
+      final queryParams = <String, String>{};
+      if (category != null && category.isNotEmpty && category != 'Todos') {
+        queryParams['category'] = category;
+      }
+      final response = await _client.get('/wardrobe/circular-marketplace', queryParams: queryParams);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+        return data.map((json) => CircularListing.fromJson(json as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('[WardrobeApiService] Falha ao consultar Brechó Circular na API ($e).');
+    }
+
+    try {
+      final supabase = SupabaseConfig.client;
+      if (supabase != null) {
+        var query = supabase.from('clothing_items').select().eq('disposal_status', 'SELL').eq('is_active', true);
+        if (category != null && category.isNotEmpty && category != 'Todos') {
+          query = query.eq('category', category);
+        }
+        final List<dynamic> data = await query.order('created_at', ascending: false);
+        return data.map((json) {
+          final item = ClothingItem.fromJson(json as Map<String, dynamic>);
+          return CircularListing.fromClothingItem(item);
+        }).toList();
+      }
+    } catch (e) {
+      debugPrint('[WardrobeApiService] Falha ao consultar Brechó Circular no Supabase ($e).');
+    }
+
+    return const [];
   }
 }

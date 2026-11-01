@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../models/circular_listing.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
 import '../../models/wardrobe_analytics.dart';
@@ -13,6 +14,8 @@ abstract class WardrobeRepository {
   });
 
   Future<WardrobeAnalytics> getAnalytics();
+
+  Future<List<CircularListing>> getCircularMarketplace({String? category});
 
   Future<ClothingItem?> createClothingItem(ClothingItem item);
 

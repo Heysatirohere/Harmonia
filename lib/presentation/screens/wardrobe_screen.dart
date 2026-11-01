@@ -13,6 +13,7 @@ import '../widgets/clothing_card.dart';
 import '../widgets/editorial_form.dart';
 import '../widgets/filter_chips_bar.dart';
 import '../widgets/wardrobe_filter_sheet.dart';
+import 'circular_marketplace_screen.dart';
 import 'daily_outfit_screen.dart';
 import 'scan_item_screen.dart';
 import 'wardrobe_analytics_screen.dart';
@@ -383,6 +384,29 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     );
   }
 
+  void _openCircularMarketplace() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CircularMarketplaceScreen(
+          service: _wardrobeService,
+          localItems: _items,
+          onItemAcquired: (acquired) {
+            if (!mounted) return;
+            setState(() {
+              final idx = _items.indexWhere((i) => i.id == acquired.id);
+              if (idx != -1) {
+                _items[idx] = acquired;
+              } else {
+                _items.insert(0, acquired);
+              }
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   /// Refinar por cor, formalidade e uso (RF06); com filtro ativo, mostra quantos e permite limpar
   Widget _buildRefineRow() {
     final active = _filters.activeCount;
@@ -425,6 +449,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               setState(() => _composerOpen = !_composerOpen);
             },
           ),
+          action('BRECHÓ CIRCULAR', Icons.eco_outlined, _openCircularMarketplace),
           if (active > 0)
             action('LIMPAR FILTROS', null, () {
               HapticFeedback.selectionClick();

@@ -16,36 +16,26 @@ class EditorialNavDestination {
   });
 }
 
-/// Barra de navegação do HarmonIA (Renascença do Ateliê)
+/// Barra inferior minimalista do HarmonIA (inspirada no app mobile do X)
 ///
-/// Faixa de tapeçaria noir sob as Salas, ícones lineares em marfim, ponto de
-/// cinábrio sob o destino ativo e a ação central de captura em cinábrio.
+/// Exibe apenas os fluxos primários em ícones lineares marfim sobre tapeçaria
+/// noir, sem botões de ação embutidos que poluam a faixa inferior.
 class EditorialNavBar extends StatelessWidget {
   final List<EditorialNavDestination> destinations;
   final int currentIndex;
   final ValueChanged<int> onSelected;
-  final VoidCallback onCapture;
+  final VoidCallback? onCapture;
 
   const EditorialNavBar({
     super.key,
     required this.destinations,
     required this.currentIndex,
     required this.onSelected,
-    required this.onCapture,
-  }) : assert(destinations.length % 2 == 0, 'A ação central exige número par de destinos.');
+    this.onCapture,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final half = destinations.length ~/ 2;
-
-    Widget item(int index) => Expanded(
-          child: _NavItem(
-            destination: destinations[index],
-            selected: index == currentIndex,
-            onTap: () => onSelected(index),
-          ),
-        );
-
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.tapestryNoir,
@@ -54,12 +44,17 @@ class EditorialNavBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 60,
+          height: 54,
           child: Row(
             children: [
-              for (var i = 0; i < half; i++) item(i),
-              Expanded(child: _CaptureAction(onTap: onCapture)),
-              for (var i = half; i < destinations.length; i++) item(i),
+              for (var i = 0; i < destinations.length; i++)
+                Expanded(
+                  child: _NavItem(
+                    destination: destinations[i],
+                    selected: i == currentIndex,
+                    onTap: () => onSelected(i),
+                  ),
+                ),
             ],
           ),
         ),
@@ -97,18 +92,18 @@ class _NavItem extends StatelessWidget {
                 child: Icon(
                   selected ? destination.activeIcon : destination.icon,
                   key: ValueKey(selected),
-                  size: 22,
+                  size: 23,
                   color: selected ? AppColors.ivoryText : AppColors.ivoryMuted,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 5),
               AnimatedContainer(
                 duration: AppMotion.medium,
                 curve: AppMotion.editorialDecel,
                 width: selected ? 4 : 0,
                 height: 4,
                 decoration: const BoxDecoration(
-                  color: AppColors.accentCinnabar,
+                  color: AppColors.gildedLeaf,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -120,10 +115,14 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _CaptureAction extends StatelessWidget {
+/// Botão flutuante de criação/captura no canto inferior direito (estilo X mobile)
+///
+/// Concentra as ações de câmera (Digitalizar peça, Modo Provador, Publicar look)
+/// fora da barra inferior e dos cabeçalhos, mantendo alcance em até 2 toques (RNF06).
+class AtelierCaptureFab extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _CaptureAction({required this.onTap});
+  const AtelierCaptureFab({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -131,22 +130,30 @@ class _CaptureAction extends StatelessWidget {
       label: 'Capturar peça ou abrir provador',
       button: true,
       excludeSemantics: true,
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          onTap();
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Center(
+      child: Tooltip(
+        message: 'Capturar',
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onTap();
+          },
+          behavior: HitTestBehavior.opaque,
           child: Container(
-            width: 44,
-            height: 44,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               color: AppColors.accentCinnabar,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-              border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.ivoryText.withValues(alpha: 0.85), width: 1.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 6),
+                ),
+              ],
             ),
-            child: const Icon(Icons.add, size: 22, color: AppColors.ivoryText),
+            child: const Icon(Icons.add_rounded, size: 26, color: AppColors.ivoryText),
           ),
         ),
       ),

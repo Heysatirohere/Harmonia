@@ -40,7 +40,31 @@ class AtelierSheet extends StatelessWidget {
   }
 }
 
-/// Cabeçalho de tela sobre a Sala: sobrelinha, título de revista e subtítulo em itálico.
+/// Escopo do shell principal de navegação (inspirado no app mobile do X):
+/// permite que qualquer cabeçalho de aba abra a gaveta lateral do Ateliê em 1 toque.
+class AtelierShellScope extends InheritedWidget {
+  final VoidCallback openDrawer;
+  final String monogram;
+
+  const AtelierShellScope({
+    super.key,
+    required this.openDrawer,
+    this.monogram = 'H',
+    required super.child,
+  });
+
+  static AtelierShellScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AtelierShellScope>();
+
+  @override
+  bool updateShouldNotify(AtelierShellScope oldWidget) =>
+      oldWidget.monogram != monogram || oldWidget.openDrawer != openDrawer;
+}
+
+/// Cabeçalho unificado de tela sobre a Sala (arquitetura inspirada no app mobile do X):
+///
+/// Linha superior de navegação (avatar/gaveta à esquerda ou botão voltar, sobrelinha
+/// editorial alinhada e ações contextuais discretas à direita) + título Bodoni abaixo.
 class RoomHeader extends StatelessWidget {
   final String eyebrow;
   final String title;
@@ -61,46 +85,126 @@ class RoomHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = AtelierShellScope.maybeOf(context);
+    final Widget? leading = onBack != null
+        ? RoomIconButton(icon: Icons.arrow_back_ios_new_rounded, label: 'Voltar', onTap: onBack!)
+        : (shell != null
+            ? _AtelierDrawerAvatarButton(
+                monogram: shell.monogram,
+                onTap: shell.openDrawer,
+              )
+            : null);
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.pageMargin,
-        MediaQuery.paddingOf(context).top + (onBack != null ? 8 : 28),
+        MediaQuery.paddingOf(context).top + 12,
         AppSpacing.pageMargin,
-        20,
+        14,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (onBack != null) ...[
-            RoomIconButton(icon: Icons.arrow_back_ios_new_rounded, label: 'Voltar', onTap: onBack!),
-            const SizedBox(height: 16),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      eyebrow.toUpperCase(),
-                      style: AppTypography.atelierMeta(
-                        color: room.allowsSmallGoldText ? AppColors.gildedLeaf : AppColors.ivoryText,
-                      ),
+          // Barra superior contínua (estilo X mobile: Avatar/Voltar · Eyebrow · Ação contextual)
+          SizedBox(
+            height: 40,
+            child: Row(
+              children: [
+                if (leading != null) ...[
+                  leading,
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Text(
+                    eyebrow.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.atelierMeta(
+                      color: room.allowsSmallGoldText ? AppColors.gildedLeaf : AppColors.ivoryText,
                     ),
-                    const SizedBox(height: 6),
-                    Text(title, style: AppTypography.heroDisplay().copyWith(fontSize: 40)),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 4),
-                      Text(subtitle!, style: AppTypography.subtitleCuratorial(color: AppColors.ivoryMuted)),
-                    ],
-                  ],
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 10),
+                  trailing!,
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(title, style: AppTypography.heroDisplay().copyWith(fontSize: 34)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(subtitle!, style: AppTypography.subtitleCuratorial(color: AppColors.ivoryMuted)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Avatar/monograma no canto superior esquerdo (estilo X mobile) que abre a gaveta do Ateliê.
+class _AtelierDrawerAvatarButton extends StatelessWidget {
+  final String monogram;
+  final VoidCallback onTap;
+
+  const _AtelierDrawerAvatarButton({
+    required this.monogram,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Abrir menu do Ateliê',
+      button: true,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: 'Ateliê',
+        waitDuration: const Duration(milliseconds: 500),
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.tapestryNoir.withValues(alpha: 0.45),
+                  border: Border.all(color: AppColors.gildedLeaf, width: 1.1),
+                ),
+                child: Text(
+                  monogram,
+                  style: AppTypography.displayEditorial(color: AppColors.ivoryText).copyWith(
+                    fontSize: 15,
+                    height: 1.0,
+                  ),
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.tapestryNoir,
+                    border: Border.all(color: AppColors.hairlineIvory, width: 0.8),
+                  ),
+                  child: const Icon(Icons.menu_rounded, size: 9, color: AppColors.gildedLeaf),
+                ),
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

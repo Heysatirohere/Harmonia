@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../../core/demo/demo_mode.dart';
 import '../../core/network/api_client.dart';
 import '../../domain/models/recommended_look.dart';
 import '../../domain/repositories/outfit_repository.dart';
+import '../../mocks/mock_atelier_store.dart';
 import '../../models/clothing_item.dart';
 import '../../models/store_parity_result.dart';
 import '../../models/wardrobe_gap.dart';
@@ -46,6 +48,12 @@ class OutfitApiService implements OutfitRepository {
     int limit = 5,
     String? anchorItemId,
   }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.generateDailyOutfits(
+        occasion: occasion,
+        anchorItemId: anchorItemId,
+      );
+    }
     final http.Response response;
     try {
       response = await _client.post(
@@ -83,6 +91,7 @@ class OutfitApiService implements OutfitRepository {
   /// Um look descartado não volta a ser sugerido.
   @override
   Future<String> sendLookFeedback(RecommendedLook look, LookFeedbackAction action) async {
+    if (kDemoMode) return MockAtelierStore.instance.recordLookFeedback(look, action);
     final http.Response response;
     try {
       response = await _client.post(
@@ -107,6 +116,10 @@ class OutfitApiService implements OutfitRepository {
   /// Desfaz uma aprovação ou um descarte
   @override
   Future<void> undoLookFeedback(String feedbackId) async {
+    if (kDemoMode) {
+      MockAtelierStore.instance.undoLookFeedback(feedbackId);
+      return;
+    }
     final http.Response response;
     try {
       response = await _client.delete('/outfits/feedback/$feedbackId');
@@ -126,6 +139,7 @@ class OutfitApiService implements OutfitRepository {
     required ClothingItem storeGarment,
     String occasion = 'CASUAL',
   }) async {
+    if (kDemoMode) return MockAtelierStore.instance.analyzeStoreParity(storeGarment);
     final (l, a, b) = storeGarment.labCoordinates;
     final http.Response response;
     try {
@@ -168,6 +182,7 @@ class OutfitApiService implements OutfitRepository {
   /// Produtos esgotados nunca vêm (RN03) e a consulta não gasta a cota (RN02).
   @override
   Future<WardrobeGapReport> getWardrobeGaps({String occasion = 'CASUAL'}) async {
+    if (kDemoMode) return MockAtelierStore.instance.getWardrobeGaps(occasion: occasion);
     final http.Response response;
     try {
       response = await _client.get('/outfits/gaps', queryParams: {'occasion': occasion});
@@ -189,6 +204,15 @@ class OutfitApiService implements OutfitRepository {
   /// Calcula o IHE pontual para um conjunto arbitrário de peças ou atributos
   @override
   Future<Map<String, dynamic>?> calculateIhe(Map<String, dynamic> payload) async {
+    if (kDemoMode) {
+      return const {
+        'ihe_score': 92.0,
+        's_cor': 0.94,
+        's_bio': 0.91,
+        's_ocasion': 0.90,
+        's_cos': 0.93,
+      };
+    }
     try {
       final response = await _client.post(
         '/outfits/calculate-ihe',

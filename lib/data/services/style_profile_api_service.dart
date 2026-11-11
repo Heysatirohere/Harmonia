@@ -3,10 +3,12 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../../core/demo/demo_mode.dart';
 import '../../core/network/api_client.dart';
 import '../../domain/models/colorimetry_result.dart';
 import '../../domain/models/style_profile.dart';
 import '../../domain/repositories/style_profile_repository.dart';
+import '../../mocks/mock_atelier_store.dart';
 import '../../models/user_style_profile.dart';
 
 /// Perfil de estilo persistido na API FastAPI (`/users/me`)
@@ -16,7 +18,10 @@ class StyleProfileApiService implements StyleProfileRepository {
   StyleProfileApiService({ApiClient? client}) : _client = client ?? ApiClient();
 
   @override
-  Future<StyleProfile> fetch() => _send(() => _client.get('/users/me'));
+  Future<StyleProfile> fetch() async {
+    if (kDemoMode) return MockAtelierStore.instance.profile;
+    return _send(() => _client.get('/users/me'));
+  }
 
   @override
   Future<StyleProfile> update({
@@ -26,7 +31,17 @@ class StyleProfileApiService implements StyleProfileRepository {
     bool? isPremium,
     bool? dailyNotifications,
     bool? rotationAlerts,
-  }) {
+  }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.updateStyleProfile(
+        silhouette: silhouette,
+        palette: palette,
+        isPublic: isPublic,
+        isPremium: isPremium,
+        dailyNotifications: dailyNotifications,
+        rotationAlerts: rotationAlerts,
+      );
+    }
     return _send(() => _client.patch('/users/me', body: {
           'body_shape': ?silhouette?.apiKey,
           'seasonal_palette': ?palette?.apiKey,
@@ -39,6 +54,7 @@ class StyleProfileApiService implements StyleProfileRepository {
 
   @override
   Future<ColorimetryResult> analyzeSelfie(Uint8List bytes, String fileName) async {
+    if (kDemoMode) return MockAtelierStore.instance.analyzeSelfie();
     final http.Response response;
     try {
       response = await _client.postFile(

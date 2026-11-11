@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/demo/demo_mode.dart';
 import '../../core/network/api_client.dart';
 import '../../domain/repositories/community_repository.dart';
+import '../../mocks/mock_atelier_store.dart';
 import '../../models/community_post.dart';
 import 'supabase_storage_service.dart';
 
@@ -57,6 +59,13 @@ class CommunityApiService implements CommunityRepository {
     String? query,
     DateTime? before,
   }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.fetchFeed(
+        filter: filter,
+        occasion: occasion,
+        query: query,
+      );
+    }
     final response = await _send(() => _client.get('/community/posts', queryParams: {
           'filter': filter.apiValue,
           'occasion': ?occasion,
@@ -78,6 +87,15 @@ class CommunityApiService implements CommunityRepository {
     String? feedbackId,
     bool? isPublic,
   }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.publishPost(
+        caption: caption,
+        occasion: occasion,
+        styleTags: styleTags,
+        feedbackId: feedbackId,
+        isPublic: isPublic,
+      );
+    }
     final fileName = 'post_${DateTime.now().millisecondsSinceEpoch}.jpg';
     final imageUrl = await _uploadPhoto(photo, fileName);
     if (imageUrl == null || imageUrl.isEmpty) {
@@ -96,11 +114,21 @@ class CommunityApiService implements CommunityRepository {
   }
 
   @override
-  Future<void> setLiked(String postId, bool liked) => _toggle('/community/posts/$postId/like', liked);
+  Future<void> setLiked(String postId, bool liked) async {
+    if (kDemoMode) {
+      MockAtelierStore.instance.setPostLiked(postId, liked);
+      return;
+    }
+    await _toggle('/community/posts/$postId/like', liked);
+  }
 
   /// Salvar no moodboard privado (Seção 3.5.2)
   @override
   Future<void> setSaved(String postId, bool saved, {String? boardName}) async {
+    if (kDemoMode) {
+      MockAtelierStore.instance.setPostSaved(postId, saved, boardName: boardName);
+      return;
+    }
     if (saved && boardName != null && boardName.trim().isNotEmpty) {
       final response = await _send(
         () => _client.put('/community/posts/$postId/save', body: {'board_name': boardName.trim()}),
@@ -113,6 +141,9 @@ class CommunityApiService implements CommunityRepository {
 
   @override
   Future<CommunityPost> updatePostVisibility(String postId, {required bool isPublic}) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.updatePostVisibility(postId, isPublic: isPublic);
+    }
     final response = await _send(
       () => _client.patch('/community/posts/$postId', body: {'is_public': isPublic}),
     );
@@ -122,6 +153,10 @@ class CommunityApiService implements CommunityRepository {
 
   @override
   Future<void> delete(String postId) async {
+    if (kDemoMode) {
+      MockAtelierStore.instance.deletePost(postId);
+      return;
+    }
     final response = await _send(() => _client.delete('/community/posts/$postId'));
     _expect(response, 204, 'Não foi possível apagar a publicação agora.');
   }

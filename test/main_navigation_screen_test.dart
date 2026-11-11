@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:harmonia_mvp/core/demo/demo_mode.dart';
+import 'package:harmonia_mvp/mocks/mock_atelier_store.dart';
 import 'package:harmonia_mvp/presentation/screens/main_navigation_screen.dart';
 import 'package:harmonia_mvp/presentation/screens/scan_item_screen.dart';
 import 'package:harmonia_mvp/presentation/screens/store_mirror_screen.dart';
+import 'package:harmonia_mvp/presentation/widgets/editorial_nav_bar.dart';
 
 void main() {
   Future<void> pumpShell(WidgetTester tester) async {
@@ -13,30 +16,47 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('NavBar alterna entre as quatro abas pelos ícones', (tester) async {
+  testWidgets('NavBar alterna entre as 3 abas enxutas e avatar abre gaveta lateral do Ateliê (estilo X)', (tester) async {
     await pumpShell(tester);
 
     expect(find.text('Look do Dia'), findsOneWidget);
+    expect(MainNavigationScreen.destinations.length, 3);
+
+    await tester.tap(find.byTooltip('Acervo'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Guarda-roupa'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Editorial'));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Editorial'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Ateliê'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('ATELIÊ & PERFIL'), findsOneWidget);
+    // Avatar no canto superior esquerdo abre a gaveta lateral (estilo X mobile)
+    await tester.tap(find.byTooltip('Ateliê').hitTestable().first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ateliê & Perfil de Estilo'), findsOneWidget);
+    expect(find.text('Saúde do Acervo & ESG'), findsOneWidget);
     expect(find.text('Lacunas do Acervo (3.6.1)'), findsOneWidget);
-    expect(find.text('Refazer Perfil de Estilo'), findsOneWidget);
+    expect(find.text('Brechó Circular'), findsOneWidget);
     expect(find.text('Conta & Segurança'), findsOneWidget);
+
+    // Tocar em Ateliê & Perfil de Estilo na gaveta abre a tela completa de Perfil
+    await tester.tap(find.text('Ateliê & Perfil de Estilo'));
+    await tester.pumpAndSettle();
+    expect(find.text('ATELIÊ & PERFIL'), findsOneWidget);
+    expect(find.text('Recalibrar Colorimetria'), findsOneWidget);
+    expect(find.text('Refazer Perfil de Estilo'), findsOneWidget);
   });
 
-  testWidgets('Ação central abre a bandeja de captura com Scan e Provador', (tester) async {
+  testWidgets('FAB flutuante de captura (estilo X) abre a bandeja com Scan, Provador e Editorial', (tester) async {
     await pumpShell(tester);
 
+    expect(find.byType(AtelierCaptureFab), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Capturar peça ou abrir provador'));
     await tester.pumpAndSettle();
     expect(find.text('Digitalizar peça'), findsOneWidget);
     expect(find.text('Modo Provador'), findsOneWidget);
+    expect(find.text('Publicar no Editorial'), findsOneWidget);
 
     await tester.tap(find.text('Digitalizar peça'));
     await tester.pumpAndSettle();
@@ -53,5 +73,38 @@ void main() {
     await tester.pump(); // empilha o provador
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(StoreMirrorScreen), findsOneWidget);
+  });
+
+  testWidgets('Modo Demo Offline (MockAtelierStore) opera 100% sem servidor com dados e interações', (tester) async {
+    setDemoModeForTesting(true);
+    MockAtelierStore.instance.reset();
+    addTearDown(() => setDemoModeForTesting(false));
+
+    await pumpShell(tester);
+    await tester.pumpAndSettle();
+
+    // Clima e Look do Dia carregados instantaneamente em memória
+    expect(find.textContaining('SÃO PAULO'), findsOneWidget);
+    expect(find.text('Blazer Desestruturado em Linho'), findsOneWidget);
+
+    // Aprovar look em memória sem servidor
+    await tester.ensureVisible(find.text('Aprovar look do dia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aprovar look do dia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Look aprovado'), findsOneWidget);
+
+    // Alterna para o Acervo e verifica peças carregadas offline
+    await tester.tap(find.byTooltip('Acervo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Camisa Regata Seda Areia'), findsOneWidget);
+
+    // Gaveta lateral restaura dados da demo em 1 toque
+    await tester.tap(find.byTooltip('Ateliê').hitTestable().first);
+    await tester.pumpAndSettle();
+    expect(find.text('Restaurar Dados da Demo'), findsOneWidget);
+    await tester.tap(find.text('Restaurar Dados da Demo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dados de demonstração restaurados com sucesso.'), findsOneWidget);
   });
 }

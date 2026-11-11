@@ -358,17 +358,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 child: RoomHeader(
                   eyebrow: 'Comunidade • RF14/RF15',
                   title: 'Editorial',
-                  subtitle: 'Inspirações de quem compartilha seu estilo',
                   room: AtelierRoom.tapestryNoir,
                   trailing: RoomIconButton(
                     icon: Icons.add_photo_alternate_outlined,
                     label: 'Compartilhar look',
-                    filled: true,
                     onTap: _share,
                   ),
                 ),
               ),
-              SliverToBoxAdapter(child: _SearchField(controller: _search, onSubmitted: (_) => _load())),
               SliverToBoxAdapter(
                 child: FilterChipsBar(
                   categories: [for (final chip in _chips) chip.label],
@@ -376,7 +373,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   onCategorySelected: _selectChip,
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              SliverToBoxAdapter(child: _SearchField(controller: _search, onSubmitted: (_) => _load())),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
               if (_posts.isEmpty)
                 SliverToBoxAdapter(child: _buildPlaceholder())
               else

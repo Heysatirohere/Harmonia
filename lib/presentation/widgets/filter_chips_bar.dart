@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 
-/// Barra Horizontal Minimalista de Filtros por Categoria, desenhada para ficar sobre uma Sala
-/// Conforme AGENTS.md:
-/// - Linhas capilares (hairlineIvory)
-/// - Resposta tátil refinada (HapticFeedback.selectionClick())
-/// - Animação suave entre estados ativo e inativo com AppMotion.editorialDecel
+/// Barra Horizontal de Sub-Abas sobre a Sala (inspirada no app mobile do X)
+///
+/// Substitui pílulas pesadas por uma faixa contínua com linha capilar inferior
+/// (`hairlineIvory`) e indicador deslizante em folha de ouro (`gildedLeaf`).
 class FilterChipsBar extends StatelessWidget {
   final List<String> categories;
   final int selectedIndex;
@@ -27,29 +26,36 @@ class FilterChipsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: categories.length,
-        separatorBuilder: (context, index) => const SizedBox(width: AppSpacing.tightGap),
-        itemBuilder: (context, index) {
-          final isSelected = index == selectedIndex;
-          final categoryName = categories[index];
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.hairlineIvory, width: 0.6),
+        ),
+      ),
+      child: SizedBox(
+        height: 42,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: categories.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 24),
+          itemBuilder: (context, index) {
+            final isSelected = index == selectedIndex;
+            final categoryName = categories[index];
 
-          return _FilterChipItem(
-            label: categoryName,
-            isSelected: isSelected,
-            onTap: () {
-              if (index != selectedIndex) {
-                HapticFeedback.selectionClick();
-                onCategorySelected(index);
-              }
-            },
-          );
-        },
+            return _FilterChipItem(
+              label: categoryName,
+              isSelected: isSelected,
+              onTap: () {
+                if (index != selectedIndex) {
+                  HapticFeedback.selectionClick();
+                  onCategorySelected(index);
+                }
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -68,33 +74,38 @@ class _FilterChipItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sobre a Sala: ativo em marfim sólido, inativos só com contorno capilar
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.editorialDecel,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.ivoryText : const Color(0x00000000),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: isSelected ? AppColors.ivoryText : AppColors.hairlineIvory,
-            width: 0.8,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: AppTypography.uiHeadline(
-              color: isSelected ? AppColors.inkText : AppColors.ivoryText,
-            ).copyWith(
-              fontSize: 12.5,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Center(
+              child: AnimatedDefaultTextStyle(
+                duration: AppMotion.fast,
+                curve: AppMotion.editorialDecel,
+                style: AppTypography.uiHeadline(
+                  color: isSelected ? AppColors.ivoryText : AppColors.ivoryMuted,
+                ).copyWith(
+                  fontSize: 13.5,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                child: Text(label),
+              ),
             ),
           ),
-        ),
+          AnimatedContainer(
+            duration: AppMotion.medium,
+            curve: AppMotion.editorialDecel,
+            height: 2.5,
+            width: isSelected ? 28 : 0,
+            decoration: BoxDecoration(
+              color: AppColors.gildedLeaf,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ],
       ),
     );
   }

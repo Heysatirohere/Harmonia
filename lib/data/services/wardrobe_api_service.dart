@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../../core/demo/demo_mode.dart';
 import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../domain/repositories/wardrobe_repository.dart';
+import '../../mocks/mock_atelier_store.dart';
 import '../../models/circular_listing.dart';
 import '../../models/clothing_item.dart';
 import '../../models/garment_segmentation.dart';
@@ -34,6 +36,13 @@ class WardrobeApiService implements WardrobeRepository {
     double? minFormality,
     double? maxFormality,
   }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.getClothingItems(
+        category: category,
+        minFormality: minFormality,
+        maxFormality: maxFormality,
+      );
+    }
     // 1. Tentar via API FastAPI
     try {
       final queryParams = <String, String>{};
@@ -79,6 +88,7 @@ class WardrobeApiService implements WardrobeRepository {
   /// Sem segunda via no Supabase: o cálculo de uso só existe no backend.
   @override
   Future<WardrobeAnalytics> getAnalytics() async {
+    if (kDemoMode) return MockAtelierStore.instance.getAnalytics();
     try {
       final response = await _client.get('/wardrobe/analytics');
       if (response.statusCode == 200) {
@@ -94,6 +104,7 @@ class WardrobeApiService implements WardrobeRepository {
   /// Cadastra nova peça de vestuário no backend. Retorna null se nada foi salvo.
   @override
   Future<ClothingItem?> createClothingItem(ClothingItem item) async {
+    if (kDemoMode) return MockAtelierStore.instance.addClothingItem(item);
     try {
       final response = await _client.post(
         '/wardrobe/items',
@@ -121,6 +132,7 @@ class WardrobeApiService implements WardrobeRepository {
     String? fileName,
     required ClothingItem item,
   }) async {
+    if (kDemoMode) return MockAtelierStore.instance.addClothingItem(item);
     String finalImageUrl = item.imageUrl;
 
     // 1. Upload para o Supabase Storage se houver imagem binária
@@ -153,6 +165,7 @@ class WardrobeApiService implements WardrobeRepository {
     required Uint8List imageBytes,
     required String fileName,
   }) async {
+    if (kDemoMode) return MockAtelierStore.instance.segmentGarment(imageBytes);
     final http.Response response;
     try {
       response = await _client.postFile(
@@ -191,6 +204,7 @@ class WardrobeApiService implements WardrobeRepository {
   /// Sem segunda via no Supabase: só a API apaga a foto do Storage junto com o registro.
   @override
   Future<bool> deleteClothingItem(String itemId) async {
+    if (kDemoMode) return MockAtelierStore.instance.deleteClothingItem(itemId);
     try {
       final response = await _client.delete('/wardrobe/items/$itemId');
       return response.statusCode == 204;
@@ -203,6 +217,7 @@ class WardrobeApiService implements WardrobeRepository {
   /// Atualiza atributos taxonômicos da peça (categoria, nome, formalidade, preço, estação, cápsula, destinação) no backend (RF05, 3.2.3)
   @override
   Future<ClothingItem?> updateClothingItem(ClothingItem item) async {
+    if (kDemoMode) return MockAtelierStore.instance.updateClothingItem(item);
     final patchPayload = <String, dynamic>{
       'category': item.category,
       'subcategory': item.name,
@@ -242,6 +257,7 @@ class WardrobeApiService implements WardrobeRepository {
   /// ordenadas por compatibilidade cromática (S_cor CIE Lab*) com a cartela do usuário.
   @override
   Future<List<CircularListing>> getCircularMarketplace({String? category}) async {
+    if (kDemoMode) return MockAtelierStore.instance.getCircularMarketplace(category: category);
     try {
       final queryParams = <String, String>{};
       if (category != null && category.isNotEmpty && category != 'Todos') {

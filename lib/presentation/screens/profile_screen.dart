@@ -193,7 +193,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.zero,
           children: [
-            const RoomHeader(eyebrow: 'Ateliê & Perfil', title: 'Ateliê', room: room),
+            RoomHeader(
+              eyebrow: 'Ateliê & Perfil',
+              title: 'Ateliê',
+              room: room,
+              onBack: Navigator.canPop(context) ? () => Navigator.pop(context) : null,
+            ),
 
             // Identidade direto sobre o veludo
             Padding(

@@ -5,7 +5,9 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/demo/demo_mode.dart';
 import '../../domain/repositories/weather_repository.dart';
+import '../../mocks/mock_atelier_store.dart';
 import '../../models/weather_context.dart';
 
 typedef Coordinates = ({double latitude, double longitude});
@@ -30,6 +32,7 @@ class OpenMeteoWeatherService implements WeatherRepository {
 
   @override
   Future<WeatherContext> current() async {
+    if (kDemoMode) return MockAtelierStore.instance.weather;
     final Coordinates coordinates;
     try {
       coordinates = await _locate();
@@ -75,6 +78,7 @@ class OpenMeteoWeatherService implements WeatherRepository {
 
   @override
   Future<void> resolve(WeatherFailureKind kind) async {
+    if (kDemoMode) return;
     switch (kind) {
       case WeatherFailureKind.permissionDenied:
         await Geolocator.requestPermission();

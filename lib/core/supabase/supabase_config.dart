@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../demo/demo_mode.dart';
+
 /// Configuração e Gerenciamento do Cliente Supabase no Flutter
 class SupabaseConfig {
   static const String supabaseUrl = String.fromEnvironment(
@@ -20,7 +22,7 @@ class SupabaseConfig {
 
   /// Retorna a instância do cliente Supabase se inicializado
   static SupabaseClient? get client {
-    if (!_isInitialized) return null;
+    if (kDemoMode || !_isInitialized) return null;
     try {
       return Supabase.instance.client;
     } catch (_) {
@@ -28,8 +30,12 @@ class SupabaseConfig {
     }
   }
 
-  /// Inicializa o SDK oficial do Supabase
+  /// Inicializa o SDK oficial do Supabase (ignorado no modo offline/demo)
   static Future<void> initialize() async {
+    if (kDemoMode) {
+      debugPrint('[Supabase] Modo Demo Offline ativo — servidor externo desconectado.');
+      return;
+    }
     if (_isInitialized) return;
     try {
       await Supabase.initialize(

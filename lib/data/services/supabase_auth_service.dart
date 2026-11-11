@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/demo/demo_mode.dart';
 import '../../core/network/api_client.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../domain/models/account.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../mocks/mock_atelier_store.dart';
 
 /// Serviço de Autenticação do Supabase (GoTrue) no HarmonIA (RF01, RF18, RN04)
 class SupabaseAuthService implements AuthRepository {
@@ -26,22 +28,23 @@ class SupabaseAuthService implements AuthRepository {
   User? get currentUser => _client?.auth.currentUser;
 
   /// ID do usuário logado, ou null sem sessão ativa
-  String? get currentUserId => currentUser?.id;
+  String? get currentUserId => kDemoMode ? MockAtelierStore.instance.currentAccount?.id : currentUser?.id;
 
   /// Verifica se há sessão ativa
-  bool get isAuthenticated => currentUser != null;
+  bool get isAuthenticated => kDemoMode ? MockAtelierStore.instance.currentAccount != null : currentUser != null;
 
   /// Token JWT da sessão atual
-  String? get currentAccessToken => _client?.auth.currentSession?.accessToken;
+  String? get currentAccessToken => kDemoMode ? 'demo-offline-jwt' : _client?.auth.currentSession?.accessToken;
 
   @override
-  bool get isAvailable => _client != null;
+  bool get isAvailable => kDemoMode || _client != null;
 
   @override
-  Account? get currentAccount => _toAccount(currentUser);
+  Account? get currentAccount => kDemoMode ? MockAtelierStore.instance.currentAccount : _toAccount(currentUser);
 
   @override
   Stream<Account?> get accountChanges {
+    if (kDemoMode) return MockAtelierStore.instance.accountChanges;
     final client = _client;
     if (client == null) return Stream<Account?>.value(null);
     return client.auth.onAuthStateChange.map((state) => _toAccount(state.session?.user));
@@ -53,6 +56,9 @@ class SupabaseAuthService implements AuthRepository {
     required String email,
     required String password,
   }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.signUp(fullName: fullName, email: email, password: password);
+    }
     final response = await _guard(
       (client) => client.auth.signUp(
         email: email,
@@ -69,6 +75,9 @@ class SupabaseAuthService implements AuthRepository {
     required String email,
     required String password,
   }) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.signIn(email: email, password: password);
+    }
     final response = await _guard(
       (client) => client.auth.signInWithPassword(email: email, password: password),
     );
@@ -81,11 +90,15 @@ class SupabaseAuthService implements AuthRepository {
 
   @override
   Future<void> sendPasswordReset(String email) {
+    if (kDemoMode) return Future<void>.value();
     return _guard((client) => client.auth.resetPasswordForEmail(email));
   }
 
   @override
   Future<bool> updateProfile({String? fullName, String? email}) async {
+    if (kDemoMode) {
+      return MockAtelierStore.instance.updateAccountProfile(fullName: fullName, email: email);
+    }
     final current = currentUser;
     final emailChanged = email != null && email != current?.email;
 
@@ -104,11 +117,16 @@ class SupabaseAuthService implements AuthRepository {
 
   @override
   Future<void> updatePassword(String newPassword) {
+    if (kDemoMode) return Future<void>.value();
     return _guard((client) => client.auth.updateUser(UserAttributes(password: newPassword)));
   }
 
   @override
   Future<void> signOut() async {
+    if (kDemoMode) {
+      await MockAtelierStore.instance.signOut();
+      return;
+    }
     final client = _client;
     if (client == null) return;
     try {
@@ -123,6 +141,10 @@ class SupabaseAuthService implements AuthRepository {
   /// A API usa a chave administrativa, que o app não tem; se algo falhar, nada fica pela metade.
   @override
   Future<void> deleteAccount() async {
+    if (kDemoMode) {
+      await MockAtelierStore.instance.deleteAccount();
+      return;
+    }
     if (_client == null) {
       throw const AuthFailure('Serviço de conta indisponível. Verifique sua conexão.');
     }

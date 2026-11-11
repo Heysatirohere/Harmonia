@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/demo/demo_mode.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'supabase_auth_service.dart';
 
@@ -18,6 +19,9 @@ class SupabaseStorageService {
     required String fileName,
     String contentType = 'image/png',
   }) async {
+    if (kDemoMode) {
+      return 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&auto=format&fit=crop&q=80';
+    }
     final client = _client;
     if (client == null) {
       debugPrint('[SupabaseStorage] Cliente Supabase não inicializado.');

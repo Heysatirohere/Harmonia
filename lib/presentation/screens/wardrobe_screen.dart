@@ -171,8 +171,6 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           slivers: [
             RoomMarker(room: headerRoom),
             SliverToBoxAdapter(child: _buildEditorialHeader(context, headerRoom)),
-            SliverToBoxAdapter(child: _buildAcervoMetrics(context)),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
             SliverToBoxAdapter(
               child: FilterChipsBar(
                 categories: _categories,
@@ -240,136 +238,36 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 
   Widget _buildEditorialHeader(BuildContext context, AtelierRoom room) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.pageMargin,
-        MediaQuery.paddingOf(context).top + 28,
-        AppSpacing.pageMargin,
-        20,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'ACERVO',
-                  style: AppTypography.atelierMeta(
-                    color: room.allowsSmallGoldText ? AppColors.gildedLeaf : AppColors.ivoryText,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text('Guarda-roupa', style: AppTypography.heroDisplay().copyWith(fontSize: 40)),
-                const SizedBox(height: 4),
-                Text(
-                  'The Floating Canvas',
-                  style: AppTypography.subtitleCuratorial(color: AppColors.ivoryMuted),
-                ),
-              ],
-            ),
-          ),
-          // Digitalizar peça em 1 toque
-          Semantics(
-            label: 'Digitalizar nova peça',
-            button: true,
-            excludeSemantics: true,
-            child: GestureDetector(
-              onTap: _openScanner,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.accentCinnabar,
-                  shape: BoxShape.circle,
-                  // Contorno capilar: o cinábrio sozinho fica abaixo de 3:1 sobre o bordô
-                  border: Border.all(color: AppColors.ivoryText.withValues(alpha: 0.6), width: 1.0),
-                ),
-                child: const Icon(Icons.add_a_photo_outlined, color: AppColors.ivoryText, size: 21),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAcervoMetrics(BuildContext context) {
-    if (_items.isEmpty) return const SizedBox.shrink();
-
     final totalItems = _items.length;
     final esgCount = _items.where((i) => i.isConsciousFashion).length;
-    final scored = _items.map((i) => i.iheScore).whereType<int>().toList();
-    final averageIhe = scored.isEmpty ? null : (scored.reduce((a, b) => a + b) / scored.length).round();
+    final eyebrow = totalItems == 0
+        ? 'Acervo'
+        : 'Acervo • $totalItems ${totalItems == 1 ? 'peça' : 'peças'}${esgCount > 0 ? ' · $esgCount ESG' : ''}';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => WardrobeAnalyticsScreen(service: _wardrobeService)),
-          );
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.ivoryVeil,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-            border: Border.all(color: AppColors.hairlineGold, width: 0.8),
+    return RoomHeader(
+      eyebrow: eyebrow,
+      title: 'Guarda-roupa',
+      room: room,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RoomIconButton(
+            icon: Icons.eco_outlined,
+            label: 'Saúde do Acervo & ESG',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => WardrobeAnalyticsScreen(service: _wardrobeService)),
+              );
+            },
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: const BoxDecoration(color: AppColors.gildedVeil, shape: BoxShape.circle),
-                child: const Icon(Icons.auto_awesome, size: 13, color: AppColors.gildedLeaf),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$totalItems PEÇAS',
-                        style: AppTypography.uiHeadline(
-                          color: AppColors.ivoryText,
-                        ).copyWith(fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text('•', style: TextStyle(color: AppColors.hairlineIvory)),
-                      const SizedBox(width: 6),
-                      Text(
-                        averageIhe == null ? 'IHE —' : 'IHE MÉDIO $averageIhe%',
-                        style: AppTypography.uiHeadline(
-                          color: AppColors.gildedLeaf,
-                        ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                      if (esgCount > 0) ...[
-                        const SizedBox(width: 6),
-                        const Text('•', style: TextStyle(color: AppColors.hairlineIvory)),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$esgCount ESG',
-                          style: AppTypography.uiHeadline(color: AppColors.verdigrisLight).copyWith(fontSize: 12),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text('SAÚDE →', style: AppTypography.atelierMeta(color: AppColors.ivoryText).copyWith(fontSize: 9)),
-            ],
+          const SizedBox(width: 8),
+          RoomIconButton(
+            icon: Icons.add_a_photo_outlined,
+            label: 'Digitalizar nova peça',
+            onTap: _openScanner,
           ),
-        ),
+        ],
       ),
     );
   }
